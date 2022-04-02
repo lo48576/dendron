@@ -17,6 +17,11 @@ publish = false
 [package.metadata.docs.rs]
 all-features = true
 
+[features]
+default = ["std"]
+
+std = []
+
 [dependencies]
 
 [badges]
