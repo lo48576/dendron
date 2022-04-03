@@ -25,6 +25,7 @@ pub(crate) struct TreeCore<T> {
 
 impl<T> TreeCore<T> {
     /// Returns a link to the root node.
+    #[must_use]
     fn root(&self) -> IntraTreeLink<T> {
         self.root
             .try_borrow()
