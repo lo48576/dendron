@@ -141,6 +141,16 @@ impl<T> IntraTreeLink<T> {
             )
     }
 
+    /// Returns a weak link to the cyclic previous sibling.
+    #[must_use]
+    pub(crate) fn prev_sibling_cyclic_link_weak(&self) -> IntraTreeLinkWeak<T> {
+        self.core
+            .prev_sibling_cyclic
+            .try_borrow()
+            .expect("[consistency] `NodeCore::prev_sibling_cyclic` should not be borrowed nestedly")
+            .clone()
+    }
+
     /// Returns a link to the previous sibling.
     #[must_use]
     pub(crate) fn prev_sibling_link(&self) -> Option<Self> {
@@ -186,6 +196,13 @@ impl<T> IntraTreeLink<T> {
     pub(crate) fn last_child_link(&self) -> Option<Self> {
         self.first_child_link()
             .map(|first_child| first_child.prev_sibling_cyclic_link())
+    }
+
+    /// Returns a link to the last child node.
+    #[must_use]
+    pub(crate) fn last_child_link_weak(&self) -> Option<IntraTreeLinkWeak<T>> {
+        self.first_child_link()
+            .map(|first_child| first_child.prev_sibling_cyclic_link_weak())
     }
 
     /// Returns links to the first and the last child nodes.
@@ -358,6 +375,15 @@ impl<T> DftEvent<IntraTreeLink<T>> {
 pub(crate) struct IntraTreeLinkWeak<T> {
     /// Target node core.
     core: Weak<NodeCore<T>>,
+}
+
+impl<T> Clone for IntraTreeLinkWeak<T> {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self {
+            core: self.core.clone(),
+        }
+    }
 }
 
 impl<T> Default for IntraTreeLinkWeak<T> {

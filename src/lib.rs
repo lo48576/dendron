@@ -37,6 +37,10 @@ pub enum AdoptAs {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum StructureError {
+    /// Attempt to make a tree empty.
+    ///
+    /// A tree must have at least one node (the root node), so it cannot be empty.
+    EmptyTree,
     /// Attempt to make a node the sibling of the root node.
     SiblingsWithoutParent,
 }
@@ -44,6 +48,7 @@ pub enum StructureError {
 impl fmt::Display for StructureError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let msg = match *self {
+            Self::EmptyTree => "attempt to make a tree empty",
             Self::SiblingsWithoutParent => "attempt to make a node sibling of the root node",
         };
         f.write_str(msg)

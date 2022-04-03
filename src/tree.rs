@@ -483,6 +483,171 @@ impl<T> Node<T> {
         };
         Ok(new_node)
     }
+
+    /// Inserts the children at the position of the node, and detach the node.
+    ///
+    /// `self` will become the root of a new single-node tree.
+    ///
+    /// Before:
+    ///
+    /// ```text
+    /// parent
+    /// |-- prev
+    /// |-- self
+    /// |   |-- child0
+    /// |   |   `-- grandchild0-0
+    /// |   `-- child1
+    /// `-- next
+    /// ```
+    ///
+    /// After `self.replace_with_children()`:
+    ///
+    /// ```text
+    /// parent
+    /// |-- prev
+    /// |-- child0
+    /// |   `-- grandchild0-0
+    /// |-- child1
+    /// `-- next
+    ///
+    /// self (detached)
+    /// ```
+    ///
+    /// # Failures
+    ///
+    /// Fails if:
+    ///
+    /// * the node is the root and has multiple children, or
+    ///     + In this case, [`StructureError::SiblingsWithoutParent`] error is returned.
+    /// * the node is the root and has no children.
+    ///     + In this case, [`StructureError::EmptyTree`] error is returned.
+    pub fn replace_with_children(&self) -> Result<(), StructureError> {
+        let first_child_link = self.intra_link.first_child_link();
+
+        if let Some(parent_link) = self.intra_link.parent_link() {
+            // `self` is not the root.
+
+            // Reset `parent`s of the children.
+            {
+                let mut next = first_child_link.clone();
+                while let Some(current) = next {
+                    next = current.next_sibling_link();
+                    current.replace_parent(parent_link.downgrade());
+                }
+            }
+
+            let prev_sibling_link = self.intra_link.prev_sibling_link();
+            let next_sibling_link = self.intra_link.next_sibling_link();
+
+            if let Some(first_child_link) = first_child_link {
+                // `self` has children. Connect children and prev/next siblings.
+
+                // The last child is stored as `prev_sibling_cyclic` of the first child.
+                let last_child_link = first_child_link.prev_sibling_cyclic_link();
+
+                match (prev_sibling_link, next_sibling_link) {
+                    (Some(prev_sibling_link), Some(next_sibling_link)) => {
+                        IntraTreeLink::connect_adjacent_siblings(
+                            &prev_sibling_link,
+                            first_child_link,
+                        );
+                        IntraTreeLink::connect_adjacent_siblings(
+                            &last_child_link,
+                            next_sibling_link,
+                        );
+                    }
+                    (Some(prev_sibling_link), None) => {
+                        IntraTreeLink::connect_adjacent_siblings(
+                            &prev_sibling_link,
+                            first_child_link,
+                        );
+                        let first_sibling_link = parent_link.first_child_link().expect(
+                            "[validity] the parent has at least one child (prev of `self`)",
+                        );
+                        // `last_child` is the new last sibling.
+                        first_sibling_link.replace_prev_sibling_cyclic(last_child_link.downgrade());
+                    }
+                    (None, Some(next_sibling_link)) => {
+                        IntraTreeLink::connect_adjacent_siblings(
+                            &last_child_link,
+                            next_sibling_link,
+                        );
+                        let last_sibling_link_weak = parent_link.last_child_link_weak().expect(
+                            "[validity] the parent has at least one child (next of `self`)",
+                        );
+                        // `first_child` is the new first sibling.
+                        first_child_link.replace_prev_sibling_cyclic(last_sibling_link_weak);
+                        parent_link.replace_first_child(Some(first_child_link));
+                    }
+                    (None, None) => {
+                        parent_link.replace_first_child(Some(first_child_link));
+                    }
+                }
+            } else {
+                // `self` has no children. Just connect previous and next siblings.
+                match (prev_sibling_link, next_sibling_link) {
+                    (Some(prev_sibling_link), Some(next_sibling_link)) => {
+                        IntraTreeLink::connect_adjacent_siblings(
+                            &prev_sibling_link,
+                            next_sibling_link,
+                        );
+                    }
+                    (Some(prev_sibling_link), None) => {
+                        prev_sibling_link.replace_next_sibling(None);
+                    }
+                    (None, Some(next_sibling_link)) => {
+                        let last_sibling_link_weak = parent_link.last_child_link_weak().expect(
+                            "[validity] the parent has at least one child (next of `self`)",
+                        );
+                        // `next_sibling_link` is the new first sibling.
+                        next_sibling_link.replace_prev_sibling_cyclic(last_sibling_link_weak);
+                        parent_link.replace_first_child(Some(next_sibling_link));
+                    }
+                    (None, None) => {
+                        // Now the parent has no child.
+                        parent_link.replace_first_child(None);
+                    }
+                }
+            }
+        } else {
+            // `self` is the root.
+            debug_assert!(
+                self.is_root(),
+                "[validity] the node without parent must be the root"
+            );
+
+            // Get the only child.
+            let child_link = match first_child_link {
+                Some(first_child_link) => {
+                    if first_child_link.next_sibling_link().is_some() {
+                        // The root node has more than two children.
+                        return Err(StructureError::SiblingsWithoutParent);
+                    }
+                    first_child_link
+                }
+                // The root has no children.
+                None => return Err(StructureError::EmptyTree),
+            };
+
+            // Disconnect the child from `self`.
+            child_link.replace_parent(IntraTreeLinkWeak::default());
+        }
+
+        // Disconnect `self` from neighbors.
+        self.intra_link.replace_parent(IntraTreeLinkWeak::default());
+        self.intra_link.replace_first_child(None);
+        let self_link_weak = self.intra_link.downgrade();
+        self.intra_link.replace_prev_sibling_cyclic(self_link_weak);
+        self.intra_link.replace_next_sibling(None);
+
+        // Create new tree core for `self`.
+        let tree_core_rc = Rc::new(TreeCore {
+            root: RefCell::new(self.intra_link.clone()),
+        });
+        self.set_affiliations_of_descendants_and_self(&tree_core_rc);
+
+        Ok(())
+    }
 }
 
 /// Inserts the `new_node` between `prev_sibling` and `next_sibling`
