@@ -486,6 +486,23 @@ impl<T> Node<T> {
 }
 
 /// Inserts the `new_node` between `prev_sibling` and `next_sibling`
+///
+/// Before:
+///
+/// ```text
+///           parent
+///           /    \
+/// prev_sibling->next_sibling
+/// ```
+///
+/// After:
+///
+/// ```text
+///              parent
+///            ___/|\___
+///           /    |    \
+/// prev_sibling->NEW->next_sibling
+/// ```
 fn create_insert_between<T>(
     data: T,
     tree_core: Rc<TreeCore<T>>,
