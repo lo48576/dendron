@@ -3,9 +3,10 @@
 use core::cell::{BorrowError, BorrowMutError, Ref, RefCell, RefMut};
 use core::fmt;
 
-use alloc::rc::{Rc, Weak};
+use alloc::rc::Rc;
 
 use crate::affiliation::{StrongAffiliationRef, WeakAffiliationRef};
+use crate::node::{IntraTreeLink, IntraTreeLinkWeak, NodeBuilder};
 use crate::traverse::{self, DftEvent};
 use crate::{AdoptAs, StructureError};
 
@@ -56,230 +57,12 @@ impl<T> Drop for TreeCore<T> {
             // respectively.
             if let Some(parent_link) = close_link.parent_link() {
                 // This panic should never happen (unless there are a bug).
-                let next_sibling = close_link
-                    .core
-                    .next_sibling
-                    .try_borrow_mut()
-                    .expect("[validity] the tree is being accessed exclusively")
-                    .take();
+                let next_sibling = close_link.replace_next_sibling(None);
                 // This panic should never happen (unless there are a bug).
-                *parent_link
-                    .core
-                    .first_child
-                    .try_borrow_mut()
-                    .expect("[validity] the tree is being accessed exclusively") = next_sibling;
+                parent_link.replace_first_child(next_sibling);
             }
             drop(close_link);
         }
-    }
-}
-
-/// Internal node data.
-#[derive(Debug)]
-struct NodeCore<T> {
-    /// Data associated to the node.
-    data: RefCell<T>,
-    /// Parent.
-    // Not using `Option<IntraTreeLinkWeak<T>>` here because
-    // `IntraTreeLinkWeak<T>` itself acts as a weak and optional reference.
-    parent: RefCell<IntraTreeLinkWeak<T>>,
-    /// First child.
-    first_child: RefCell<Option<IntraTreeLink<T>>>,
-    /// Next sibling.
-    next_sibling: RefCell<Option<IntraTreeLink<T>>>,
-    /// Previous sibling.
-    ///
-    /// This field refers to the last sibling if the node is the first sibling.
-    /// Otherwise, this field refers to the previous sibling.
-    ///
-    /// Note that the weak link must always refer some node once the node is
-    /// accessible outside the node. In other words, this is allowed to be
-    /// dangling reference only during the node itself is being constructed.
-    prev_sibling_cyclic: RefCell<IntraTreeLinkWeak<T>>,
-    /// Affiliation to a tree.
-    affiliation: WeakAffiliationRef<T>,
-}
-
-/// An intra-tree owning reference to a node.
-#[derive(Debug)]
-struct IntraTreeLink<T> {
-    /// Target node core.
-    core: Rc<NodeCore<T>>,
-}
-
-impl<T> Clone for IntraTreeLink<T> {
-    #[inline]
-    fn clone(&self) -> Self {
-        Self {
-            core: self.core.clone(),
-        }
-    }
-}
-
-impl<T> IntraTreeLink<T> {
-    /// Returns `true` if the two `Node`s point to the same allocation.
-    #[inline]
-    #[must_use]
-    fn ptr_eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.core, &other.core)
-    }
-
-    /// Creates a weakened link.
-    #[inline]
-    #[must_use]
-    fn downgrade(&self) -> IntraTreeLinkWeak<T> {
-        IntraTreeLinkWeak {
-            core: Rc::downgrade(&self.core),
-        }
-    }
-}
-
-impl<T> IntraTreeLink<T> {
-    /// Returns a link to the parent node.
-    #[must_use]
-    pub fn parent_link(&self) -> Option<Self> {
-        self.core
-            .parent
-            .try_borrow()
-            .expect("[consistency] `NodeCore::parent` should not be borrowed nestedly")
-            .upgrade()
-    }
-
-    /// Returns a link to the cyclic previous sibling.
-    #[must_use]
-    fn prev_sibling_cyclic_link(&self) -> Self {
-        self.core
-            .prev_sibling_cyclic
-            .try_borrow()
-            .expect("[consistency] `NodeCore::prev_sibling_cyclic` should not be borrowed nestedly")
-            .upgrade()
-            .expect(
-                "[validity] `NodeCore::prev_sibling_cyclic` must never dangle after constructed",
-            )
-    }
-
-    /// Returns a link to the previous sibling.
-    #[must_use]
-    fn prev_sibling_link(&self) -> Option<Self> {
-        let prev_sibling_cyclic_link = self.prev_sibling_cyclic_link();
-
-        let is_next_of_prev_available = prev_sibling_cyclic_link
-            .core
-            .next_sibling
-            .try_borrow()
-            .expect("[consistency] `NodeCore::next_sibling` should not be borrowed nestedly")
-            .is_some();
-        if is_next_of_prev_available {
-            // `prev_sibling_cyclic_link` is not the last sibling.
-            Some(prev_sibling_cyclic_link)
-        } else {
-            // `prev_sibling_cyclic_link` is not the previous sibling, but the last sibling.
-            None
-        }
-    }
-
-    /// Returns a link to the next sibling.
-    #[must_use]
-    fn next_sibling_link(&self) -> Option<Self> {
-        self.core
-            .next_sibling
-            .try_borrow()
-            .expect("[consistency] `NodeCore::next_sibling` should not be borrowed nestedly")
-            .clone()
-    }
-
-    /// Returns a link to the first child node.
-    #[must_use]
-    fn first_child_link(&self) -> Option<Self> {
-        self.core
-            .first_child
-            .try_borrow()
-            .expect("[consistency] `NodeCore::first_child` should not be borrowed nestedly")
-            .clone()
-    }
-
-    /// Returns a link to the last child node.
-    #[must_use]
-    fn last_child_link(&self) -> Option<Self> {
-        self.first_child_link()
-            .map(|first_child| first_child.prev_sibling_cyclic_link())
-    }
-
-    /// Returns links to the first and the last child nodes.
-    #[must_use]
-    fn first_last_child_link(&self) -> Option<(Self, Self)> {
-        let first_child_link = self.first_child_link()?;
-        let last_child_link = first_child_link.prev_sibling_cyclic_link();
-        Some((first_child_link, last_child_link))
-    }
-}
-
-impl<T> DftEvent<IntraTreeLink<T>> {
-    /// Returns the next (forward direction) event.
-    ///
-    /// This method is guaranteed to access only `first_child`, `next_sibling`,
-    /// and `parent` fields, and once for each of them, so this can be safely
-    /// used if a node is in an inconsistent state of some kind.
-    ///
-    /// This method is also guaranteed to never access the nodes once they are
-    /// `Close`d.
-    #[must_use]
-    fn next(&self) -> Option<Self> {
-        let next = match self {
-            Self::Open(current) => {
-                // Dive into the first child if available, or otherwise leave the node.
-                match current.first_child_link() {
-                    Some(child) => Self::Open(child),
-                    None => Self::Close(current.clone()),
-                }
-            }
-            Self::Close(current) => {
-                // Dive into the next sibling if available, or leave the parent.
-                match current.next_sibling_link() {
-                    Some(next_sib) => Self::Open(next_sib),
-                    None => Self::Close(current.parent_link()?),
-                }
-            }
-        };
-        Some(next)
-    }
-}
-
-/// An intra-tree non-owning reference to a node.
-// Note that this value itself acts as optional reference since it has
-// `alloc::rc::Weak` value.
-struct IntraTreeLinkWeak<T> {
-    /// Target node core.
-    core: Weak<NodeCore<T>>,
-}
-
-impl<T> Default for IntraTreeLinkWeak<T> {
-    #[inline]
-    fn default() -> Self {
-        Self {
-            core: Default::default(),
-        }
-    }
-}
-
-impl<T: fmt::Debug> fmt::Debug for IntraTreeLinkWeak<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("IntraTreeLinkWeak").finish()
-    }
-}
-
-impl<T> IntraTreeLinkWeak<T> {
-    /// Creates a strong intra node link from the weak one.
-    #[must_use]
-    fn upgrade(&self) -> Option<IntraTreeLink<T>> {
-        Weak::upgrade(&self.core).map(|core| IntraTreeLink { core })
-    }
-
-    /// Returns true if the link is dangling (i.e. no node is referred).
-    #[inline]
-    #[must_use]
-    fn is_dangling(&self) -> bool {
-        Weak::ptr_eq(&self.core, &Weak::new())
     }
 }
 
@@ -303,9 +86,9 @@ impl<T> Clone for Node<T> {
 impl<T: fmt::Debug> fmt::Debug for Node<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Node")
-            .field("data", &self.intra_link.core.data)
-            .field("next_sibling", &self.intra_link.core.next_sibling)
-            .field("first_child", &self.intra_link.core.first_child)
+            .field("data", &self.intra_link.try_borrow_data())
+            .field("next_sibling", &self.intra_link.next_sibling_link())
+            .field("first_child", &self.intra_link.first_child_link())
             .field("affiliation", &self.affiliation)
             .finish()
     }
@@ -316,7 +99,7 @@ impl<T> Node<T> {
     /// Returns a reference to the data associated to the node.
     #[inline]
     pub fn try_borrow_data(&self) -> Result<Ref<'_, T>, BorrowError> {
-        self.intra_link.core.data.try_borrow()
+        self.intra_link.try_borrow_data()
     }
 
     /// Returns a reference to the data associated to the node.
@@ -327,13 +110,13 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn borrow_data(&self) -> Ref<'_, T> {
-        self.intra_link.core.data.borrow()
+        self.intra_link.borrow_data()
     }
 
     /// Returns a mutable reference to the data associated to the node.
     #[inline]
     pub fn try_borrow_data_mut(&self) -> Result<RefMut<'_, T>, BorrowMutError> {
-        self.intra_link.core.data.try_borrow_mut()
+        self.intra_link.try_borrow_data_mut()
     }
 
     /// Returns a mutable reference to the data associated to the node.
@@ -344,7 +127,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn borrow_data_mut(&self) -> RefMut<'_, T> {
-        self.intra_link.core.data.borrow_mut()
+        self.intra_link.borrow_data_mut()
     }
 
     /// Returns `true` if the two `Node`s point to the same allocation.
@@ -361,12 +144,7 @@ impl<T> Node<T> {
     #[must_use]
     pub fn is_root(&self) -> bool {
         // The node is a root if and only if the node has no parent.
-        self.intra_link
-            .core
-            .parent
-            .try_borrow()
-            .expect("[consistency] `NodeCore::parent` should not be borrowed nestedly")
-            .is_dangling()
+        self.intra_link.is_root()
     }
 
     /// Returns the root node.
@@ -468,7 +246,7 @@ impl<T> Node<T> {
         intra_link: IntraTreeLink<T>,
         affiliation: StrongAffiliationRef<T>,
     ) -> Self {
-        if !StrongAffiliationRef::ptr_eq_weak(&affiliation, &intra_link.core.affiliation) {
+        if !StrongAffiliationRef::ptr_eq_weak(&affiliation, intra_link.affiliation()) {
             panic!("[precondition] affiliation should refer the tree the node link belongs to");
         }
 
@@ -482,27 +260,19 @@ impl<T> Node<T> {
     #[must_use]
     pub fn new_tree(root_data: T) -> Self {
         let weak_affiliation = WeakAffiliationRef::new();
-        let intra_link = IntraTreeLink {
-            core: Rc::new(NodeCore {
-                data: RefCell::new(root_data),
-                parent: Default::default(),
-                first_child: Default::default(),
-                next_sibling: Default::default(),
-                prev_sibling_cyclic: Default::default(),
-                affiliation: weak_affiliation.clone(),
-            }),
-        };
-        {
-            let weak_link = intra_link.downgrade();
-            let mut prev_sibling_cyclic = intra_link
-                .core
-                .prev_sibling_cyclic
-                .try_borrow_mut()
-                .expect(
-                "[consistency] `NodeCore::prev_sibling_cyclic` should not be borrowed elsewhere",
-            );
-            *prev_sibling_cyclic = weak_link;
+        let intra_link = NodeBuilder {
+            data: root_data,
+            parent: Default::default(),
+            first_child: Default::default(),
+            next_sibling: Default::default(),
+            prev_sibling_cyclic: Default::default(),
+            affiliation: weak_affiliation.clone(),
         }
+        .build_link();
+
+        let weak_link = intra_link.downgrade();
+        intra_link.replace_prev_sibling_cyclic(weak_link);
+
         let tree_core_rc = Rc::new(TreeCore {
             root: RefCell::new(intra_link.clone()),
         });
@@ -547,53 +317,21 @@ impl<T> Node<T> {
                 .first_child_link()
                 .expect("[validity] parent must have at least one child (including `self`)");
             if IntraTreeLink::ptr_eq(&self.intra_link, &first_sibling_link) {
-                *parent_link.core.first_child.try_borrow_mut().expect(
-                    "[consistency] `NodeCore::first_child` should not be borrowed nestedly",
-                ) = next_sibling_link.clone();
+                parent_link.replace_first_child(next_sibling_link.clone());
             }
         }
-        *self
-            .intra_link
-            .core
-            .parent
-            .try_borrow_mut()
-            .expect("[consistency] `NodeCore::first_child` should not be borrowed nestedly") =
-            IntraTreeLinkWeak::default();
+        self.intra_link.replace_parent(IntraTreeLinkWeak::default());
 
         if let Some(prev_sibling_link) = prev_sibling_link {
-            *prev_sibling_link
-                .core
-                .next_sibling
-                .try_borrow_mut()
-                .expect("[consistency] `NodeCore::next_sibling` should not be borrowed nestedly") =
-                next_sibling_link.clone();
+            prev_sibling_link.replace_next_sibling(next_sibling_link.clone());
         }
         let self_link_weak = self.intra_link.downgrade();
-        *self
-            .intra_link
-            .core
-            .prev_sibling_cyclic
-            .try_borrow_mut()
-            .expect(
-                "[consistency] `NodeCore::prev_sibling_cyclic` should not be borrowed nestedly",
-            ) = self_link_weak;
+        self.intra_link.replace_prev_sibling_cyclic(self_link_weak);
 
         if let Some(next_sibling_link) = next_sibling_link {
-            *next_sibling_link
-                .core
-                .prev_sibling_cyclic
-                .try_borrow_mut()
-                .expect(
-                    "[consistency] `NodeCore::prev_sibling_cyclic` should not be borrowed nestedly",
-                ) = prev_sibling_cyclic_link.downgrade();
+            next_sibling_link.replace_prev_sibling_cyclic(prev_sibling_cyclic_link.downgrade());
         }
-        *self
-            .intra_link
-            .core
-            .next_sibling
-            .try_borrow_mut()
-            .expect("[consistency] `NodeCore::next_sibling` should not be borrowed nestedly") =
-            None;
+        self.intra_link.replace_next_sibling(None);
     }
 
     /// Changes the affiliation of the `self` node and its descendants to the given tree.
@@ -612,7 +350,7 @@ impl<T> Node<T> {
                     continue;
                 }
             };
-            open_link.core.affiliation.set_tree_core(tree_core_rc);
+            open_link.affiliation().set_tree_core(tree_core_rc);
         }
     }
 
@@ -640,50 +378,29 @@ impl<T> Node<T> {
 
         let affiliation =
             StrongAffiliationRef::create_new_affiliation(self.affiliation.tree_core());
-        let intra_link = IntraTreeLink {
-            core: Rc::new(NodeCore {
-                data: RefCell::new(data),
-                parent: RefCell::new(self.intra_link.downgrade()),
-                first_child: Default::default(),
-                next_sibling: Default::default(),
-                prev_sibling_cyclic: Default::default(),
-                affiliation: affiliation.downgrade(),
-            }),
-        };
+        let intra_link = NodeBuilder {
+            data,
+            parent: self.intra_link.downgrade(),
+            first_child: Default::default(),
+            next_sibling: Default::default(),
+            prev_sibling_cyclic: Default::default(),
+            affiliation: affiliation.downgrade(),
+        }
+        .build_link();
         if let Some((old_first_child_link, last_child_link)) =
             self.intra_link.first_last_child_link()
         {
             // Connect the new first child and the last child.
-            *intra_link.core.prev_sibling_cyclic.try_borrow_mut().expect(
-                "[consistency] `NodeCore::prev_sibling_cyclic` should not be borrowed nestedly",
-            ) = last_child_link.downgrade();
+            intra_link.replace_prev_sibling_cyclic(last_child_link.downgrade());
 
             // Connect the new first child and the old first child.
-            *old_first_child_link
-                .core
-                .prev_sibling_cyclic
-                .try_borrow_mut()
-                .expect(
-                    "[consistency] `NodeCore::prev_sibling_cyclic` should not be borrowed nestedly",
-                ) = intra_link.downgrade();
-            *intra_link
-                .core
-                .next_sibling
-                .try_borrow_mut()
-                .expect("[consistency] `NodeCore::next_sibling` should not be borrowed nestedly") =
-                Some(old_first_child_link);
+            old_first_child_link.replace_prev_sibling_cyclic(intra_link.downgrade());
+            intra_link.replace_next_sibling(Some(old_first_child_link));
         } else {
-            *intra_link.core.prev_sibling_cyclic.try_borrow_mut().expect(
-                "[consistency] `NodeCore::prev_sibling_cyclic` should not be borrowed nestedly",
-            ) = intra_link.downgrade();
+            intra_link.replace_prev_sibling_cyclic(intra_link.downgrade());
         }
-        *self
-            .intra_link
-            .core
-            .first_child
-            .try_borrow_mut()
-            .expect("[consistency] `NodeCore::first_child` should not be borrowed nestedly") =
-            Some(intra_link.clone());
+        self.intra_link
+            .replace_first_child(Some(intra_link.clone()));
 
         Self::with_link_and_affiliation(intra_link, affiliation)
     }
@@ -701,49 +418,28 @@ impl<T> Node<T> {
 
         let affiliation =
             StrongAffiliationRef::create_new_affiliation(self.affiliation.tree_core());
-        let intra_link = IntraTreeLink {
-            core: Rc::new(NodeCore {
-                data: RefCell::new(data),
-                parent: RefCell::new(self.intra_link.downgrade()),
-                first_child: Default::default(),
-                next_sibling: Default::default(),
-                prev_sibling_cyclic: Default::default(),
-                affiliation: affiliation.downgrade(),
-            }),
-        };
+        let intra_link = NodeBuilder {
+            data,
+            parent: self.intra_link.downgrade(),
+            first_child: Default::default(),
+            next_sibling: Default::default(),
+            prev_sibling_cyclic: Default::default(),
+            affiliation: affiliation.downgrade(),
+        }
+        .build_link();
         if let Some((first_child_link, old_last_child_link)) =
             self.intra_link.first_last_child_link()
         {
             // Connect the old last child and the new last child.
-            *intra_link.core.prev_sibling_cyclic.try_borrow_mut().expect(
-                "[consistency] `NodeCore::prev_sibling_cyclic` should not be borrowed nestedly",
-            ) = old_last_child_link.downgrade();
-            *old_last_child_link
-                .core
-                .next_sibling
-                .try_borrow_mut()
-                .expect("[consistency] `NodeCore::next_sibling` should not be borrowed nestedly") =
-                Some(intra_link.clone());
+            intra_link.replace_prev_sibling_cyclic(old_last_child_link.downgrade());
+            old_last_child_link.replace_next_sibling(Some(intra_link.clone()));
 
             // Connect the first child and the new last child.
-            *first_child_link
-                .core
-                .prev_sibling_cyclic
-                .try_borrow_mut()
-                .expect(
-                    "[consistency] `NodeCore::prev_sibling_cyclic` should not be borrowed nestedly",
-                ) = intra_link.downgrade();
+            first_child_link.replace_prev_sibling_cyclic(intra_link.downgrade());
         } else {
-            *intra_link.core.prev_sibling_cyclic.try_borrow_mut().expect(
-                "[consistency] `NodeCore::prev_sibling_cyclic` should not be borrowed nestedly",
-            ) = intra_link.downgrade();
-            *self
-                .intra_link
-                .core
-                .first_child
-                .try_borrow_mut()
-                .expect("[consistency] `NodeCore::first_child` should not be borrowed nestedly") =
-                Some(intra_link.clone());
+            intra_link.replace_prev_sibling_cyclic(intra_link.downgrade());
+            self.intra_link
+                .replace_first_child(Some(intra_link.clone()));
         }
 
         Self::with_link_and_affiliation(intra_link, affiliation)
@@ -827,29 +523,18 @@ fn create_insert_between<T>(
     //      * next_sibling.prev_sibling_cyclic (mandatory)
 
     let affiliation = StrongAffiliationRef::create_new_affiliation(tree_core);
-    let intra_link = IntraTreeLink {
-        core: Rc::new(NodeCore {
-            data: RefCell::new(data),
-            parent: RefCell::new(parent_link.downgrade()),
-            first_child: Default::default(),
-            next_sibling: RefCell::new(Some(next_sibling_link.clone())),
-            prev_sibling_cyclic: RefCell::new(prev_sibling_link.downgrade()),
-            affiliation: affiliation.downgrade(),
-        }),
-    };
+    let intra_link = NodeBuilder {
+        data,
+        parent: parent_link.downgrade(),
+        first_child: Default::default(),
+        next_sibling: Some(next_sibling_link.clone()),
+        prev_sibling_cyclic: prev_sibling_link.downgrade(),
+        affiliation: affiliation.downgrade(),
+    }
+    .build_link();
 
-    *next_sibling_link
-        .core
-        .prev_sibling_cyclic
-        .try_borrow_mut()
-        .expect("[consistency] `NodeCore::prev_sibling_cyclic` should not be borrowed nestedly") =
-        intra_link.downgrade();
-    *prev_sibling_link
-        .core
-        .next_sibling
-        .try_borrow_mut()
-        .expect("[consistency] `NodeCore::next_sibling` should not be borrowed nestedly") =
-        Some(intra_link.clone());
+    next_sibling_link.replace_prev_sibling_cyclic(intra_link.downgrade());
+    prev_sibling_link.replace_next_sibling(Some(intra_link.clone()));
 
     Node::with_link_and_affiliation(intra_link, affiliation)
 }
