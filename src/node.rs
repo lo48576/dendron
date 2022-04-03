@@ -202,6 +202,22 @@ impl<T> IntraTreeLink<T> {
     pub(crate) fn affiliation(&self) -> &WeakAffiliationRef<T> {
         &self.core.affiliation
     }
+
+    /// Returns true if the current node is the first sibling.
+    #[must_use]
+    pub(crate) fn is_first_sibling(&self) -> bool {
+        self.prev_sibling_cyclic_link().is_last_sibling()
+    }
+
+    /// Returns true if the current node is the last sibling.
+    #[must_use]
+    pub(crate) fn is_last_sibling(&self) -> bool {
+        self.core
+            .next_sibling
+            .try_borrow()
+            .expect("[consistency] `NodeCore::next_sibling` should not be borrowed nestedly")
+            .is_none()
+    }
 }
 
 /// Setters.
@@ -259,6 +275,12 @@ impl<T> IntraTreeLink<T> {
             .try_borrow_mut()
             .expect("[consistency] `NodeCore::first_child` should not be borrowed nestedly");
         mem::replace(&mut *first_child, link)
+    }
+
+    /// Connects adjacent siblings bidirectionally.
+    pub(crate) fn connect_adjacent_siblings(prev: &IntraTreeLink<T>, next: IntraTreeLink<T>) {
+        next.replace_prev_sibling_cyclic(prev.downgrade());
+        prev.replace_next_sibling(Some(next));
     }
 }
 

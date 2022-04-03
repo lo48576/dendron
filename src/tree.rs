@@ -290,7 +290,7 @@ impl<T> Node<T> {
             // Do nothing.
             return;
         }
-        // Change the references to the tree core.
+        // Update the references to the tree core.
         let tree_core_rc = Rc::new(TreeCore {
             root: RefCell::new(self.intra_link.clone()),
         });
@@ -312,25 +312,24 @@ impl<T> Node<T> {
         let prev_sibling_link = self.intra_link.prev_sibling_link();
         let prev_sibling_cyclic_link = self.intra_link.prev_sibling_cyclic_link();
         let next_sibling_link = self.intra_link.next_sibling_link();
+
+        // Update neighbors.
         if let Some(parent_link) = &parent_link {
-            let first_sibling_link = parent_link
-                .first_child_link()
-                .expect("[validity] parent must have at least one child (including `self`)");
-            if IntraTreeLink::ptr_eq(&self.intra_link, &first_sibling_link) {
+            if self.intra_link.is_first_sibling() {
                 parent_link.replace_first_child(next_sibling_link.clone());
             }
         }
-        self.intra_link.replace_parent(IntraTreeLinkWeak::default());
-
         if let Some(prev_sibling_link) = prev_sibling_link {
             prev_sibling_link.replace_next_sibling(next_sibling_link.clone());
         }
-        let self_link_weak = self.intra_link.downgrade();
-        self.intra_link.replace_prev_sibling_cyclic(self_link_weak);
-
         if let Some(next_sibling_link) = next_sibling_link {
             next_sibling_link.replace_prev_sibling_cyclic(prev_sibling_cyclic_link.downgrade());
         }
+
+        // Update `self`.
+        self.intra_link.replace_parent(IntraTreeLinkWeak::default());
+        let self_link_weak = self.intra_link.downgrade();
+        self.intra_link.replace_prev_sibling_cyclic(self_link_weak);
         self.intra_link.replace_next_sibling(None);
     }
 
@@ -392,11 +391,10 @@ impl<T> Node<T> {
         {
             // Connect the new first child and the last child.
             intra_link.replace_prev_sibling_cyclic(last_child_link.downgrade());
-
             // Connect the new first child and the old first child.
-            old_first_child_link.replace_prev_sibling_cyclic(intra_link.downgrade());
-            intra_link.replace_next_sibling(Some(old_first_child_link));
+            IntraTreeLink::connect_adjacent_siblings(&intra_link, old_first_child_link);
         } else {
+            // No siblings for the new node.
             intra_link.replace_prev_sibling_cyclic(intra_link.downgrade());
         }
         self.intra_link
@@ -431,12 +429,11 @@ impl<T> Node<T> {
             self.intra_link.first_last_child_link()
         {
             // Connect the old last child and the new last child.
-            intra_link.replace_prev_sibling_cyclic(old_last_child_link.downgrade());
-            old_last_child_link.replace_next_sibling(Some(intra_link.clone()));
-
+            IntraTreeLink::connect_adjacent_siblings(&old_last_child_link, intra_link.clone());
             // Connect the first child and the new last child.
             first_child_link.replace_prev_sibling_cyclic(intra_link.downgrade());
         } else {
+            // No siblings for the new node.
             intra_link.replace_prev_sibling_cyclic(intra_link.downgrade());
             self.intra_link
                 .replace_first_child(Some(intra_link.clone()));
