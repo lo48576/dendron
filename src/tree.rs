@@ -24,7 +24,16 @@ pub(crate) struct TreeCore<T> {
 }
 
 impl<T> TreeCore<T> {
+    /// Creates a new tree core.
+    #[must_use]
+    fn new_rc(root: IntraTreeLink<T>) -> Rc<Self> {
+        Rc::new(Self {
+            root: RefCell::new(root),
+        })
+    }
+
     /// Returns a link to the root node.
+    #[must_use]
     fn root(&self) -> IntraTreeLink<T> {
         self.root
             .try_borrow()
@@ -273,9 +282,7 @@ impl<T> Node<T> {
         let weak_link = intra_link.downgrade();
         intra_link.replace_prev_sibling_cyclic(weak_link);
 
-        let tree_core_rc = Rc::new(TreeCore {
-            root: RefCell::new(intra_link.clone()),
-        });
+        let tree_core_rc = TreeCore::new_rc(intra_link.clone());
 
         Self::with_link_and_affiliation(
             intra_link,
@@ -291,9 +298,7 @@ impl<T> Node<T> {
             return;
         }
         // Update the references to the tree core.
-        let tree_core_rc = Rc::new(TreeCore {
-            root: RefCell::new(self.intra_link.clone()),
-        });
+        let tree_core_rc = TreeCore::new_rc(self.intra_link.clone());
         self.set_affiliations_of_descendants_and_self(&tree_core_rc);
 
         // Unlink from the neighbors.
@@ -641,9 +646,7 @@ impl<T> Node<T> {
         self.intra_link.replace_next_sibling(None);
 
         // Create new tree core for `self`.
-        let tree_core_rc = Rc::new(TreeCore {
-            root: RefCell::new(self.intra_link.clone()),
-        });
+        let tree_core_rc = TreeCore::new_rc(self.intra_link.clone());
         self.set_affiliations_of_descendants_and_self(&tree_core_rc);
 
         Ok(())
