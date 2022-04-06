@@ -175,6 +175,10 @@ impl<T> WeakAffiliationRef<T> {
             .try_borrow_mut()
             .expect("[precondition] affiliation must not yet be borrowed elsewhere");
         match &*inner {
+            // Not testing if `weak` is dereferenceable, but testing if the
+            // reference is the value created by `Weak::new()`. This condition
+            // will be false once the affiliation is fully initialized.
+            // This is intentional.
             Affiliation::Weak(weak) if Weak::ptr_eq(weak, &Weak::new()) => {}
             _ => panic!("[precondition] affiliation should not be initialized twice"),
         }

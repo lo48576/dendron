@@ -125,7 +125,7 @@ impl<T> IntraTreeLink<T> {
             .parent
             .try_borrow()
             .expect("[consistency] `NodeCore::parent` should not be borrowed nestedly")
-            .is_dangling()
+            .is_unavailable()
     }
 
     /// Returns a link to the cyclic previous sibling.
@@ -408,10 +408,10 @@ impl<T> IntraTreeLinkWeak<T> {
         Weak::upgrade(&self.core).map(|core| IntraTreeLink { core })
     }
 
-    /// Returns true if the link is dangling (i.e. no node is referred).
+    /// Returns true if the link target is unavailable anymore (i.e. the link refers no live node).
     #[inline]
     #[must_use]
-    fn is_dangling(&self) -> bool {
-        Weak::ptr_eq(&self.core, &Weak::new())
+    fn is_unavailable(&self) -> bool {
+        self.core.strong_count() == 0
     }
 }
