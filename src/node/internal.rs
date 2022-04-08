@@ -36,19 +36,19 @@ struct NodeCore<T> {
 }
 
 /// Node builder.
-pub(crate) struct NodeBuilder<T> {
+pub(super) struct NodeBuilder<T> {
     /// Data associated to the node.
-    pub(crate) data: T,
+    pub(super) data: T,
     /// Parent.
-    pub(crate) parent: IntraTreeLinkWeak<T>,
+    pub(super) parent: IntraTreeLinkWeak<T>,
     /// First child.
-    pub(crate) first_child: Option<IntraTreeLink<T>>,
+    pub(super) first_child: Option<IntraTreeLink<T>>,
     /// Next sibling.
-    pub(crate) next_sibling: Option<IntraTreeLink<T>>,
+    pub(super) next_sibling: Option<IntraTreeLink<T>>,
     /// Previous sibling.
-    pub(crate) prev_sibling_cyclic: IntraTreeLinkWeak<T>,
+    pub(super) prev_sibling_cyclic: IntraTreeLinkWeak<T>,
     /// Affiliation to a tree.
-    pub(crate) affiliation: WeakAffiliationRef<T>,
+    pub(super) affiliation: WeakAffiliationRef<T>,
 }
 
 impl<T> NodeBuilder<T> {
@@ -93,14 +93,14 @@ impl<T> IntraTreeLink<T> {
     /// Returns `true` if the two `Node`s point to the same allocation.
     #[inline]
     #[must_use]
-    pub(crate) fn ptr_eq(&self, other: &Self) -> bool {
+    pub(super) fn ptr_eq(&self, other: &Self) -> bool {
         Rc::ptr_eq(&self.core, &other.core)
     }
 
     /// Creates a weakened link.
     #[inline]
     #[must_use]
-    pub(crate) fn downgrade(&self) -> IntraTreeLinkWeak<T> {
+    pub(super) fn downgrade(&self) -> IntraTreeLinkWeak<T> {
         IntraTreeLinkWeak {
             core: Rc::downgrade(&self.core),
         }
