@@ -18,7 +18,7 @@ mod tree;
 
 use core::fmt;
 
-pub use self::tree::Node;
+pub use self::node::Node;
 
 /// Relation of the node being `adopt`ed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

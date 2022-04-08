@@ -2,7 +2,7 @@
 
 use core::iter;
 
-use crate::Node;
+use crate::node::Node;
 
 /// Event for depth first traversal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
