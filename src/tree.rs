@@ -1,11 +1,17 @@
 //! Tree.
 
+mod lock;
+
 use core::cell::RefCell;
 
 use alloc::rc::Rc;
 
 use crate::node::{IntraTreeLink, Node};
 use crate::traverse::DftEvent;
+
+pub(crate) use self::lock::LockAggregatorForNode;
+use self::lock::StructureLockManager;
+pub use self::lock::{StructureEditGrantError, StructureEditProhibitionError};
 
 /// A core data of a tree.
 ///
@@ -18,6 +24,8 @@ use crate::traverse::DftEvent;
 pub(crate) struct TreeCore<T> {
     /// Root node.
     root: RefCell<IntraTreeLink<T>>,
+    /// Structure lock manager.
+    lock_manager: StructureLockManager,
 }
 
 impl<T> TreeCore<T> {
@@ -26,6 +34,7 @@ impl<T> TreeCore<T> {
     pub(crate) fn new_rc(root: IntraTreeLink<T>) -> Rc<Self> {
         Rc::new(Self {
             root: RefCell::new(root),
+            lock_manager: Default::default(),
         })
     }
 

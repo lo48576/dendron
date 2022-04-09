@@ -1,5 +1,7 @@
 //! Node.
 
+mod frozen;
+mod hot;
 mod internal;
 
 use core::cell::{BorrowError, BorrowMutError, Ref, RefMut};
@@ -9,9 +11,11 @@ use alloc::rc::Rc;
 
 use crate::membership::{Membership, WeakMembership};
 use crate::traverse::{self, DftEvent};
-use crate::tree::TreeCore;
+use crate::tree::{StructureEditGrantError, StructureEditProhibitionError, TreeCore};
 use crate::{AdoptAs, StructureError};
 
+pub use self::frozen::FrozenNode;
+pub use self::hot::HotNode;
 pub(crate) use self::internal::IntraTreeLink;
 use self::internal::{IntraTreeLinkWeak, NodeBuilder};
 
@@ -588,6 +592,23 @@ impl<T> Node<T> {
         self.set_memberships_of_descendants_and_self(&tree_core_rc);
 
         Ok(())
+    }
+}
+
+/// Tree structure edit grants and prohibitions.
+impl<T> Node<T> {
+    /// Returns the [`FrozenNode`], a node with tree structure edit prohibition bundled.
+    #[inline]
+    pub fn bundle_new_structure_edit_prohibition(
+        self,
+    ) -> Result<FrozenNode<T>, StructureEditProhibitionError> {
+        FrozenNode::from_node(self)
+    }
+
+    /// Returns the [`HotNode`], a node with tree structure edit grant bundled.
+    #[inline]
+    pub fn bundle_new_structure_edit_grant(self) -> Result<HotNode<T>, StructureEditGrantError> {
+        HotNode::from_node(self)
     }
 }
 
