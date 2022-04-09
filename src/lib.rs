@@ -11,7 +11,7 @@
 
 extern crate alloc;
 
-mod affiliation;
+mod membership;
 mod node;
 pub mod traverse;
 mod tree;

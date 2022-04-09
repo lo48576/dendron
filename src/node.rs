@@ -7,7 +7,7 @@ use core::fmt;
 
 use alloc::rc::Rc;
 
-use crate::affiliation::{StrongAffiliationRef, WeakAffiliationRef};
+use crate::membership::{Membership, WeakMembership};
 use crate::traverse::{self, DftEvent};
 use crate::tree::TreeCore;
 use crate::{AdoptAs, StructureError};
@@ -19,15 +19,15 @@ use self::internal::{IntraTreeLinkWeak, NodeBuilder};
 pub struct Node<T> {
     /// Target node core.
     intra_link: IntraTreeLink<T>,
-    /// Affiliation of a node with ownership of the tree.
-    affiliation: StrongAffiliationRef<T>,
+    /// Membership of a node with ownership of the tree.
+    membership: Membership<T>,
 }
 
 impl<T> Clone for Node<T> {
     fn clone(&self) -> Self {
         Self {
             intra_link: self.intra_link.clone(),
-            affiliation: self.affiliation.clone(),
+            membership: self.membership.clone(),
         }
     }
 }
@@ -38,7 +38,7 @@ impl<T: fmt::Debug> fmt::Debug for Node<T> {
             .field("data", &self.intra_link.try_borrow_data())
             .field("next_sibling", &self.intra_link.next_sibling_link())
             .field("first_child", &self.intra_link.first_child_link())
-            .field("affiliation", &self.affiliation)
+            .field("membership", &self.membership)
             .finish()
     }
 }
@@ -100,8 +100,8 @@ impl<T> Node<T> {
     #[must_use]
     pub fn root(&self) -> Self {
         Self {
-            intra_link: self.affiliation.tree_core().root(),
-            affiliation: self.affiliation.clone(),
+            intra_link: self.membership.tree_core().root(),
+            membership: self.membership.clone(),
         }
     }
 
@@ -110,7 +110,7 @@ impl<T> Node<T> {
     pub fn parent(&self) -> Option<Self> {
         Some(Self {
             intra_link: self.intra_link.parent_link()?,
-            affiliation: self.affiliation.clone(),
+            membership: self.membership.clone(),
         })
     }
 
@@ -119,7 +119,7 @@ impl<T> Node<T> {
     pub fn prev_sibling(&self) -> Option<Self> {
         Some(Self {
             intra_link: self.intra_link.prev_sibling_link()?,
-            affiliation: self.affiliation.clone(),
+            membership: self.membership.clone(),
         })
     }
 
@@ -128,7 +128,7 @@ impl<T> Node<T> {
     pub fn next_sibling(&self) -> Option<Self> {
         Some(Self {
             intra_link: self.intra_link.next_sibling_link()?,
-            affiliation: self.affiliation.clone(),
+            membership: self.membership.clone(),
         })
     }
 
@@ -137,7 +137,7 @@ impl<T> Node<T> {
     pub fn first_child(&self) -> Option<Self> {
         Some(Self {
             intra_link: self.intra_link.first_child_link()?,
-            affiliation: self.affiliation.clone(),
+            membership: self.membership.clone(),
         })
     }
 
@@ -146,7 +146,7 @@ impl<T> Node<T> {
     pub fn last_child(&self) -> Option<Self> {
         Some(Self {
             intra_link: self.intra_link.last_child_link()?,
-            affiliation: self.affiliation.clone(),
+            membership: self.membership.clone(),
         })
     }
 }
@@ -188,34 +188,31 @@ impl<T> Node<T> {
     ///
     /// # Panics
     ///
-    /// Panics if the affiliation reference refers the different tree than the
-    /// tree the node link belongs to.
+    /// Panics if the membership refers the different tree than the tree the
+    /// node link belongs to.
     #[must_use]
-    fn with_link_and_affiliation(
-        intra_link: IntraTreeLink<T>,
-        affiliation: StrongAffiliationRef<T>,
-    ) -> Self {
-        if !StrongAffiliationRef::ptr_eq_weak(&affiliation, intra_link.affiliation()) {
-            panic!("[precondition] affiliation should refer the tree the node link belongs to");
+    fn with_link_and_membership(intra_link: IntraTreeLink<T>, membership: Membership<T>) -> Self {
+        if !Membership::ptr_eq_weak(&membership, intra_link.membership()) {
+            panic!("[precondition] membership should refer the tree the node link belongs to");
         }
 
         Self {
             intra_link,
-            affiliation,
+            membership,
         }
     }
 
     /// Creates and returns a new node as the root of a new tree.
     #[must_use]
     pub fn new_tree(root_data: T) -> Self {
-        let weak_affiliation = WeakAffiliationRef::new();
+        let weak_membership = WeakMembership::new();
         let intra_link = NodeBuilder {
             data: root_data,
             parent: Default::default(),
             first_child: Default::default(),
             next_sibling: Default::default(),
             prev_sibling_cyclic: Default::default(),
-            affiliation: weak_affiliation.clone(),
+            membership: weak_membership.clone(),
         }
         .build_link();
 
@@ -224,9 +221,9 @@ impl<T> Node<T> {
 
         let tree_core_rc = TreeCore::new_rc(intra_link.clone());
 
-        Self::with_link_and_affiliation(
+        Self::with_link_and_membership(
             intra_link,
-            weak_affiliation.initialize_affiliation(tree_core_rc),
+            weak_membership.initialize_membership(tree_core_rc),
         )
     }
 
@@ -239,7 +236,7 @@ impl<T> Node<T> {
         }
         // Update the references to the tree core.
         let tree_core_rc = TreeCore::new_rc(self.intra_link.clone());
-        self.set_affiliations_of_descendants_and_self(&tree_core_rc);
+        self.set_memberships_of_descendants_and_self(&tree_core_rc);
 
         // Unlink from the neighbors.
         // Fields to update:
@@ -278,8 +275,8 @@ impl<T> Node<T> {
         self.intra_link.replace_next_sibling(None);
     }
 
-    /// Changes the affiliation of the `self` node and its descendants to the given tree.
-    fn set_affiliations_of_descendants_and_self(&self, tree_core_rc: &Rc<TreeCore<T>>) {
+    /// Changes the memberships of the `self` node and its descendants to the given tree.
+    fn set_memberships_of_descendants_and_self(&self, tree_core_rc: &Rc<TreeCore<T>>) {
         let start = &self.intra_link;
         let mut next = Some(DftEvent::Open(start.clone()));
         while let Some(current) = next.take() {
@@ -294,7 +291,7 @@ impl<T> Node<T> {
                     continue;
                 }
             };
-            open_link.affiliation().set_tree_core(tree_core_rc);
+            open_link.membership().set_tree_core(tree_core_rc);
         }
     }
 
@@ -320,15 +317,14 @@ impl<T> Node<T> {
         //  * last_child --> new_child
         //      * new_child.prev_sibling_cyclic (mandatory)
 
-        let affiliation =
-            StrongAffiliationRef::create_new_affiliation(self.affiliation.tree_core());
+        let membership = Membership::create_new_membership(self.membership.tree_core());
         let intra_link = NodeBuilder {
             data,
             parent: self.intra_link.downgrade(),
             first_child: Default::default(),
             next_sibling: Default::default(),
             prev_sibling_cyclic: Default::default(),
-            affiliation: affiliation.downgrade(),
+            membership: membership.downgrade(),
         }
         .build_link();
         if let Some((old_first_child_link, last_child_link)) =
@@ -345,7 +341,7 @@ impl<T> Node<T> {
         self.intra_link
             .replace_first_child(Some(intra_link.clone()));
 
-        Self::with_link_and_affiliation(intra_link, affiliation)
+        Self::with_link_and_membership(intra_link, membership)
     }
 
     /// Creates a node as the last child of `self`.
@@ -359,15 +355,14 @@ impl<T> Node<T> {
         //  * first_child --> new_child
         //      * first_child.prev_sibling_cyclic (mandatory)
 
-        let affiliation =
-            StrongAffiliationRef::create_new_affiliation(self.affiliation.tree_core());
+        let membership = Membership::create_new_membership(self.membership.tree_core());
         let intra_link = NodeBuilder {
             data,
             parent: self.intra_link.downgrade(),
             first_child: Default::default(),
             next_sibling: Default::default(),
             prev_sibling_cyclic: Default::default(),
-            affiliation: affiliation.downgrade(),
+            membership: membership.downgrade(),
         }
         .build_link();
         if let Some((first_child_link, old_last_child_link)) =
@@ -384,7 +379,7 @@ impl<T> Node<T> {
                 .replace_first_child(Some(intra_link.clone()));
         }
 
-        Self::with_link_and_affiliation(intra_link, affiliation)
+        Self::with_link_and_membership(intra_link, membership)
     }
 
     /// Creates a node as the previous sibling of `self`.
@@ -398,7 +393,7 @@ impl<T> Node<T> {
         let new_node = match self.intra_link.prev_sibling_link() {
             Some(prev_sibling_link) => create_insert_between(
                 data,
-                self.affiliation.tree_core(),
+                self.membership.tree_core(),
                 &parent.intra_link,
                 &prev_sibling_link,
                 &self.intra_link,
@@ -419,7 +414,7 @@ impl<T> Node<T> {
         let new_node = match self.intra_link.next_sibling_link() {
             Some(next_sibling_link) => create_insert_between(
                 data,
-                self.affiliation.tree_core(),
+                self.membership.tree_core(),
                 &parent.intra_link,
                 &self.intra_link,
                 &next_sibling_link,
@@ -587,7 +582,7 @@ impl<T> Node<T> {
 
         // Create new tree core for `self`.
         let tree_core_rc = TreeCore::new_rc(self.intra_link.clone());
-        self.set_affiliations_of_descendants_and_self(&tree_core_rc);
+        self.set_memberships_of_descendants_and_self(&tree_core_rc);
 
         Ok(())
     }
@@ -644,19 +639,19 @@ fn create_insert_between<T>(
     //      * new_node.next_sibling (mandatory)
     //      * next_sibling.prev_sibling_cyclic (mandatory)
 
-    let affiliation = StrongAffiliationRef::create_new_affiliation(tree_core);
+    let membership = Membership::create_new_membership(tree_core);
     let intra_link = NodeBuilder {
         data,
         parent: parent_link.downgrade(),
         first_child: Default::default(),
         next_sibling: Some(next_sibling_link.clone()),
         prev_sibling_cyclic: prev_sibling_link.downgrade(),
-        affiliation: affiliation.downgrade(),
+        membership: membership.downgrade(),
     }
     .build_link();
 
     next_sibling_link.replace_prev_sibling_cyclic(intra_link.downgrade());
     prev_sibling_link.replace_next_sibling(Some(intra_link.clone()));
 
-    Node::with_link_and_affiliation(intra_link, affiliation)
+    Node::with_link_and_membership(intra_link, membership)
 }

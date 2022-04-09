@@ -6,7 +6,7 @@ use core::mem;
 
 use alloc::rc::{Rc, Weak};
 
-use crate::affiliation::WeakAffiliationRef;
+use crate::membership::WeakMembership;
 use crate::traverse::DftEvent;
 
 /// Internal node data.
@@ -31,8 +31,8 @@ struct NodeCore<T> {
     /// accessible outside the node. In other words, this is allowed to be
     /// dangling reference only during the node itself is being constructed.
     prev_sibling_cyclic: RefCell<IntraTreeLinkWeak<T>>,
-    /// Affiliation to a tree.
-    affiliation: WeakAffiliationRef<T>,
+    /// Membership to a tree.
+    membership: WeakMembership<T>,
 }
 
 /// Node builder.
@@ -47,8 +47,8 @@ pub(super) struct NodeBuilder<T> {
     pub(super) next_sibling: Option<IntraTreeLink<T>>,
     /// Previous sibling.
     pub(super) prev_sibling_cyclic: IntraTreeLinkWeak<T>,
-    /// Affiliation to a tree.
-    pub(super) affiliation: WeakAffiliationRef<T>,
+    /// Membership to a tree.
+    pub(super) membership: WeakMembership<T>,
 }
 
 impl<T> NodeBuilder<T> {
@@ -61,7 +61,7 @@ impl<T> NodeBuilder<T> {
             first_child: RefCell::new(self.first_child),
             next_sibling: RefCell::new(self.next_sibling),
             prev_sibling_cyclic: RefCell::new(self.prev_sibling_cyclic),
-            affiliation: self.affiliation,
+            membership: self.membership,
         })
     }
     /// Builds a node core.
@@ -213,11 +213,11 @@ impl<T> IntraTreeLink<T> {
         Some((first_child, last_child))
     }
 
-    /// Returns the affiliation reference.
+    /// Returns the membership.
     #[inline]
     #[must_use]
-    pub(crate) fn affiliation(&self) -> &WeakAffiliationRef<T> {
-        &self.core.affiliation
+    pub(crate) fn membership(&self) -> &WeakMembership<T> {
+        &self.core.membership
     }
 
     /// Returns true if the current node is the first sibling.
