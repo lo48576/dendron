@@ -15,7 +15,18 @@ mod prohibition_first {
             Err(StructureEditGrantError)
         ));
 
+        let frozen2 = root
+            .clone()
+            .bundle_new_structure_edit_prohibition()
+            .expect("should success");
+
         drop(frozen);
+        assert!(matches!(
+            root.clone().bundle_new_structure_edit_grant(),
+            Err(StructureEditGrantError)
+        ));
+
+        drop(frozen2);
         assert!(root.bundle_new_structure_edit_grant().is_ok());
     }
 
@@ -31,7 +42,18 @@ mod prohibition_first {
             Err(StructureEditGrantError)
         ));
 
+        let frozen2 = root
+            .clone()
+            .bundle_new_structure_edit_prohibition()
+            .expect("should success");
+
         drop(frozen);
+        assert!(matches!(
+            root.tree().grant_structure_edit(),
+            Err(StructureEditGrantError)
+        ));
+
+        drop(frozen2);
         assert!(root.tree().grant_structure_edit().is_ok());
     }
 
@@ -47,7 +69,18 @@ mod prohibition_first {
             Err(StructureEditGrantError)
         ));
 
+        let prohibition2 = root
+            .tree()
+            .prohibit_structure_edit()
+            .expect("should success");
+
         drop(prohibition);
+        assert!(matches!(
+            root.clone().bundle_new_structure_edit_grant(),
+            Err(StructureEditGrantError)
+        ));
+
+        drop(prohibition2);
         assert!(root.bundle_new_structure_edit_grant().is_ok());
     }
 
@@ -63,7 +96,18 @@ mod prohibition_first {
             Err(StructureEditGrantError)
         ));
 
+        let prohibition2 = root
+            .tree()
+            .prohibit_structure_edit()
+            .expect("should success");
+
         drop(prohibition);
+        assert!(matches!(
+            root.tree().grant_structure_edit(),
+            Err(StructureEditGrantError)
+        ));
+
+        drop(prohibition2);
         assert!(root.tree().grant_structure_edit().is_ok());
     }
 }
@@ -83,7 +127,18 @@ mod grant_first {
             Err(StructureEditProhibitionError)
         ));
 
+        let hot2 = root
+            .clone()
+            .bundle_new_structure_edit_grant()
+            .expect("should success");
+
         drop(hot);
+        assert!(matches!(
+            root.clone().bundle_new_structure_edit_prohibition(),
+            Err(StructureEditProhibitionError)
+        ));
+
+        drop(hot2);
         assert!(root.bundle_new_structure_edit_prohibition().is_ok());
     }
 
@@ -99,7 +154,18 @@ mod grant_first {
             Err(StructureEditProhibitionError)
         ));
 
+        let hot2 = root
+            .clone()
+            .bundle_new_structure_edit_grant()
+            .expect("should success");
+
         drop(hot);
+        assert!(matches!(
+            root.tree().prohibit_structure_edit(),
+            Err(StructureEditProhibitionError)
+        ));
+
+        drop(hot2);
         assert!(root.tree().prohibit_structure_edit().is_ok());
     }
 
@@ -112,7 +178,15 @@ mod grant_first {
             Err(StructureEditProhibitionError)
         ));
 
+        let grant2 = root.tree().grant_structure_edit().expect("should success");
+
         drop(grant);
+        assert!(matches!(
+            root.clone().bundle_new_structure_edit_prohibition(),
+            Err(StructureEditProhibitionError)
+        ));
+
+        drop(grant2);
         assert!(root.bundle_new_structure_edit_prohibition().is_ok());
     }
 
@@ -125,7 +199,15 @@ mod grant_first {
             Err(StructureEditProhibitionError)
         ));
 
+        let grant2 = root.tree().grant_structure_edit().expect("should success");
+
         drop(grant);
+        assert!(matches!(
+            root.tree().prohibit_structure_edit(),
+            Err(StructureEditProhibitionError)
+        ));
+
+        drop(grant2);
         assert!(root.tree().prohibit_structure_edit().is_ok());
     }
 }
