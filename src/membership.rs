@@ -57,13 +57,14 @@ impl<T> Drop for Membership<T> {
         let mut membership_core = self
             .inner
             .try_borrow_mut()
-            .expect("[consistency] `Membership::inner` should never borrowed nestedly");
+            .expect("[consistency] membership core should never borrowed nestedly");
         // Decrement refcount.
         match &mut *membership_core {
-            MembershipCore::Weak { .. } => unreachable!("[validity] `self` has strong reference"),
+            MembershipCore::Weak { .. } => unreachable!("[validity] `self` has a strong reference"),
             MembershipCore::Strong {
                 tree_core,
                 tree_refcount,
+                ..
             } => {
                 // This subtraction never overflows.
                 let decremented = NonZeroUsize::new(tree_refcount.get() - 1);
@@ -87,10 +88,10 @@ impl<T> Clone for Membership<T> {
         let mut membership_core = self
             .inner
             .try_borrow_mut()
-            .expect("[consistency] `Membership::inner` should never borrowed nestedly");
+            .expect("[consistency] membership core should never borrowed nestedly");
         // Increment refcount.
         match &mut *membership_core {
-            MembershipCore::Weak { .. } => unreachable!("[validity] `self` has strong reference"),
+            MembershipCore::Weak { .. } => unreachable!("[validity] `self` has a strong reference"),
             MembershipCore::Strong { tree_refcount, .. } => {
                 // `NonZeroUsize::checked_add()` is unstable as of Rust 1.59.
                 // See <https://github.com/rust-lang/rust/issues/84186>.
@@ -114,9 +115,9 @@ impl<T> Membership<T> {
         let membership_core = self
             .inner
             .try_borrow()
-            .expect("[consistency] `Membership::inner` should never borrowed nestedly");
+            .expect("[consistency] membership core should never borrowed nestedly");
         match &*membership_core {
-            MembershipCore::Weak { .. } => unreachable!("[validity] `self` has strong reference"),
+            MembershipCore::Weak { .. } => unreachable!("[validity] `self` has a strong reference"),
             MembershipCore::Strong { tree_core, .. } => tree_core.clone(),
         }
     }
@@ -192,7 +193,7 @@ impl<T> WeakMembership<T> {
         let mut inner = self
             .inner
             .try_borrow_mut()
-            .expect("[consistency] membership should not yet be borrowed elsewhere");
+            .expect("[consistency] membership core should not yet be borrowed elsewhere");
         match &*inner {
             // Not testing if `weak` is dereferenceable, but testing if the
             // reference is the value created by `Weak::new()`. This condition
