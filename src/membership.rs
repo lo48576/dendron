@@ -213,6 +213,37 @@ impl<T> WeakMembership<T> {
         drop(inner);
         Membership { inner: self.inner }
     }
+
+    /// Upgrade the membership to a strong one.
+    #[must_use]
+    pub(crate) fn upgrade(&self) -> Option<Membership<T>> {
+        // Need to update strong refcount.
+        let mut membership_core = self
+            .inner
+            .try_borrow_mut()
+            .expect("[consistency] membership core should never borrowed nestedly");
+        match &mut *membership_core {
+            MembershipCore::Weak { tree_core } => {
+                let tree_refcount = NonZeroUsize::new(1).expect("[consistency] 1 is nonzero");
+                let tree_core = tree_core.upgrade()?;
+                *membership_core = MembershipCore::Strong {
+                    tree_core,
+                    tree_refcount,
+                };
+            }
+            MembershipCore::Strong { tree_refcount, .. } => {
+                // `NonZeroUsize::checked_add()` is unstable as of Rust 1.59.
+                // See <https://github.com/rust-lang/rust/issues/84186>.
+                let incremented = NonZeroUsize::new(tree_refcount.get().wrapping_add(1))
+                    .expect("[consistency] the memory cannot have `usize::MAX` references");
+                *tree_refcount = incremented;
+            }
+        }
+
+        Some(Membership {
+            inner: self.inner.clone(),
+        })
+    }
 }
 
 /// Modification.

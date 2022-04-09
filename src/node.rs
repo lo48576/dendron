@@ -100,7 +100,7 @@ impl<T> Node<T> {
     #[must_use]
     pub fn root(&self) -> Self {
         Self {
-            intra_link: self.membership.tree_core().root(),
+            intra_link: self.membership.tree_core().root_link(),
             membership: self.membership.clone(),
         }
     }
@@ -191,7 +191,10 @@ impl<T> Node<T> {
     /// Panics if the membership refers the different tree than the tree the
     /// node link belongs to.
     #[must_use]
-    fn with_link_and_membership(intra_link: IntraTreeLink<T>, membership: Membership<T>) -> Self {
+    pub(crate) fn with_link_and_membership(
+        intra_link: IntraTreeLink<T>,
+        membership: Membership<T>,
+    ) -> Self {
         if !Membership::ptr_eq_weak(&membership, intra_link.membership()) {
             panic!("[precondition] membership should refer the tree the node link belongs to");
         }

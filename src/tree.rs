@@ -4,7 +4,7 @@ use core::cell::RefCell;
 
 use alloc::rc::Rc;
 
-use crate::node::IntraTreeLink;
+use crate::node::{IntraTreeLink, Node};
 use crate::traverse::DftEvent;
 
 /// A core data of a tree.
@@ -31,7 +31,7 @@ impl<T> TreeCore<T> {
 
     /// Returns a link to the root node.
     #[must_use]
-    pub(crate) fn root(&self) -> IntraTreeLink<T> {
+    pub(crate) fn root_link(&self) -> IntraTreeLink<T> {
         self.root
             .try_borrow()
             .expect("[consistency] `TreeCore::root` should not be borrowed nestedly")
@@ -69,5 +69,27 @@ impl<T> Drop for TreeCore<T> {
             }
             drop(close_link);
         }
+    }
+}
+
+/// A reference to the tree.
+#[derive(Debug)]
+pub struct Tree<T> {
+    /// A reference to the tree core.
+    core: Rc<TreeCore<T>>,
+}
+
+impl<T> Tree<T> {
+    /// Returns the root node.
+    #[inline]
+    #[must_use]
+    pub fn root(&self) -> Node<T> {
+        let root_link = self.core.root_link();
+        let membership = root_link
+            .membership()
+            .upgrade()
+            .expect("[validity] the root node must have valid membership since the tree is alive");
+
+        Node::with_link_and_membership(root_link, membership)
     }
 }
