@@ -176,6 +176,33 @@ impl StructureLockManager {
             }
         }
     }
+
+    /// Transfers a lock.
+    ///
+    /// # Failures
+    ///
+    /// Fails if `other` cannot be locked with the currently active tree
+    /// structure edit lock for `self`.
+    pub(super) fn transfer_single_lock_to(&self, other: &Self) -> Result<(), ()> {
+        use core::cmp::Ordering;
+
+        match self.num_grants.get().cmp(&0) {
+            Ordering::Greater => {
+                // Grants are active.
+                other.acquire_grant().map_err(|_| ())?;
+                let new_count = self.num_grants.get() - 1;
+                self.num_grants.set(new_count);
+            }
+            Ordering::Equal => {}
+            Ordering::Less => {
+                // Prohibitions are active.
+                other.acquire_prohibition().map_err(|_| ())?;
+                let new_count = self.num_grants.get() + 1;
+                self.num_grants.set(new_count);
+            }
+        }
+        Ok(())
+    }
 }
 
 /// A token to keep the tree structure prohibited to be edited.
@@ -299,6 +326,13 @@ pub(crate) struct LockAggregatorForNode {
 }
 
 impl LockAggregatorForNode {
+    /// Returns true if the aggregator has any lock.
+    #[inline]
+    #[must_use]
+    pub(crate) fn has_lock(&self) -> bool {
+        self.aggregated_count != 0
+    }
+
     /// Decrements the lock count.
     ///
     /// # Panics

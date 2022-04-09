@@ -348,15 +348,30 @@ impl<T> WeakMembership<T> {
 /// Modification.
 impl<T> WeakMembership<T> {
     /// Lets the membership refer to the given tree core.
-    pub(crate) fn set_tree_core(&self, new_tree_core: &Rc<TreeCore<T>>) {
+    ///
+    /// # Failures
+    ///
+    /// Fails if the new tree cannot be locked with the currently active tree
+    /// structure edit lock.
+    pub(crate) fn set_tree_core(&self, new_tree_core: &Rc<TreeCore<T>>) -> Result<(), ()> {
         let mut inner = self
             .inner
             .try_borrow_mut()
             .expect("[consistency] `WeakMembership::inner` should never borrowed nestedly");
         match &mut *inner {
             MembershipCore::Weak { tree_core } => *tree_core = Rc::downgrade(new_tree_core),
-            MembershipCore::Strong { tree_core, .. } => *tree_core = new_tree_core.clone(),
+            MembershipCore::Strong {
+                tree_core,
+                lock_aggregator,
+                ..
+            } => {
+                if lock_aggregator.has_lock() {
+                    tree_core.transfer_single_lock_to(new_tree_core)?;
+                }
+                *tree_core = new_tree_core.clone();
+            }
         }
+        Ok(())
     }
 }
 

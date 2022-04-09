@@ -51,6 +51,48 @@ impl<T: fmt::Debug> fmt::Debug for Node<T> {
     }
 }
 
+/// Node object creation.
+impl<T> Node<T> {
+    /// Creates a node from the internal values.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the membership field of the node link is not set up.
+    ///
+    /// Panics if a reference to the tree core is not valid.
+    #[must_use]
+    pub(crate) fn with_link(intra_link: IntraTreeLink<T>) -> Self {
+        let membership = intra_link.membership().upgrade().expect(
+            "[consistency] the membership must be alive since the corresponding node link is alive",
+        );
+
+        Self {
+            intra_link,
+            membership,
+        }
+    }
+
+    /// Creates a node from the internal values.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the membership is set up for a node other than the given node.
+    #[must_use]
+    pub(crate) fn with_link_and_membership(
+        intra_link: IntraTreeLink<T>,
+        membership: Membership<T>,
+    ) -> Self {
+        if !Membership::ptr_eq_weak(&membership, intra_link.membership()) {
+            panic!("[precondition] membership should be set up for the node of interest");
+        }
+
+        Self {
+            intra_link,
+            membership,
+        }
+    }
+}
+
 /// Data access.
 impl<T> Node<T> {
     /// Returns a reference to the data associated to the node.
@@ -112,6 +154,7 @@ impl<T> Node<T> {
     }
 
     /// Returns true if the node is the root.
+    #[inline]
     #[must_use]
     pub fn is_root(&self) -> bool {
         // The node is a root if and only if the node has no parent.
@@ -119,57 +162,45 @@ impl<T> Node<T> {
     }
 
     /// Returns the root node.
+    #[inline]
     #[must_use]
     pub fn root(&self) -> Self {
-        Self {
-            intra_link: self.membership.tree_core().root_link(),
-            membership: self.membership.clone(),
-        }
+        Self::with_link(self.membership.tree_core().root_link())
     }
 
     /// Returns the parent node.
+    #[inline]
     #[must_use]
     pub fn parent(&self) -> Option<Self> {
-        Some(Self {
-            intra_link: self.intra_link.parent_link()?,
-            membership: self.membership.clone(),
-        })
+        self.intra_link.parent_link().map(Self::with_link)
     }
 
     /// Returns the previous sibling.
+    #[inline]
     #[must_use]
     pub fn prev_sibling(&self) -> Option<Self> {
-        Some(Self {
-            intra_link: self.intra_link.prev_sibling_link()?,
-            membership: self.membership.clone(),
-        })
+        self.intra_link.prev_sibling_link().map(Self::with_link)
     }
 
     /// Returns the next sibling.
+    #[inline]
     #[must_use]
     pub fn next_sibling(&self) -> Option<Self> {
-        Some(Self {
-            intra_link: self.intra_link.next_sibling_link()?,
-            membership: self.membership.clone(),
-        })
+        self.intra_link.next_sibling_link().map(Self::with_link)
     }
 
     /// Returns the first child node.
+    #[inline]
     #[must_use]
     pub fn first_child(&self) -> Option<Self> {
-        Some(Self {
-            intra_link: self.intra_link.first_child_link()?,
-            membership: self.membership.clone(),
-        })
+        self.intra_link.first_child_link().map(Self::with_link)
     }
 
     /// Returns the last child node.
+    #[inline]
     #[must_use]
     pub fn last_child(&self) -> Option<Self> {
-        Some(Self {
-            intra_link: self.intra_link.last_child_link()?,
-            membership: self.membership.clone(),
-        })
+        self.intra_link.last_child_link().map(Self::with_link)
     }
 }
 
@@ -206,27 +237,6 @@ impl<T> Node<T> {
 
 /// Node creation and structure modification.
 impl<T> Node<T> {
-    /// Creates a node from the internal values.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the membership refers the different tree than the tree the
-    /// node link belongs to.
-    #[must_use]
-    pub(crate) fn with_link_and_membership(
-        intra_link: IntraTreeLink<T>,
-        membership: Membership<T>,
-    ) -> Self {
-        if !Membership::ptr_eq_weak(&membership, intra_link.membership()) {
-            panic!("[precondition] membership should refer the tree the node link belongs to");
-        }
-
-        Self {
-            intra_link,
-            membership,
-        }
-    }
-
     /// Creates and returns a new node as the root of a new tree.
     #[must_use]
     pub fn new_tree(root_data: T) -> Self {

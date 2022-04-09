@@ -17,7 +17,8 @@ pub(super) fn detach_subtree<T>(this: &IntraTreeLink<T>) {
     }
     // Update the references to the tree core.
     let tree_core_rc = TreeCore::new_rc(this.clone());
-    set_memberships_of_descendants_and_self(this, &tree_core_rc);
+    set_memberships_of_descendants_and_self(this, &tree_core_rc)
+        .expect("[validity] brand-new tree structure can be locked by any types of lock");
 
     // Unlink from the neighbors.
     // Fields to update:
@@ -60,7 +61,7 @@ pub(super) fn detach_subtree<T>(this: &IntraTreeLink<T>) {
 fn set_memberships_of_descendants_and_self<T>(
     this: &IntraTreeLink<T>,
     tree_core_rc: &Rc<TreeCore<T>>,
-) {
+) -> Result<(), ()> {
     let start = this;
     let mut next = Some(DftEvent::Open(start.clone()));
     while let Some(current) = next.take() {
@@ -70,13 +71,14 @@ fn set_memberships_of_descendants_and_self<T>(
             DftEvent::Close(link) => {
                 if IntraTreeLink::ptr_eq(&link, start) {
                     // All descendants are modified.
-                    return;
+                    return Ok(());
                 }
                 continue;
             }
         };
-        open_link.membership().set_tree_core(tree_core_rc);
+        open_link.membership().set_tree_core(tree_core_rc)?;
     }
+    Ok(())
 }
 
 /// Creates a node as the next sibling of the given node, and returns the new node.
@@ -483,9 +485,10 @@ pub(super) fn replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<(), St
     this.replace_prev_sibling_cyclic(this_weak);
     this.replace_next_sibling(None);
 
-    // Create new tree core for `this`.
+    // Create a new tree core for `this`.
     let tree_core_rc = TreeCore::new_rc(this.clone());
-    set_memberships_of_descendants_and_self(this, &tree_core_rc);
+    set_memberships_of_descendants_and_self(this, &tree_core_rc)
+        .expect("[validity] brand-new tree structure can be locked by any types of lock");
 
     Ok(())
 }
