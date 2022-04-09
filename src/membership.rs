@@ -329,6 +329,20 @@ impl<T> WeakMembership<T> {
             inner: self.inner.clone(),
         })
     }
+
+    /// Returns true if the membership refers to the same tree core allocation.
+    #[must_use]
+    pub(crate) fn ptr_eq_tree_core(&self, other_tree_core: &Rc<TreeCore<T>>) -> bool {
+        let membership_core = self
+            .inner
+            .try_borrow()
+            .expect("[consistency] membership core should never borrowed nestedly");
+        let ptr = match &*membership_core {
+            MembershipCore::Weak { tree_core } => tree_core.as_ptr(),
+            MembershipCore::Strong { tree_core, .. } => Rc::as_ptr(tree_core),
+        };
+        ptr == Rc::as_ptr(other_tree_core)
+    }
 }
 
 /// Modification.
