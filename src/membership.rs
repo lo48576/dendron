@@ -18,19 +18,29 @@ enum MembershipCore<T> {
     ///
     /// If there are no `Node<T>`s for the node, the membreship will stay in
     /// this state.
-    Weak(Weak<TreeCore<T>>),
+    Weak {
+        /// A weak reference to the tree core.
+        tree_core: Weak<TreeCore<T>>,
+    },
     /// Shared owning reference to the tree core, and strong refcounts.
     ///
     /// If there are any `Node<T>`s for the node, the membership will stay in
     /// this state.
-    Strong(Rc<TreeCore<T>>, NonZeroUsize),
+    Strong {
+        /// A strong reference to the tree core.
+        tree_core: Rc<TreeCore<T>>,
+        /// Strong reference count for the tree core from this membership.
+        tree_refcount: NonZeroUsize,
+    },
 }
 
 impl<T: fmt::Debug> fmt::Debug for MembershipCore<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Weak(_) => write!(f, "Weak(TreeCoreWeakRef)"),
-            Self::Strong(_, count) => write!(f, "Strong(TreeCoreRef, {count})"),
+            Self::Weak { .. } => write!(f, "Weak {{ .. }}"),
+            Self::Strong { tree_refcount, .. } => {
+                write!(f, "Strong {{ tree_refcount: {tree_refcount}, .. }}")
+            }
         }
     }
 }
@@ -50,15 +60,20 @@ impl<T> Drop for Membership<T> {
             .expect("[consistency] `Membership::inner` should never borrowed nestedly");
         // Decrement refcount.
         match &mut *membership_core {
-            MembershipCore::Weak(_) => unreachable!("[validity] `self` has strong reference"),
-            MembershipCore::Strong(tree_core, count) => {
+            MembershipCore::Weak { .. } => unreachable!("[validity] `self` has strong reference"),
+            MembershipCore::Strong {
+                tree_core,
+                tree_refcount,
+            } => {
                 // This subtraction never overflows.
-                let decremented = NonZeroUsize::new(count.get() - 1);
+                let decremented = NonZeroUsize::new(tree_refcount.get() - 1);
                 match decremented {
-                    Some(new_count) => *count = new_count,
+                    Some(new_count) => *tree_refcount = new_count,
                     None => {
                         let weak_core = Rc::downgrade(tree_core);
-                        *membership_core = MembershipCore::Weak(weak_core);
+                        *membership_core = MembershipCore::Weak {
+                            tree_core: weak_core,
+                        };
                     }
                 }
             }
@@ -75,13 +90,13 @@ impl<T> Clone for Membership<T> {
             .expect("[consistency] `Membership::inner` should never borrowed nestedly");
         // Increment refcount.
         match &mut *membership_core {
-            MembershipCore::Weak(_) => unreachable!("[validity] `self` has strong reference"),
-            MembershipCore::Strong(_, count) => {
+            MembershipCore::Weak { .. } => unreachable!("[validity] `self` has strong reference"),
+            MembershipCore::Strong { tree_refcount, .. } => {
                 // `NonZeroUsize::checked_add()` is unstable as of Rust 1.59.
                 // See <https://github.com/rust-lang/rust/issues/84186>.
-                let incremented = NonZeroUsize::new(count.get().wrapping_add(1))
+                let incremented = NonZeroUsize::new(tree_refcount.get().wrapping_add(1))
                     .expect("[consistency] the memory cannot have `usize::MAX` references");
-                *count = incremented;
+                *tree_refcount = incremented;
             }
         }
 
@@ -101,8 +116,8 @@ impl<T> Membership<T> {
             .try_borrow()
             .expect("[consistency] `Membership::inner` should never borrowed nestedly");
         match &*membership_core {
-            MembershipCore::Weak(_) => unreachable!("[validity] `self` has strong reference"),
-            MembershipCore::Strong(tree_core, _) => tree_core.clone(),
+            MembershipCore::Weak { .. } => unreachable!("[validity] `self` has strong reference"),
+            MembershipCore::Strong { tree_core, .. } => tree_core.clone(),
         }
     }
 
@@ -118,8 +133,11 @@ impl<T> Membership<T> {
     /// Creates a new membership object (and its new core) for the tree.
     #[must_use]
     pub(crate) fn create_new_membership(tree_core: Rc<TreeCore<T>>) -> Self {
-        let count = NonZeroUsize::new(1).expect("[consistency] 1 is nonzero");
-        let membership = MembershipCore::Strong(tree_core, count);
+        let tree_refcount = NonZeroUsize::new(1).expect("[consistency] 1 is nonzero");
+        let membership = MembershipCore::Strong {
+            tree_core,
+            tree_refcount,
+        };
         Membership {
             inner: Rc::new(RefCell::new(membership)),
         }
@@ -157,7 +175,9 @@ impl<T> WeakMembership<T> {
     #[must_use]
     pub(crate) fn new() -> Self {
         Self {
-            inner: Rc::new(RefCell::new(MembershipCore::Weak(Weak::new()))),
+            inner: Rc::new(RefCell::new(MembershipCore::Weak {
+                tree_core: Weak::new(),
+            })),
         }
     }
 
@@ -178,14 +198,17 @@ impl<T> WeakMembership<T> {
             // reference is the value created by `Weak::new()`. This condition
             // will be false once the membership is fully initialized.
             // This comparison with `&Weak::new()` is intentional.
-            MembershipCore::Weak(weak) if Weak::ptr_eq(weak, &Weak::new()) => {}
+            MembershipCore::Weak { tree_core } if Weak::ptr_eq(tree_core, &Weak::new()) => {}
             _ => panic!("[precondition] weak membership should not be initialized twice"),
         }
-        debug_assert!(matches!(&*inner, MembershipCore::Weak(_)));
+        debug_assert!(matches!(&*inner, MembershipCore::Weak { .. }));
 
         // Create a strong reference and set the count to 1.
-        let count = NonZeroUsize::new(1).expect("[validity] 1 is nonzero");
-        *inner = MembershipCore::Strong(tree_core, count);
+        let tree_refcount = NonZeroUsize::new(1).expect("[validity] 1 is nonzero");
+        *inner = MembershipCore::Strong {
+            tree_core,
+            tree_refcount,
+        };
         drop(inner);
         Membership { inner: self.inner }
     }
@@ -194,14 +217,14 @@ impl<T> WeakMembership<T> {
 /// Modification.
 impl<T> WeakMembership<T> {
     /// Lets the membership refer to the given tree core.
-    pub(crate) fn set_tree_core(&self, tree_core: &Rc<TreeCore<T>>) {
+    pub(crate) fn set_tree_core(&self, new_tree_core: &Rc<TreeCore<T>>) {
         let mut inner = self
             .inner
             .try_borrow_mut()
             .expect("[consistency] `WeakMembership::inner` should never borrowed nestedly");
         match &mut *inner {
-            MembershipCore::Weak(weak) => *weak = Rc::downgrade(tree_core),
-            MembershipCore::Strong(rc, _) => *rc = tree_core.clone(),
+            MembershipCore::Weak { tree_core } => *tree_core = Rc::downgrade(new_tree_core),
+            MembershipCore::Strong { tree_core, .. } => *tree_core = new_tree_core.clone(),
         }
     }
 }
