@@ -7,11 +7,14 @@ mod internal;
 use core::cell::{BorrowError, BorrowMutError, Ref, RefMut};
 use core::fmt;
 
-use alloc::rc::Rc;
+use alloc::rc::{Rc, Weak};
 
 use crate::membership::{Membership, WeakMembership};
 use crate::traverse::{self, DftEvent};
-use crate::tree::{StructureEditGrantError, StructureEditProhibitionError, TreeCore};
+use crate::tree::{
+    StructureEditGrant, StructureEditGrantError, StructureEditProhibition,
+    StructureEditProhibitionError, Tree, TreeCore,
+};
 use crate::{AdoptAs, StructureError};
 
 pub use self::frozen::FrozenNode;
@@ -89,10 +92,24 @@ impl<T> Node<T> {
     pub fn ptr_eq(&self, other: &Self) -> bool {
         IntraTreeLink::ptr_eq(&self.intra_link, &other.intra_link)
     }
+
+    /// Returns a reference to the tree core for the node.
+    #[inline]
+    #[must_use]
+    pub(crate) fn ptr_eq_tree_core_weak(&self, other: &Weak<TreeCore<T>>) -> bool {
+        Rc::as_ptr(&*self.membership.tree_core_ref()) == other.as_ptr()
+    }
 }
 
 /// Neighbor nodes accessor.
 impl<T> Node<T> {
+    /// Returns the tree the node belongs to.
+    #[inline]
+    #[must_use]
+    pub fn tree(&self) -> Tree<T> {
+        Tree::from_core_rc(self.membership.tree_core())
+    }
+
     /// Returns true if the node is the root.
     #[must_use]
     pub fn is_root(&self) -> bool {
@@ -609,6 +626,31 @@ impl<T> Node<T> {
     #[inline]
     pub fn bundle_new_structure_edit_grant(self) -> Result<HotNode<T>, StructureEditGrantError> {
         HotNode::from_node(self)
+    }
+
+    /// Returns the [`FrozenNode`], a node with tree structure edit prohibition bundled.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the structure prohibition grant is not valid for the given node.
+    #[inline]
+    #[must_use]
+    pub fn bundle_structure_edit_prohibition(
+        self,
+        prohibition: StructureEditProhibition<T>,
+    ) -> FrozenNode<T> {
+        FrozenNode::from_node_and_prohibition(self, prohibition)
+    }
+
+    /// Returns the [`HotNode`], a node with tree structure edit grant bundled.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the structure edit grant is not valid for the given node.
+    #[inline]
+    #[must_use]
+    pub fn bundle_structure_edit_grant(self, grant: StructureEditGrant<T>) -> HotNode<T> {
+        HotNode::from_node_and_grant(self, grant)
     }
 }
 

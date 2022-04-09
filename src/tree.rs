@@ -11,7 +11,10 @@ use crate::traverse::DftEvent;
 
 pub(crate) use self::lock::LockAggregatorForNode;
 use self::lock::StructureLockManager;
-pub use self::lock::{StructureEditGrantError, StructureEditProhibitionError};
+pub use self::lock::{
+    StructureEditGrant, StructureEditGrantError, StructureEditProhibition,
+    StructureEditProhibitionError,
+};
 
 /// A core data of a tree.
 ///
@@ -89,6 +92,13 @@ pub struct Tree<T> {
 }
 
 impl<T> Tree<T> {
+    /// Creates a new `Tree` from the given `Rc` to the core tree.
+    #[inline]
+    #[must_use]
+    pub(crate) fn from_core_rc(core: Rc<TreeCore<T>>) -> Self {
+        Self { core }
+    }
+
     /// Returns the root node.
     #[inline]
     #[must_use]
@@ -100,5 +110,19 @@ impl<T> Tree<T> {
             .expect("[validity] the root node must have valid membership since the tree is alive");
 
         Node::with_link_and_membership(root_link, membership)
+    }
+
+    /// Prohibits the tree structure edit.
+    #[inline]
+    pub fn prohibit_structure_edit(
+        &self,
+    ) -> Result<StructureEditProhibition<T>, StructureEditProhibitionError> {
+        StructureEditProhibition::new(&self.core)
+    }
+
+    /// Grants the tree structure edit.
+    #[inline]
+    pub fn grant_structure_edit(&self) -> Result<StructureEditGrant<T>, StructureEditGrantError> {
+        StructureEditGrant::new(&self.core)
     }
 }

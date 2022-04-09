@@ -4,7 +4,7 @@ use core::fmt;
 
 use crate::membership::MembershipWithEditGrant;
 use crate::node::{IntraTreeLink, Node};
-use crate::tree::StructureEditGrantError;
+use crate::tree::{StructureEditGrant, StructureEditGrantError};
 
 /// A [`Node`] with a tree structure edit grant bundled.
 ///
@@ -43,5 +43,28 @@ impl<T> HotNode<T> {
             intra_link,
             membership,
         })
+    }
+
+    /// Creates a new `HotNode` from the given plain node and the grant.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the structure edit grant is not valid for the given node.
+    ///
+    /// Panics if there are too many grants for the node or for the tree.
+    #[must_use]
+    pub(super) fn from_node_and_grant(node: Node<T>, grant: StructureEditGrant<T>) -> Self {
+        grant.panic_if_invalid_for_node(&node);
+
+        let Node {
+            intra_link,
+            membership,
+        } = node;
+        let membership = MembershipWithEditGrant::new(membership)
+            .expect("[validity] a valid grant already exists for the tree");
+        Self {
+            intra_link,
+            membership,
+        }
     }
 }

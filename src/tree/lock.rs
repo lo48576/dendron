@@ -3,8 +3,9 @@
 use core::cell::Cell;
 use core::fmt;
 
-use alloc::rc::Rc;
+use alloc::rc::{Rc, Weak};
 
+use crate::node::Node;
 use crate::tree::TreeCore;
 
 /// An error indicating that an attempt to prohibit edit of the tree structure failed.
@@ -103,6 +104,19 @@ impl StructureLockManager {
         Ok(())
     }
 
+    /// Decrements the edit prohibitions count.
+    ///
+    /// # Panics
+    ///
+    /// Panics if no edit prohibitions are active.
+    fn release_prohibition(&self) {
+        let old_count = self.num_grants.get();
+        if old_count >= 0 {
+            panic!("[consistency] attempt to release an edit prohibition while none are active");
+        }
+        self.num_grants.set(old_count + 1);
+    }
+
     /// Increments the edit grants count.
     ///
     /// # Failures
@@ -127,6 +141,19 @@ impl StructureLockManager {
         Ok(())
     }
 
+    /// Decrements the edit grants count.
+    ///
+    /// # Panics
+    ///
+    /// Panics if no edit grants are active.
+    fn release_grant(&self) {
+        let old_count = self.num_grants.get();
+        if old_count <= 0 {
+            panic!("[consistency] attempt to release an edit grant while none are active");
+        }
+        self.num_grants.set(old_count - 1);
+    }
+
     /// Decrements lock count of any type, assuming it is nonzero.
     ///
     /// # Panics
@@ -147,6 +174,116 @@ impl StructureLockManager {
                 let new_count = self.num_grants.get() + 1;
                 self.num_grants.set(new_count);
             }
+        }
+    }
+}
+
+/// A token to keep the tree structure prohibited to be edited.
+pub struct StructureEditProhibition<T>(Weak<TreeCore<T>>);
+
+impl<T> Drop for StructureEditProhibition<T> {
+    fn drop(&mut self) {
+        if let Some(tree_core) = Weak::upgrade(&self.0) {
+            tree_core.lock_manager.release_prohibition();
+        }
+    }
+}
+
+impl<T> StructureEditProhibition<T> {
+    /// Creates a structure edit prohibition for the given tree.
+    pub(super) fn new(tree_core: &Rc<TreeCore<T>>) -> Result<Self, StructureEditProhibitionError> {
+        tree_core.lock_manager.acquire_prohibition()?;
+        Ok(StructureEditProhibition(Rc::downgrade(tree_core)))
+    }
+
+    /// Clones the tree structure edit prohibition.
+    ///
+    /// # Failures
+    ///
+    /// Fails if the number of active edit prohibitions for the tree exceeds
+    /// `isize::MAX`.
+    pub fn try_clone(&self) -> Result<Self, StructureEditProhibitionError> {
+        if let Some(tree_core) = Weak::upgrade(&self.0) {
+            tree_core.lock_manager.acquire_prohibition()?;
+        }
+        Ok(Self(self.0.clone()))
+    }
+
+    /// Returns true if the prohibition is valid for the tree the given node belongs to.
+    #[inline]
+    #[must_use]
+    pub fn is_valid_for_node(&self, node: &Node<T>) -> bool {
+        node.ptr_eq_tree_core_weak(&self.0)
+    }
+
+    /// Panics if the edit prohibition is not valid for the given node.
+    #[inline]
+    pub(crate) fn panic_if_invalid_for_node(&self, node: &Node<T>) {
+        if self.is_valid_for_node(node) {
+            panic!("[precondition] the prohibition is not valid for the node of interest");
+        }
+    }
+}
+
+/// A token to keep the tree structure granted to be edited.
+pub struct StructureEditGrant<T>(Weak<TreeCore<T>>);
+
+impl<T> Drop for StructureEditGrant<T> {
+    fn drop(&mut self) {
+        if let Some(tree_core) = Weak::upgrade(&self.0) {
+            tree_core.lock_manager.release_grant();
+        }
+    }
+}
+
+impl<T> Clone for StructureEditGrant<T> {
+    /// Clones the tree structure edit grant.
+    ///
+    /// If you want to avoid the risk of panic (even if it is very unlikely),
+    /// use [`try_clone`][`Self::try_clone`] method.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of active edit grants for the tree will exceed
+    /// `isize::MAX`.
+    fn clone(&self) -> Self {
+        self.try_clone()
+            .expect("[precondition] too many structure edit grants are active")
+    }
+}
+
+impl<T> StructureEditGrant<T> {
+    /// Creates a structure edit grant for the given tree.
+    pub(super) fn new(tree_core: &Rc<TreeCore<T>>) -> Result<Self, StructureEditGrantError> {
+        tree_core.lock_manager.acquire_grant()?;
+        Ok(StructureEditGrant(Rc::downgrade(tree_core)))
+    }
+
+    /// Clones the tree structure edit grant.
+    ///
+    /// # Failures
+    ///
+    /// Fails if the number of active edit grants for the tree exceeds
+    /// `isize::MAX`.
+    pub fn try_clone(&self) -> Result<Self, StructureEditGrantError> {
+        if let Some(tree_core) = Weak::upgrade(&self.0) {
+            tree_core.lock_manager.acquire_grant()?;
+        }
+        Ok(Self(self.0.clone()))
+    }
+
+    /// Returns true if the grant is valid for the tree the given node belongs to.
+    #[inline]
+    #[must_use]
+    pub fn is_valid_for_node(&self, node: &Node<T>) -> bool {
+        node.ptr_eq_tree_core_weak(&self.0)
+    }
+
+    /// Panics if the edit grant is not valid for the given node.
+    #[inline]
+    pub(crate) fn panic_if_invalid_for_node(&self, node: &Node<T>) {
+        if self.is_valid_for_node(node) {
+            panic!("[precondition] the grant is not valid for the node of interest");
         }
     }
 }

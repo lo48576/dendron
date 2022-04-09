@@ -4,7 +4,7 @@ use core::fmt;
 
 use crate::membership::MembershipWithEditProhibition;
 use crate::node::{IntraTreeLink, Node};
-use crate::tree::StructureEditProhibitionError;
+use crate::tree::{StructureEditProhibition, StructureEditProhibitionError};
 
 /// A [`Node`] with a tree structure edit prohibition bundled.
 ///
@@ -43,5 +43,31 @@ impl<T> FrozenNode<T> {
             intra_link,
             membership,
         })
+    }
+
+    /// Creates a new `FrozenNode` from the given plain node and the prohibition.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the structure edit prohibition is not valid for the given node.
+    ///
+    /// Panics if there are too many prohibitions for the node or for the tree.
+    #[must_use]
+    pub(super) fn from_node_and_prohibition(
+        node: Node<T>,
+        prohibition: StructureEditProhibition<T>,
+    ) -> Self {
+        prohibition.panic_if_invalid_for_node(&node);
+
+        let Node {
+            intra_link,
+            membership,
+        } = node;
+        let membership = MembershipWithEditProhibition::new(membership)
+            .expect("[validity] a valid prohibition already exists for the tree");
+        Self {
+            intra_link,
+            membership,
+        }
     }
 }

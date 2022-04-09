@@ -1,6 +1,6 @@
 //! Nodes' membership to trees.
 
-use core::cell::RefCell;
+use core::cell::{Ref, RefCell};
 use core::fmt;
 use core::num::NonZeroUsize;
 
@@ -116,14 +116,20 @@ impl<T> Membership<T> {
     #[inline]
     #[must_use]
     pub(crate) fn tree_core(&self) -> Rc<TreeCore<T>> {
+        self.tree_core_ref().clone()
+    }
+
+    /// Returns a reference to the tree core without cloning `Rc`.
+    #[must_use]
+    pub(crate) fn tree_core_ref(&self) -> Ref<'_, Rc<TreeCore<T>>> {
         let membership_core = self
             .inner
             .try_borrow()
             .expect("[consistency] membership core should never borrowed nestedly");
-        match &*membership_core {
+        Ref::map(membership_core, |membership_core| match &*membership_core {
             MembershipCore::Weak { .. } => unreachable!("[validity] `self` has a strong reference"),
-            MembershipCore::Strong { tree_core, .. } => tree_core.clone(),
-        }
+            MembershipCore::Strong { tree_core, .. } => tree_core,
+        })
     }
 
     /// Creates a weakened membership.
