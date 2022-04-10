@@ -11,6 +11,7 @@
 
 extern crate alloc;
 
+mod anchor;
 mod membership;
 mod node;
 pub mod traverse;
@@ -18,24 +19,12 @@ mod tree;
 
 use core::fmt;
 
+pub use self::anchor::AdoptAs;
 pub use self::node::{FrozenNode, HotNode, Node};
 pub use self::tree::{
     StructureEditGrant, StructureEditGrantError, StructureEditProhibition,
     StructureEditProhibitionError, Tree,
 };
-
-/// Relation of the node being `adopt`ed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum AdoptAs {
-    /// As the first child.
-    FirstChild,
-    /// As the last child.
-    LastChild,
-    /// As the previous sibling.
-    PreviousSibling,
-    /// As the next sibling.
-    NextSibling,
-}
 
 /// Structure inconsistency error.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

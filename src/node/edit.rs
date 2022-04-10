@@ -2,11 +2,11 @@
 
 use alloc::rc::Rc;
 
+use crate::anchor::AdoptAs;
 use crate::membership::Membership;
 use crate::node::{IntraTreeLink, IntraTreeLinkWeak, Node, NodeBuilder, StructureError};
 use crate::traverse::DftEvent;
 use crate::tree::TreeCore;
-use crate::AdoptAs;
 
 /// Detaches the node and its descendant from the current tree, and let it be another tree.
 pub(super) fn detach_subtree<T>(this: &IntraTreeLink<T>) {
