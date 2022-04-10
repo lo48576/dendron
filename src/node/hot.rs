@@ -225,6 +225,51 @@ impl<T> HotNode<T> {
             .map(Self::from_node_link_with_grant)
     }
 
+    /// Returns the first sibling.
+    #[must_use]
+    pub fn first_sibling(&self) -> Self {
+        if let Some(parent_link) = self.intra_link.parent_link() {
+            let first_child_link = parent_link
+                .first_child_link()
+                .expect("[validity] the parent must have at least one child (`self`)");
+            Self::from_node_link_with_grant(first_child_link)
+        } else {
+            // `self` is the root node.
+            self.clone()
+        }
+    }
+
+    /// Returns the last sibling.
+    #[must_use]
+    pub fn last_sibling(&self) -> Self {
+        if let Some(parent_link) = self.intra_link.parent_link() {
+            let last_child_lin = parent_link
+                .last_child_link()
+                .expect("[validity] the parent must have at least one child (`self`)");
+            Self::from_node_link_with_grant(last_child_lin)
+        } else {
+            // `self` is the root node.
+            self.clone()
+        }
+    }
+
+    /// Returns the first and the last sibling.
+    #[must_use]
+    pub fn first_last_sibling(&self) -> (Self, Self) {
+        if let Some(parent_link) = self.intra_link.parent_link() {
+            let (first_child_link, last_child_link) = parent_link
+                .first_last_child_link()
+                .expect("[validity] the parent must have at least one child (`self`)");
+            (
+                Self::from_node_link_with_grant(first_child_link),
+                Self::from_node_link_with_grant(last_child_link),
+            )
+        } else {
+            // `self` is the root node.
+            (self.clone(), self.clone())
+        }
+    }
+
     /// Returns the first child node.
     #[must_use]
     pub fn first_child(&self) -> Option<Self> {
