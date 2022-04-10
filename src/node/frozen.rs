@@ -397,4 +397,52 @@ impl<T> FrozenNode<T> {
     pub fn children_stable(&self) -> traverse::StableSiblingsTraverser<T> {
         traverse::StableSiblingsTraverser::with_parent(Some(self.clone()))
     }
+
+    /// Returns the stable siblings traverser.
+    #[inline]
+    #[must_use]
+    pub fn siblings_stable(&self) -> traverse::StableSiblingsTraverser<T> {
+        match self.parent() {
+            Some(parent) => parent.children_stable(),
+            None => self.following_siblings_or_self_stable(),
+        }
+    }
+
+    /// Returns the stable preceding siblings traverser.
+    #[inline]
+    #[must_use]
+    pub fn preceding_siblings_or_self_stable(&self) -> traverse::StableSiblingsTraverser<T> {
+        traverse::StableSiblingsTraverser::with_first_last(Some((
+            self.first_sibling(),
+            self.clone(),
+        )))
+    }
+
+    /// Returns the stable preceding siblings traverser.
+    #[inline]
+    #[must_use]
+    pub fn preceding_siblings_stable(&self) -> traverse::StableSiblingsTraverser<T> {
+        let mut iter = self.preceding_siblings_or_self_stable();
+        iter.next();
+        iter
+    }
+
+    /// Returns the stable following siblings traverser.
+    #[inline]
+    #[must_use]
+    pub fn following_siblings_or_self_stable(&self) -> traverse::StableSiblingsTraverser<T> {
+        traverse::StableSiblingsTraverser::with_first_last(Some((
+            self.clone(),
+            self.last_sibling(),
+        )))
+    }
+
+    /// Returns the stable following siblings traverser.
+    #[inline]
+    #[must_use]
+    pub fn following_siblings_stable(&self) -> traverse::StableSiblingsTraverser<T> {
+        let mut iter = self.following_siblings_or_self_stable();
+        iter.next();
+        iter
+    }
 }

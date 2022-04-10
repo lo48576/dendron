@@ -133,6 +133,19 @@ impl<T> StableSiblingsTraverser<T> {
         }
     }
 
+    /// Creates a traverser of from/to the given node.
+    ///
+    /// # Precondition
+    ///
+    /// The given `first` and `last` nodes should refer to the identical node,
+    /// or should have the same parent and `first` is the preceding sibling of `last`.
+    /// It is caller's responsibility to ensure this.
+    #[inline]
+    #[must_use]
+    pub(crate) fn with_first_last(first_last: Option<(FrozenNode<T>, FrozenNode<T>)>) -> Self {
+        Self { next: first_last }
+    }
+
     /// Returns the next forward item without advancing the iterator.
     #[inline]
     #[must_use]
