@@ -8,7 +8,6 @@ use alloc::rc::Rc;
 use crate::anchor::AdoptAs;
 use crate::membership::{Membership, MembershipWithEditGrant};
 use crate::node::{edit, IntraTreeLink, Node};
-//use crate::traverse;
 use crate::traverse;
 use crate::tree::{StructureEditGrant, StructureEditGrantError, Tree, TreeCore};
 use crate::StructureError;
