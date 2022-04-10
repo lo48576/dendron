@@ -326,6 +326,20 @@ impl<T> HotNode<T> {
     pub fn children_reverse(&self) -> traverse::ReverseSiblingsTraverser<T> {
         self.plain().children_reverse()
     }
+
+    /// Returns the ancestors traverser.
+    #[inline]
+    #[must_use]
+    pub fn ancestors(&self) -> traverse::AncestorsTraverser<T> {
+        self.plain().ancestors()
+    }
+
+    /// Returns the ancestors traverser.
+    #[inline]
+    #[must_use]
+    pub fn ancestors_or_self(&self) -> traverse::AncestorsTraverser<T> {
+        self.plain().ancestors_or_self()
+    }
 }
 
 /// Node creation and structure modification.

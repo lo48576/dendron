@@ -329,6 +329,22 @@ impl<T> Node<T> {
     pub fn children_reverse(&self) -> traverse::ReverseSiblingsTraverser<T> {
         traverse::ReverseSiblingsTraverser::new(self.last_child())
     }
+
+    /// Returns the ancestors traverser.
+    #[inline]
+    #[must_use]
+    pub fn ancestors(&self) -> traverse::AncestorsTraverser<T> {
+        let mut iter = self.ancestors_or_self();
+        iter.next();
+        iter
+    }
+
+    /// Returns the ancestors traverser.
+    #[inline]
+    #[must_use]
+    pub fn ancestors_or_self(&self) -> traverse::AncestorsTraverser<T> {
+        traverse::AncestorsTraverser::new(Some(self.clone()))
+    }
 }
 
 /// Node creation and structure modification.
