@@ -10,13 +10,14 @@ use core::fmt;
 
 use alloc::rc::{Rc, Weak};
 
+use crate::anchor::AdoptAs;
 use crate::membership::{Membership, WeakMembership};
 use crate::traverse;
 use crate::tree::{
     StructureEditGrant, StructureEditGrantError, StructureEditProhibition,
     StructureEditProhibitionError, Tree, TreeCore,
 };
-use crate::{AdoptAs, StructureError};
+use crate::StructureError;
 
 pub use self::frozen::FrozenNode;
 pub use self::hot::HotNode;
