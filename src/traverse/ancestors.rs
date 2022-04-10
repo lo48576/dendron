@@ -5,7 +5,7 @@ use core::mem;
 
 use crate::Node;
 
-/// Ancestors traverser.
+/// Upward ancestors traverser.
 #[derive(Debug)]
 pub struct AncestorsTraverser<T> {
     /// Next node to return.

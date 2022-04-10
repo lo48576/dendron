@@ -159,7 +159,14 @@ impl<T> Iterator for DepthFirstTraverser<T> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         match self.next.as_ref() {
             Some((DftEvent::Open(_), _)) => (2, None),
-            Some((DftEvent::Close(_), _)) => (1, None),
+            Some((DftEvent::Close(next), start)) => {
+                if Node::ptr_eq(next, start) {
+                    // The next event is the last event.
+                    (1, Some(1))
+                } else {
+                    (1, None)
+                }
+            }
             None => (0, Some(0)),
         }
     }
@@ -222,7 +229,14 @@ impl<T> Iterator for ReverseDepthFirstTraverser<T> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         match self.next.as_ref() {
             Some((DftEvent::Close(_), _)) => (2, None),
-            Some((DftEvent::Open(next), start)) => (1, None),
+            Some((DftEvent::Open(next), start)) => {
+                if Node::ptr_eq(next, start) {
+                    // The next event is the last event.
+                    (1, Some(1))
+                } else {
+                    (1, None)
+                }
+            }
             None => (0, Some(0)),
         }
     }
