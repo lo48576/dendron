@@ -246,6 +246,13 @@ impl<T> Node<T> {
     pub fn last_child(&self) -> Option<Self> {
         self.intra_link.last_child_link().map(Self::with_link)
     }
+
+    /// Returns the first and the last child nodes.
+    #[must_use]
+    pub fn first_last_child(&self) -> Option<(Self, Self)> {
+        let (first_link, last_link) = self.intra_link.first_last_child_link()?;
+        Some((Self::with_link(first_link), Self::with_link(last_link)))
+    }
 }
 
 /// Tree traverser.

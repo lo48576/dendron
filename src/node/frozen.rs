@@ -241,6 +241,16 @@ impl<T> FrozenNode<T> {
             .last_child_link()
             .map(Self::from_node_link_with_prohibition)
     }
+
+    /// Returns links to the first and the last child nodes.
+    #[must_use]
+    pub fn first_last_child(&self) -> Option<(Self, Self)> {
+        let (first_link, last_link) = self.intra_link.first_last_child_link()?;
+        Some((
+            Self::from_node_link_with_prohibition(first_link),
+            Self::from_node_link_with_prohibition(last_link),
+        ))
+    }
 }
 
 /// Tree traverser.
@@ -271,5 +281,19 @@ impl<T> FrozenNode<T> {
     #[must_use]
     pub fn children_reverse(&self) -> traverse::ReverseSiblingsTraverser<T> {
         self.plain().children_reverse()
+    }
+
+    /// Returns the stable double-ended depth-first traverser.
+    #[inline]
+    #[must_use]
+    pub fn depth_first_traverse_stable(&self) -> traverse::StableDepthFirstTraverser<T> {
+        traverse::StableDepthFirstTraverser::with_toplevel(Some(self.clone()))
+    }
+
+    /// Returns the stable double-ended children traverser.
+    #[inline]
+    #[must_use]
+    pub fn children_stable(&self) -> traverse::StableSiblingsTraverser<T> {
+        traverse::StableSiblingsTraverser::with_parent(Some(self.clone()))
     }
 }

@@ -240,6 +240,16 @@ impl<T> HotNode<T> {
             .last_child_link()
             .map(Self::from_node_link_with_grant)
     }
+
+    /// Returns links to the first and the last child nodes.
+    #[must_use]
+    pub fn first_last_child(&self) -> Option<(Self, Self)> {
+        let (first_link, last_link) = self.intra_link.first_last_child_link()?;
+        Some((
+            Self::from_node_link_with_grant(first_link),
+            Self::from_node_link_with_grant(last_link),
+        ))
+    }
 }
 
 /// Tree traverser.
