@@ -252,3 +252,95 @@ impl<T> Iterator for ReverseDepthFirstTraverser<T> {
 }
 
 impl<T> iter::FusedIterator for ReverseDepthFirstTraverser<T> {}
+
+/// Stable depth first traversal iterator.
+#[derive(Debug)]
+pub struct StableDepthFirstTraverser<T> {
+    /// Next event to emit, and the starting node.
+    // The actual type is `Option<(DftEvent<FrozenNode<T>>, DftEvent<FrozenNode<T>>)>`,
+    // and clippy lint `clippy::type_complexity` complains it is too complex...
+    // However, "an optional pair of next and next_back events" is actually
+    // so simple and clear!
+    next: Option<(<Self as Iterator>::Item, <Self as Iterator>::Item)>,
+}
+
+impl<T> Clone for StableDepthFirstTraverser<T> {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self {
+            next: self.next.clone(),
+        }
+    }
+}
+
+impl<T> StableDepthFirstTraverser<T> {
+    /// Creates a traverser from the opening to the closing of the given node.
+    #[must_use]
+    pub fn with_toplevel(next: Option<FrozenNode<T>>) -> Self {
+        Self {
+            next: next.map(|node| (DftEvent::Open(node.clone()), DftEvent::Close(node))),
+        }
+    }
+
+    /// Creates a traverser from the start node and the next event
+    #[inline]
+    #[must_use]
+    pub fn with_first_last_event(
+        first: DftEvent<FrozenNode<T>>,
+        last: DftEvent<FrozenNode<T>>,
+    ) -> Self {
+        Self {
+            next: Some((first, last)),
+        }
+    }
+
+    /// Returns the next forward event without advancing the iterator.
+    #[inline]
+    #[must_use]
+    pub fn peek(&self) -> Option<&DftEvent<FrozenNode<T>>> {
+        self.next.as_ref().map(|(next, _next_back)| next)
+    }
+
+    /// Returns the next backward event without advancing the iterator.
+    #[inline]
+    #[must_use]
+    pub fn peek_back(&self) -> Option<&DftEvent<FrozenNode<T>>> {
+        self.next.as_ref().map(|(_next, next_back)| next_back)
+    }
+}
+
+impl<T> Iterator for StableDepthFirstTraverser<T> {
+    type Item = DftEvent<FrozenNode<T>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (next, next_back) = self.next.take()?;
+        self.next = next.next().map(|next_of_next| (next_of_next, next_back));
+        Some(next)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self.next.as_ref() {
+            Some((DftEvent::Open(next), DftEvent::Open(next_back)))
+            | Some((DftEvent::Close(next), DftEvent::Close(next_back)))
+                if FrozenNode::ptr_eq(next, next_back) =>
+            {
+                // The next event is the last event.
+                (1, Some(1))
+            }
+            Some((_, _)) => (2, None),
+            None => (0, Some(0)),
+        }
+    }
+}
+
+impl<T> DoubleEndedIterator for StableDepthFirstTraverser<T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        let (next, next_back) = self.next.take()?;
+        self.next = next_back
+            .prev()
+            .map(|prev_of_next_back| (next, prev_of_next_back));
+        Some(next_back)
+    }
+}
+
+impl<T> iter::FusedIterator for StableDepthFirstTraverser<T> {}
