@@ -8,6 +8,7 @@ use alloc::rc::{Rc, Weak};
 
 use crate::membership::WeakMembership;
 use crate::traverse::DftEvent;
+use crate::tree::TreeCore;
 
 /// Internal node data.
 #[derive(Debug)]
@@ -104,6 +105,13 @@ impl<T> IntraTreeLink<T> {
         IntraTreeLinkWeak {
             core: Rc::downgrade(&self.core),
         }
+    }
+
+    /// Returns true if the node belongs to the tree with the given tree core.
+    #[inline]
+    #[must_use]
+    pub(super) fn belongs_to_tree_core_rc(&self, tree_core: &Rc<TreeCore<T>>) -> bool {
+        self.membership().ptr_eq_tree_core(tree_core)
     }
 }
 

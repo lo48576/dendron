@@ -2,7 +2,7 @@
 
 use std::rc::{Rc, Weak};
 
-use dendron::Node;
+use dendron::HotNode;
 
 /// A minimum depth to nest objects to be dropped.
 ///
@@ -53,7 +53,7 @@ fn create_counter<T>(v: T) -> (Weak<T>, Rc<T>) {
 #[test]
 fn drop_single_node_tree() {
     let (counter, root_data) = create_counter(());
-    let root = Node::new_tree(root_data);
+    let root = HotNode::new_tree(root_data);
     assert_eq!(counter.strong_count(), 1, "only the root node exists");
     assert!(root.is_root());
 
@@ -64,7 +64,7 @@ fn drop_single_node_tree() {
 #[test]
 fn drop_nested_node_tree() {
     let (counter, node_data) = create_counter(());
-    let root = Node::new_tree(node_data.clone());
+    let root = HotNode::new_tree(node_data.clone());
     let child0 = root.create_as_last_child(node_data.clone());
     let child1 = root.create_as_last_child(node_data.clone());
     let child0_0 = child0.create_as_last_child(node_data);
@@ -103,7 +103,7 @@ fn drop_nested_node_tree() {
 #[test]
 fn drop_detached_tree() {
     let (counter, node_data) = create_counter(());
-    let root = Node::new_tree(node_data.clone());
+    let root = HotNode::new_tree(node_data.clone());
     let child0 = root.create_as_last_child(node_data.clone());
     let child1 = root.create_as_last_child(node_data.clone());
     let child0_0 = child0.create_as_last_child(node_data.clone());
@@ -116,12 +116,12 @@ fn drop_detached_tree() {
     //  `-- child1
     //      `-- child1_0
     assert_eq!(counter.strong_count(), 6, "there are six nodes");
-    assert!(Node::ptr_eq(&root.root(), &root));
-    assert!(Node::ptr_eq(&child0.root(), &root));
-    assert!(Node::ptr_eq(&child1.root(), &root));
-    assert!(Node::ptr_eq(&child0_0.root(), &root));
-    assert!(Node::ptr_eq(&child0_1.root(), &root));
-    assert!(Node::ptr_eq(&child1_0.root(), &root));
+    assert!(HotNode::ptr_eq(&root.root(), &root));
+    assert!(HotNode::ptr_eq(&child0.root(), &root));
+    assert!(HotNode::ptr_eq(&child1.root(), &root));
+    assert!(HotNode::ptr_eq(&child0_0.root(), &root));
+    assert!(HotNode::ptr_eq(&child0_1.root(), &root));
+    assert!(HotNode::ptr_eq(&child1_0.root(), &root));
     assert!(root.is_root());
     assert!(!child0.is_root());
     assert!(!child1.is_root());
@@ -138,12 +138,12 @@ fn drop_detached_tree() {
     //  |-- child0_0
     //  `-- child0_1
     assert_eq!(counter.strong_count(), 6, "there are still six nodes");
-    assert!(Node::ptr_eq(&root.root(), &root));
-    assert!(Node::ptr_eq(&child1.root(), &root));
-    assert!(Node::ptr_eq(&child1_0.root(), &root));
-    assert!(Node::ptr_eq(&child0.root(), &child0));
-    assert!(Node::ptr_eq(&child0_0.root(), &child0));
-    assert!(Node::ptr_eq(&child0_1.root(), &child0));
+    assert!(HotNode::ptr_eq(&root.root(), &root));
+    assert!(HotNode::ptr_eq(&child1.root(), &root));
+    assert!(HotNode::ptr_eq(&child1_0.root(), &root));
+    assert!(HotNode::ptr_eq(&child0.root(), &child0));
+    assert!(HotNode::ptr_eq(&child0_0.root(), &child0));
+    assert!(HotNode::ptr_eq(&child0_1.root(), &child0));
     assert!(root.is_root());
     assert!(!child1.is_root());
     assert!(!child1_0.is_root());
@@ -183,7 +183,7 @@ fn drop_detached_tree() {
 #[test]
 fn drop_very_deep_tree() {
     let (counter, node_data) = create_counter(());
-    let root = Node::new_tree(node_data.clone());
+    let root = HotNode::new_tree(node_data.clone());
     {
         let mut current = root.clone();
         for _ in 1..MIN_DROP_DEPTH {
@@ -209,7 +209,7 @@ fn drop_very_deep_tree() {
 #[test]
 fn drop_very_wide_tree() {
     let (counter, node_data) = create_counter(());
-    let root = Node::new_tree(node_data.clone());
+    let root = HotNode::new_tree(node_data.clone());
     for _ in 0..MIN_DROP_DEPTH {
         root.create_as_last_child(node_data.clone());
     }

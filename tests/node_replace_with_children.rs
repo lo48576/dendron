@@ -1,9 +1,9 @@
-//! Tests for `Node::replace_with_children`.
+//! Tests for `HotNode::replace_with_children`.
 
 use dendron::traverse::DftEvent;
-use dendron::{Node, StructureError};
+use dendron::{HotNode, StructureError};
 
-fn serialize_subtree<T: Clone>(node: &Node<T>) -> Vec<DftEvent<T>> {
+fn serialize_subtree<T: Clone>(node: &HotNode<T>) -> Vec<DftEvent<T>> {
     node.depth_first_traverse()
         .map(|ev| ev.map(|node| (*node.borrow_data()).clone()))
         .collect()
@@ -11,7 +11,7 @@ fn serialize_subtree<T: Clone>(node: &Node<T>) -> Vec<DftEvent<T>> {
 
 #[test]
 fn replace_root_without_children() {
-    let root = Node::new_tree("root");
+    let root = HotNode::new_tree("root");
 
     assert_eq!(
         root.replace_with_children(),
@@ -22,7 +22,7 @@ fn replace_root_without_children() {
 
 #[test]
 fn replace_root_with_single_child() {
-    let root = Node::new_tree("root");
+    let root = HotNode::new_tree("root");
     let child = root.create_as_last_child("child");
     //  root
     //  `-- child
@@ -38,7 +38,7 @@ fn replace_root_with_single_child() {
 
 #[test]
 fn replace_root_with_multiple_children() {
-    let root = Node::new_tree("root");
+    let root = HotNode::new_tree("root");
     root.create_as_last_child("child0");
     root.create_as_last_child("child1");
     //  root
@@ -87,8 +87,8 @@ struct Config {
 /// |-- next0
 /// `-- next1
 /// ```
-fn create_source_tree_with_params(config: Config) -> (Node<String>, Node<String>) {
-    let root = Node::new_tree("root".into());
+fn create_source_tree_with_params(config: Config) -> (HotNode<String>, HotNode<String>) {
+    let root = HotNode::new_tree("root".into());
     let target = root.create_as_last_child("target".into());
 
     for i in 0..config.num_prev_siblings {
@@ -144,6 +144,7 @@ fn replace_non_root() {
                     num_next_siblings,
                     num_children,
                 };
+                dbg!(&config);
                 let (root, target) = create_source_tree_with_params(config);
                 assert!(root.is_root());
                 assert!(!target.is_root(), "config={config:?}");
@@ -151,7 +152,7 @@ fn replace_non_root() {
                 assert_eq!(
                     target.replace_with_children(),
                     Ok(()),
-                    "Node::replace_with_children should success (config={config:?})"
+                    "HotNode::replace_with_children should success (config={config:?})"
                 );
                 assert!(
                     root.is_root(),

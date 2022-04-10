@@ -1,12 +1,14 @@
 //! Nodes' membership to trees.
 
-use core::cell::RefCell;
+use core::cell::{Ref, RefCell};
 use core::fmt;
 use core::num::NonZeroUsize;
 
 use alloc::rc::{Rc, Weak};
 
-use crate::tree::TreeCore;
+use crate::tree::{
+    LockAggregatorForNode, StructureEditGrantError, StructureEditProhibitionError, TreeCore,
+};
 
 /// A membership of a node to a tree.
 ///
@@ -31,6 +33,8 @@ enum MembershipCore<T> {
         tree_core: Rc<TreeCore<T>>,
         /// Strong reference count for the tree core from this membership.
         tree_refcount: NonZeroUsize,
+        /// Lock aggregator.
+        lock_aggregator: LockAggregatorForNode,
     },
 }
 
@@ -38,9 +42,15 @@ impl<T: fmt::Debug> fmt::Debug for MembershipCore<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Weak { .. } => write!(f, "Weak {{ .. }}"),
-            Self::Strong { tree_refcount, .. } => {
-                write!(f, "Strong {{ tree_refcount: {tree_refcount}, .. }}")
-            }
+            Self::Strong {
+                tree_refcount,
+                lock_aggregator,
+                ..
+            } => f
+                .debug_struct("Strong")
+                .field("tree_refcount", &tree_refcount)
+                .field("lock_aggregator", &lock_aggregator)
+                .finish_non_exhaustive(),
         }
     }
 }
@@ -112,14 +122,20 @@ impl<T> Membership<T> {
     #[inline]
     #[must_use]
     pub(crate) fn tree_core(&self) -> Rc<TreeCore<T>> {
+        self.tree_core_ref().clone()
+    }
+
+    /// Returns a reference to the tree core without cloning `Rc`.
+    #[must_use]
+    pub(crate) fn tree_core_ref(&self) -> Ref<'_, Rc<TreeCore<T>>> {
         let membership_core = self
             .inner
             .try_borrow()
             .expect("[consistency] membership core should never borrowed nestedly");
-        match &*membership_core {
+        Ref::map(membership_core, |membership_core| match &*membership_core {
             MembershipCore::Weak { .. } => unreachable!("[validity] `self` has a strong reference"),
-            MembershipCore::Strong { tree_core, .. } => tree_core.clone(),
-        }
+            MembershipCore::Strong { tree_core, .. } => tree_core,
+        })
     }
 
     /// Creates a weakened membership.
@@ -138,6 +154,7 @@ impl<T> Membership<T> {
         let membership = MembershipCore::Strong {
             tree_core,
             tree_refcount,
+            lock_aggregator: Default::default(),
         };
         Membership {
             inner: Rc::new(RefCell::new(membership)),
@@ -149,6 +166,78 @@ impl<T> Membership<T> {
     #[must_use]
     pub(crate) fn ptr_eq_weak(&self, other: &WeakMembership<T>) -> bool {
         Rc::ptr_eq(&self.inner, &other.inner)
+    }
+
+    /// Decrements aggregated lock count.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the aggregated lock count is zero.
+    fn decrement_edit_lock_count(&self) {
+        let mut membership_core = self
+            .inner
+            .try_borrow_mut()
+            .expect("[consistency] `Membership::inner` should never borrowed nestedly");
+        match &mut *membership_core {
+            MembershipCore::Weak { .. } => unreachable!("[validity] `self` has a strong reference"),
+            MembershipCore::Strong {
+                tree_core,
+                lock_aggregator,
+                ..
+            } => {
+                lock_aggregator.decrement_count(tree_core);
+            }
+        }
+    }
+
+    /// Increments structure edit lock count, assuming the count is nonzero.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the aggregated lock count is zero or `usize::MAX`.
+    fn increment_nonzero_edit_lock_count(&self) {
+        let mut membership_core = self
+            .inner
+            .try_borrow_mut()
+            .expect("[consistency] `Membership::inner` should never borrowed nestedly");
+        match &mut *membership_core {
+            MembershipCore::Weak { .. } => unreachable!("[validity] `self` has a strong reference"),
+            MembershipCore::Strong {
+                lock_aggregator, ..
+            } => lock_aggregator.increment_nonzero_count(),
+        }
+    }
+
+    /// Acquires structure edit prohibition.
+    pub(crate) fn acquire_edit_prohibition(&self) -> Result<(), StructureEditProhibitionError> {
+        let mut membership_core = self
+            .inner
+            .try_borrow_mut()
+            .expect("[consistency] `Membership::inner` should never borrowed nestedly");
+        match &mut *membership_core {
+            MembershipCore::Weak { .. } => unreachable!("[validity] `self` has a strong reference"),
+            MembershipCore::Strong {
+                tree_core,
+                lock_aggregator,
+                ..
+            } => lock_aggregator.acquire_edit_prohibition(tree_core),
+        }
+    }
+
+    /// Acquires structure edit grant.
+    pub(crate) fn acquire_edit_grant(&self) -> Result<(), StructureEditGrantError> {
+        let mut membership_core = self
+            .inner
+            .try_borrow_mut()
+            .expect("[consistency] `Membership::inner` should never borrowed nestedly");
+        match &mut *membership_core {
+            MembershipCore::Weak { .. } => unreachable!("[validity] `self` has a strong reference"),
+            MembershipCore::Strong {
+                tree_core,
+                lock_aggregator,
+                ..
+            } => lock_aggregator.acquire_edit_grant(tree_core),
+        }
     }
 }
 
@@ -209,6 +298,7 @@ impl<T> WeakMembership<T> {
         *inner = MembershipCore::Strong {
             tree_core,
             tree_refcount,
+            lock_aggregator: Default::default(),
         };
         drop(inner);
         Membership { inner: self.inner }
@@ -229,6 +319,7 @@ impl<T> WeakMembership<T> {
                 *membership_core = MembershipCore::Strong {
                     tree_core,
                     tree_refcount,
+                    lock_aggregator: Default::default(),
                 };
             }
             MembershipCore::Strong { tree_refcount, .. } => {
@@ -244,19 +335,142 @@ impl<T> WeakMembership<T> {
             inner: self.inner.clone(),
         })
     }
+
+    /// Returns true if the membership refers to the same tree core allocation.
+    #[must_use]
+    pub(crate) fn ptr_eq_tree_core(&self, other_tree_core: &Rc<TreeCore<T>>) -> bool {
+        let membership_core = self
+            .inner
+            .try_borrow()
+            .expect("[consistency] membership core should never borrowed nestedly");
+        let ptr = match &*membership_core {
+            MembershipCore::Weak { tree_core } => tree_core.as_ptr(),
+            MembershipCore::Strong { tree_core, .. } => Rc::as_ptr(tree_core),
+        };
+        ptr == Rc::as_ptr(other_tree_core)
+    }
 }
 
 /// Modification.
 impl<T> WeakMembership<T> {
     /// Lets the membership refer to the given tree core.
-    pub(crate) fn set_tree_core(&self, new_tree_core: &Rc<TreeCore<T>>) {
+    ///
+    /// # Failures
+    ///
+    /// Fails if the new tree cannot be locked with the currently active tree
+    /// structure edit lock.
+    pub(crate) fn set_tree_core(&self, new_tree_core: &Rc<TreeCore<T>>) -> Result<(), ()> {
         let mut inner = self
             .inner
             .try_borrow_mut()
             .expect("[consistency] `WeakMembership::inner` should never borrowed nestedly");
         match &mut *inner {
             MembershipCore::Weak { tree_core } => *tree_core = Rc::downgrade(new_tree_core),
-            MembershipCore::Strong { tree_core, .. } => *tree_core = new_tree_core.clone(),
+            MembershipCore::Strong {
+                tree_core,
+                lock_aggregator,
+                ..
+            } => {
+                if lock_aggregator.has_lock() {
+                    tree_core.transfer_single_lock_to(new_tree_core)?;
+                }
+                *tree_core = new_tree_core.clone();
+            }
         }
+        Ok(())
+    }
+}
+
+/// Membership with tree structure edit prohibition.
+#[derive(Debug)]
+pub(crate) struct MembershipWithEditProhibition<T> {
+    /// Plain membership.
+    inner: Membership<T>,
+}
+
+impl<T> Drop for MembershipWithEditProhibition<T> {
+    fn drop(&mut self) {
+        self.inner.decrement_edit_lock_count();
+    }
+}
+
+impl<T> Clone for MembershipWithEditProhibition<T> {
+    /// Clones the membership and the prohibition.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the aggregated lock count is `usize::MAX`.
+    fn clone(&self) -> Self {
+        self.inner.increment_nonzero_edit_lock_count();
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+}
+
+impl<T> MembershipWithEditProhibition<T> {
+    /// Clones a membership and bundles a structure edit prohibition.
+    pub(crate) fn new(inner: Membership<T>) -> Result<Self, StructureEditProhibitionError> {
+        inner.acquire_edit_prohibition()?;
+        Ok(Self { inner })
+    }
+
+    /// Returns a reference to the inner [`Membership`].
+    #[inline]
+    #[must_use]
+    pub(crate) fn as_inner(&self) -> &Membership<T> {
+        &self.inner
+    }
+}
+
+impl<T> AsRef<Membership<T>> for MembershipWithEditProhibition<T> {
+    #[inline]
+    fn as_ref(&self) -> &Membership<T> {
+        &self.inner
+    }
+}
+
+/// Membership with tree structure edit grant.
+#[derive(Debug)]
+pub(crate) struct MembershipWithEditGrant<T> {
+    /// Plain membership.
+    inner: Membership<T>,
+}
+
+impl<T> Drop for MembershipWithEditGrant<T> {
+    fn drop(&mut self) {
+        self.inner.decrement_edit_lock_count();
+    }
+}
+
+impl<T> Clone for MembershipWithEditGrant<T> {
+    /// Clones the membership and the grant.
+    fn clone(&self) -> Self {
+        self.inner.increment_nonzero_edit_lock_count();
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+}
+
+impl<T> MembershipWithEditGrant<T> {
+    /// Clones a membership and bundles a structure edit grant.
+    pub(crate) fn new(inner: Membership<T>) -> Result<Self, StructureEditGrantError> {
+        inner.acquire_edit_grant()?;
+        Ok(Self { inner })
+    }
+
+    /// Returns a reference to the inner [`Membership`].
+    #[inline]
+    #[must_use]
+    pub(crate) fn as_inner(&self) -> &Membership<T> {
+        &self.inner
+    }
+}
+
+impl<T> AsRef<Membership<T>> for MembershipWithEditGrant<T> {
+    #[inline]
+    fn as_ref(&self) -> &Membership<T> {
+        &self.inner
     }
 }

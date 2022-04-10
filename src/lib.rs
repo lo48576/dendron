@@ -18,8 +18,11 @@ mod tree;
 
 use core::fmt;
 
-pub use self::node::Node;
-pub use self::tree::Tree;
+pub use self::node::{FrozenNode, HotNode, Node};
+pub use self::tree::{
+    StructureEditGrant, StructureEditGrantError, StructureEditProhibition,
+    StructureEditProhibitionError, Tree,
+};
 
 /// Relation of the node being `adopt`ed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

@@ -1,11 +1,20 @@
 //! Tree.
 
+mod lock;
+
 use core::cell::RefCell;
 
 use alloc::rc::Rc;
 
 use crate::node::{IntraTreeLink, Node};
 use crate::traverse::DftEvent;
+
+pub(crate) use self::lock::LockAggregatorForNode;
+use self::lock::StructureLockManager;
+pub use self::lock::{
+    StructureEditGrant, StructureEditGrantError, StructureEditProhibition,
+    StructureEditProhibitionError,
+};
 
 /// A core data of a tree.
 ///
@@ -18,6 +27,8 @@ use crate::traverse::DftEvent;
 pub(crate) struct TreeCore<T> {
     /// Root node.
     root: RefCell<IntraTreeLink<T>>,
+    /// Structure lock manager.
+    lock_manager: StructureLockManager,
 }
 
 impl<T> TreeCore<T> {
@@ -26,6 +37,7 @@ impl<T> TreeCore<T> {
     pub(crate) fn new_rc(root: IntraTreeLink<T>) -> Rc<Self> {
         Rc::new(Self {
             root: RefCell::new(root),
+            lock_manager: Default::default(),
         })
     }
 
@@ -36,6 +48,21 @@ impl<T> TreeCore<T> {
             .try_borrow()
             .expect("[consistency] `TreeCore::root` should not be borrowed nestedly")
             .clone()
+    }
+
+    /// Transfers a lock.
+    ///
+    /// # Failures
+    ///
+    /// Fails if the tree `dest` cannot be locked with the currently active
+    /// tree structure edit lock for `self`.
+    // Intended only for use by `membership` module.
+    pub(crate) fn transfer_single_lock_to(
+        self: &Rc<TreeCore<T>>,
+        dest: &Rc<TreeCore<T>>,
+    ) -> Result<(), ()> {
+        self.lock_manager
+            .transfer_single_lock_to(&dest.lock_manager)
     }
 }
 
@@ -80,6 +107,13 @@ pub struct Tree<T> {
 }
 
 impl<T> Tree<T> {
+    /// Creates a new `Tree` from the given `Rc` to the core tree.
+    #[inline]
+    #[must_use]
+    pub(crate) fn from_core_rc(core: Rc<TreeCore<T>>) -> Self {
+        Self { core }
+    }
+
     /// Returns the root node.
     #[inline]
     #[must_use]
@@ -91,5 +125,19 @@ impl<T> Tree<T> {
             .expect("[validity] the root node must have valid membership since the tree is alive");
 
         Node::with_link_and_membership(root_link, membership)
+    }
+
+    /// Prohibits the tree structure edit.
+    #[inline]
+    pub fn prohibit_structure_edit(
+        &self,
+    ) -> Result<StructureEditProhibition<T>, StructureEditProhibitionError> {
+        StructureEditProhibition::new(&self.core)
+    }
+
+    /// Grants the tree structure edit.
+    #[inline]
+    pub fn grant_structure_edit(&self) -> Result<StructureEditGrant<T>, StructureEditGrantError> {
+        StructureEditGrant::new(&self.core)
     }
 }

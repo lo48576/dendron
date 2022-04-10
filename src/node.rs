@@ -1,17 +1,25 @@
 //! Node.
 
+mod edit;
+mod frozen;
+mod hot;
 mod internal;
 
 use core::cell::{BorrowError, BorrowMutError, Ref, RefMut};
 use core::fmt;
 
-use alloc::rc::Rc;
+use alloc::rc::{Rc, Weak};
 
 use crate::membership::{Membership, WeakMembership};
-use crate::traverse::{self, DftEvent};
-use crate::tree::TreeCore;
+use crate::traverse;
+use crate::tree::{
+    StructureEditGrant, StructureEditGrantError, StructureEditProhibition,
+    StructureEditProhibitionError, Tree, TreeCore,
+};
 use crate::{AdoptAs, StructureError};
 
+pub use self::frozen::FrozenNode;
+pub use self::hot::HotNode;
 pub(crate) use self::internal::IntraTreeLink;
 use self::internal::{IntraTreeLinkWeak, NodeBuilder};
 
@@ -42,6 +50,92 @@ impl<T: fmt::Debug> fmt::Debug for Node<T> {
             .finish()
     }
 }
+
+/// Node object creation.
+impl<T> Node<T> {
+    /// Creates a node from the internal values.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the membership field of the node link is not set up.
+    ///
+    /// Panics if a reference to the tree core is not valid.
+    #[must_use]
+    pub(crate) fn with_link(intra_link: IntraTreeLink<T>) -> Self {
+        let membership = intra_link.membership().upgrade().expect(
+            "[consistency] the membership must be alive since the corresponding node link is alive",
+        );
+
+        Self {
+            intra_link,
+            membership,
+        }
+    }
+
+    /// Creates a node from the internal values.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the membership is set up for a node other than the given node.
+    #[must_use]
+    pub(crate) fn with_link_and_membership(
+        intra_link: IntraTreeLink<T>,
+        membership: Membership<T>,
+    ) -> Self {
+        if !Membership::ptr_eq_weak(&membership, intra_link.membership()) {
+            panic!("[precondition] membership should be set up for the node of interest");
+        }
+
+        Self {
+            intra_link,
+            membership,
+        }
+    }
+}
+
+/// Tree structure edit grants and prohibitions.
+impl<T> Node<T> {
+    /// Returns the [`FrozenNode`], a node with tree structure edit prohibition bundled.
+    #[inline]
+    pub fn bundle_new_structure_edit_prohibition(
+        self,
+    ) -> Result<FrozenNode<T>, StructureEditProhibitionError> {
+        FrozenNode::from_node(self)
+    }
+
+    /// Returns the [`HotNode`], a node with tree structure edit grant bundled.
+    #[inline]
+    pub fn bundle_new_structure_edit_grant(self) -> Result<HotNode<T>, StructureEditGrantError> {
+        HotNode::from_node(self)
+    }
+
+    /// Returns the [`FrozenNode`], a node with tree structure edit prohibition bundled.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the structure prohibition grant is not valid for the given node.
+    #[inline]
+    #[must_use]
+    pub fn bundle_structure_edit_prohibition(
+        self,
+        prohibition: StructureEditProhibition<T>,
+    ) -> FrozenNode<T> {
+        FrozenNode::from_node_and_prohibition(self, prohibition)
+    }
+
+    /// Returns the [`HotNode`], a node with tree structure edit grant bundled.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the structure edit grant is not valid for the given node.
+    #[inline]
+    #[must_use]
+    pub fn bundle_structure_edit_grant(self, grant: StructureEditGrant<T>) -> HotNode<T> {
+        HotNode::from_node_and_grant(self, grant)
+    }
+}
+
+// Common methods below.
 
 /// Data access.
 impl<T> Node<T> {
@@ -85,11 +179,26 @@ impl<T> Node<T> {
     pub fn ptr_eq(&self, other: &Self) -> bool {
         IntraTreeLink::ptr_eq(&self.intra_link, &other.intra_link)
     }
+
+    /// Returns a reference to the tree core for the node.
+    #[inline]
+    #[must_use]
+    pub(crate) fn ptr_eq_tree_core_weak(&self, other: &Weak<TreeCore<T>>) -> bool {
+        Rc::as_ptr(&*self.membership.tree_core_ref()) == other.as_ptr()
+    }
 }
 
 /// Neighbor nodes accessor.
 impl<T> Node<T> {
+    /// Returns the tree the node belongs to.
+    #[inline]
+    #[must_use]
+    pub fn tree(&self) -> Tree<T> {
+        Tree::from_core_rc(self.membership.tree_core())
+    }
+
     /// Returns true if the node is the root.
+    #[inline]
     #[must_use]
     pub fn is_root(&self) -> bool {
         // The node is a root if and only if the node has no parent.
@@ -97,57 +206,52 @@ impl<T> Node<T> {
     }
 
     /// Returns the root node.
+    #[inline]
     #[must_use]
     pub fn root(&self) -> Self {
-        Self {
-            intra_link: self.membership.tree_core().root_link(),
-            membership: self.membership.clone(),
-        }
+        Self::with_link(self.membership.tree_core().root_link())
     }
 
     /// Returns the parent node.
+    #[inline]
     #[must_use]
     pub fn parent(&self) -> Option<Self> {
-        Some(Self {
-            intra_link: self.intra_link.parent_link()?,
-            membership: self.membership.clone(),
-        })
+        self.intra_link.parent_link().map(Self::with_link)
     }
 
     /// Returns the previous sibling.
+    #[inline]
     #[must_use]
     pub fn prev_sibling(&self) -> Option<Self> {
-        Some(Self {
-            intra_link: self.intra_link.prev_sibling_link()?,
-            membership: self.membership.clone(),
-        })
+        self.intra_link.prev_sibling_link().map(Self::with_link)
     }
 
     /// Returns the next sibling.
+    #[inline]
     #[must_use]
     pub fn next_sibling(&self) -> Option<Self> {
-        Some(Self {
-            intra_link: self.intra_link.next_sibling_link()?,
-            membership: self.membership.clone(),
-        })
+        self.intra_link.next_sibling_link().map(Self::with_link)
     }
 
     /// Returns the first child node.
+    #[inline]
     #[must_use]
     pub fn first_child(&self) -> Option<Self> {
-        Some(Self {
-            intra_link: self.intra_link.first_child_link()?,
-            membership: self.membership.clone(),
-        })
+        self.intra_link.first_child_link().map(Self::with_link)
     }
 
     /// Returns the last child node.
+    #[inline]
     #[must_use]
     pub fn last_child(&self) -> Option<Self> {
-        Some(Self {
-            intra_link: self.intra_link.last_child_link()?,
-            membership: self.membership.clone(),
-        })
+        self.intra_link.last_child_link().map(Self::with_link)
+    }
+
+    /// Returns the first and the last child nodes.
+    #[must_use]
+    pub fn first_last_child(&self) -> Option<(Self, Self)> {
+        let (first_link, last_link) = self.intra_link.first_last_child_link()?;
+        Some((Self::with_link(first_link), Self::with_link(last_link)))
     }
 }
 
@@ -184,27 +288,6 @@ impl<T> Node<T> {
 
 /// Node creation and structure modification.
 impl<T> Node<T> {
-    /// Creates a node from the internal values.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the membership refers the different tree than the tree the
-    /// node link belongs to.
-    #[must_use]
-    pub(crate) fn with_link_and_membership(
-        intra_link: IntraTreeLink<T>,
-        membership: Membership<T>,
-    ) -> Self {
-        if !Membership::ptr_eq_weak(&membership, intra_link.membership()) {
-            panic!("[precondition] membership should refer the tree the node link belongs to");
-        }
-
-        Self {
-            intra_link,
-            membership,
-        }
-    }
-
     /// Creates and returns a new node as the root of a new tree.
     #[must_use]
     pub fn new_tree(root_data: T) -> Self {
@@ -231,158 +314,40 @@ impl<T> Node<T> {
     }
 
     /// Detaches the node and its descendant from the current tree, and let it be another tree.
-    pub fn detach_subtree(&self) {
-        if self.is_root() {
-            // Detaching entire tree is meaningless.
-            // Do nothing.
-            return;
-        }
-        // Update the references to the tree core.
-        let tree_core_rc = TreeCore::new_rc(self.intra_link.clone());
-        self.set_memberships_of_descendants_and_self(&tree_core_rc);
+    #[inline]
+    pub fn detach_subtree(&self, grant: StructureEditGrant<T>) {
+        grant.panic_if_invalid_for_node(self);
 
-        // Unlink from the neighbors.
-        // Fields to update:
-        //  * parent --> self
-        //      * parent.first_child (if necessary)
-        //      * self.parent (if available)
-        //  * prev_sibling --> self
-        //      * prev_sibling.next_sibling (if available)
-        //      * self.prev_sibling_cyclic (mandatory)
-        //  * self --> next_sibling
-        //      * self.next_sibling (if available)
-        //      * next_sibling.prev_sibling_cyclic (if available)
-
-        let parent_link = self.intra_link.parent_link();
-        let prev_sibling_link = self.intra_link.prev_sibling_link();
-        let prev_sibling_cyclic_link = self.intra_link.prev_sibling_cyclic_link();
-        let next_sibling_link = self.intra_link.next_sibling_link();
-
-        // Update neighbors.
-        if let Some(parent_link) = &parent_link {
-            if self.intra_link.is_first_sibling() {
-                parent_link.replace_first_child(next_sibling_link.clone());
-            }
-        }
-        if let Some(prev_sibling_link) = prev_sibling_link {
-            prev_sibling_link.replace_next_sibling(next_sibling_link.clone());
-        }
-        if let Some(next_sibling_link) = next_sibling_link {
-            next_sibling_link.replace_prev_sibling_cyclic(prev_sibling_cyclic_link.downgrade());
-        }
-
-        // Update `self`.
-        self.intra_link.replace_parent(IntraTreeLinkWeak::default());
-        let self_link_weak = self.intra_link.downgrade();
-        self.intra_link.replace_prev_sibling_cyclic(self_link_weak);
-        self.intra_link.replace_next_sibling(None);
-    }
-
-    /// Changes the memberships of the `self` node and its descendants to the given tree.
-    fn set_memberships_of_descendants_and_self(&self, tree_core_rc: &Rc<TreeCore<T>>) {
-        let start = &self.intra_link;
-        let mut next = Some(DftEvent::Open(start.clone()));
-        while let Some(current) = next.take() {
-            next = current.next();
-            let open_link = match current {
-                DftEvent::Open(link) => link,
-                DftEvent::Close(link) => {
-                    if IntraTreeLink::ptr_eq(&link, start) {
-                        // All descendants are modified.
-                        return;
-                    }
-                    continue;
-                }
-            };
-            open_link.membership().set_tree_core(tree_core_rc);
-        }
+        edit::detach_subtree(&self.intra_link);
     }
 
     /// Creates a node as the next sibling of `self`, and returns the new node.
-    pub fn try_create_node_as(&self, data: T, dest: AdoptAs) -> Result<Self, StructureError> {
-        match dest {
-            AdoptAs::FirstChild => Ok(self.create_as_first_child(data)),
-            AdoptAs::LastChild => Ok(self.create_as_last_child(data)),
-            AdoptAs::PreviousSibling => self.try_create_as_prev_sibling(data),
-            AdoptAs::NextSibling => self.try_create_as_next_sibling(data),
-        }
+    #[inline]
+    pub fn try_create_node_as(
+        &self,
+        grant: StructureEditGrant<T>,
+        data: T,
+        dest: AdoptAs,
+    ) -> Result<Self, StructureError> {
+        grant.panic_if_invalid_for_node(self);
+
+        edit::try_create_node_as(&self.intra_link, self.membership.tree_core(), data, dest)
     }
 
     /// Creates a node as the first child of `self`.
-    pub fn create_as_first_child(&self, data: T) -> Self {
-        // Fields to update:
-        //  * parent --> new_child
-        //      * new_child.parent (mandatory)
-        //      * self.first_child (mandatory)
-        //  * new_child --> old_first_child
-        //      * new_child.next_sibling (if available)
-        //      * old_first_child.prev_sibling_cyclic (if available)
-        //  * last_child --> new_child
-        //      * new_child.prev_sibling_cyclic (mandatory)
+    #[inline]
+    pub fn create_as_first_child(&self, grant: StructureEditGrant<T>, data: T) -> Self {
+        grant.panic_if_invalid_for_node(self);
 
-        let membership = Membership::create_new_membership(self.membership.tree_core());
-        let intra_link = NodeBuilder {
-            data,
-            parent: self.intra_link.downgrade(),
-            first_child: Default::default(),
-            next_sibling: Default::default(),
-            prev_sibling_cyclic: Default::default(),
-            membership: membership.downgrade(),
-        }
-        .build_link();
-        if let Some((old_first_child_link, last_child_link)) =
-            self.intra_link.first_last_child_link()
-        {
-            // Connect the new first child and the last child.
-            intra_link.replace_prev_sibling_cyclic(last_child_link.downgrade());
-            // Connect the new first child and the old first child.
-            IntraTreeLink::connect_adjacent_siblings(&intra_link, old_first_child_link);
-        } else {
-            // No siblings for the new node.
-            intra_link.replace_prev_sibling_cyclic(intra_link.downgrade());
-        }
-        self.intra_link
-            .replace_first_child(Some(intra_link.clone()));
-
-        Self::with_link_and_membership(intra_link, membership)
+        edit::create_as_first_child(&self.intra_link, self.membership.tree_core(), data)
     }
 
     /// Creates a node as the last child of `self`.
-    pub fn create_as_last_child(&self, data: T) -> Self {
-        // Fields to update:
-        //  * parent --> new_child
-        //      * new_child.parent (mandatory)
-        //  * old_last_child --> new_child
-        //      * new_child.prev_sibling_cyclic (mandatory)
-        //      * old_last_child.next (if available)
-        //  * first_child --> new_child
-        //      * first_child.prev_sibling_cyclic (mandatory)
+    #[inline]
+    pub fn create_as_last_child(&self, grant: StructureEditGrant<T>, data: T) -> Self {
+        grant.panic_if_invalid_for_node(self);
 
-        let membership = Membership::create_new_membership(self.membership.tree_core());
-        let intra_link = NodeBuilder {
-            data,
-            parent: self.intra_link.downgrade(),
-            first_child: Default::default(),
-            next_sibling: Default::default(),
-            prev_sibling_cyclic: Default::default(),
-            membership: membership.downgrade(),
-        }
-        .build_link();
-        if let Some((first_child_link, old_last_child_link)) =
-            self.intra_link.first_last_child_link()
-        {
-            // Connect the old last child and the new last child.
-            IntraTreeLink::connect_adjacent_siblings(&old_last_child_link, intra_link.clone());
-            // Connect the first child and the new last child.
-            first_child_link.replace_prev_sibling_cyclic(intra_link.downgrade());
-        } else {
-            // No siblings for the new node.
-            intra_link.replace_prev_sibling_cyclic(intra_link.downgrade());
-            self.intra_link
-                .replace_first_child(Some(intra_link.clone()));
-        }
-
-        Self::with_link_and_membership(intra_link, membership)
+        edit::create_as_last_child(&self.intra_link, self.membership.tree_core(), data)
     }
 
     /// Creates a node as the previous sibling of `self`.
@@ -391,19 +356,15 @@ impl<T> Node<T> {
     ///
     /// Returns [`StructureError::SiblingsWithoutParent`] as an error if `self`
     /// is a root node.
-    pub fn try_create_as_prev_sibling(&self, data: T) -> Result<Self, StructureError> {
-        let parent = self.parent().ok_or(StructureError::SiblingsWithoutParent)?;
-        let new_node = match self.intra_link.prev_sibling_link() {
-            Some(prev_sibling_link) => create_insert_between(
-                data,
-                self.membership.tree_core(),
-                &parent.intra_link,
-                &prev_sibling_link,
-                &self.intra_link,
-            ),
-            None => parent.create_as_first_child(data),
-        };
-        Ok(new_node)
+    #[inline]
+    pub fn try_create_as_prev_sibling(
+        &self,
+        grant: StructureEditGrant<T>,
+        data: T,
+    ) -> Result<Self, StructureError> {
+        grant.panic_if_invalid_for_node(self);
+
+        edit::try_create_as_prev_sibling(&self.intra_link, self.membership.tree_core(), data)
     }
 
     /// Creates a node as the next sibling of `self`.
@@ -412,19 +373,15 @@ impl<T> Node<T> {
     ///
     /// Returns [`StructureError::SiblingsWithoutParent`] as an error if `self`
     /// is a root node.
-    pub fn try_create_as_next_sibling(&self, data: T) -> Result<Self, StructureError> {
-        let parent = self.parent().ok_or(StructureError::SiblingsWithoutParent)?;
-        let new_node = match self.intra_link.next_sibling_link() {
-            Some(next_sibling_link) => create_insert_between(
-                data,
-                self.membership.tree_core(),
-                &parent.intra_link,
-                &self.intra_link,
-                &next_sibling_link,
-            ),
-            None => parent.create_as_last_child(data),
-        };
-        Ok(new_node)
+    #[inline]
+    pub fn try_create_as_next_sibling(
+        &self,
+        grant: StructureEditGrant<T>,
+        data: T,
+    ) -> Result<Self, StructureError> {
+        grant.panic_if_invalid_for_node(self);
+
+        edit::try_create_as_next_sibling(&self.intra_link, self.membership.tree_core(), data)
     }
 
     /// Inserts the children at the position of the node, and detach the node.
@@ -464,197 +421,13 @@ impl<T> Node<T> {
     ///     + In this case, [`StructureError::SiblingsWithoutParent`] error is returned.
     /// * the node is the root and has no children.
     ///     + In this case, [`StructureError::EmptyTree`] error is returned.
-    pub fn replace_with_children(&self) -> Result<(), StructureError> {
-        let first_child_link = self.intra_link.first_child_link();
+    #[inline]
+    pub fn replace_with_children(
+        &self,
+        grant: StructureEditGrant<T>,
+    ) -> Result<(), StructureError> {
+        grant.panic_if_invalid_for_node(self);
 
-        if let Some(parent_link) = self.intra_link.parent_link() {
-            // `self` is not the root.
-
-            // Reset `parent`s of the children.
-            {
-                let mut next = first_child_link.clone();
-                while let Some(current) = next {
-                    next = current.next_sibling_link();
-                    current.replace_parent(parent_link.downgrade());
-                }
-            }
-
-            let prev_sibling_link = self.intra_link.prev_sibling_link();
-            let next_sibling_link = self.intra_link.next_sibling_link();
-
-            if let Some(first_child_link) = first_child_link {
-                // `self` has children. Connect children and prev/next siblings.
-
-                // The last child is stored as `prev_sibling_cyclic` of the first child.
-                let last_child_link = first_child_link.prev_sibling_cyclic_link();
-
-                match (prev_sibling_link, next_sibling_link) {
-                    (Some(prev_sibling_link), Some(next_sibling_link)) => {
-                        IntraTreeLink::connect_adjacent_siblings(
-                            &prev_sibling_link,
-                            first_child_link,
-                        );
-                        IntraTreeLink::connect_adjacent_siblings(
-                            &last_child_link,
-                            next_sibling_link,
-                        );
-                    }
-                    (Some(prev_sibling_link), None) => {
-                        IntraTreeLink::connect_adjacent_siblings(
-                            &prev_sibling_link,
-                            first_child_link,
-                        );
-                        let first_sibling_link = parent_link.first_child_link().expect(
-                            "[validity] the parent has at least one child (prev of `self`)",
-                        );
-                        // `last_child` is the new last sibling.
-                        first_sibling_link.replace_prev_sibling_cyclic(last_child_link.downgrade());
-                    }
-                    (None, Some(next_sibling_link)) => {
-                        IntraTreeLink::connect_adjacent_siblings(
-                            &last_child_link,
-                            next_sibling_link,
-                        );
-                        let last_sibling_link_weak = parent_link.last_child_link_weak().expect(
-                            "[validity] the parent has at least one child (next of `self`)",
-                        );
-                        // `first_child` is the new first sibling.
-                        first_child_link.replace_prev_sibling_cyclic(last_sibling_link_weak);
-                        parent_link.replace_first_child(Some(first_child_link));
-                    }
-                    (None, None) => {
-                        parent_link.replace_first_child(Some(first_child_link));
-                    }
-                }
-            } else {
-                // `self` has no children. Just connect previous and next siblings.
-                match (prev_sibling_link, next_sibling_link) {
-                    (Some(prev_sibling_link), Some(next_sibling_link)) => {
-                        IntraTreeLink::connect_adjacent_siblings(
-                            &prev_sibling_link,
-                            next_sibling_link,
-                        );
-                    }
-                    (Some(prev_sibling_link), None) => {
-                        prev_sibling_link.replace_next_sibling(None);
-                    }
-                    (None, Some(next_sibling_link)) => {
-                        let last_sibling_link_weak = parent_link.last_child_link_weak().expect(
-                            "[validity] the parent has at least one child (next of `self`)",
-                        );
-                        // `next_sibling_link` is the new first sibling.
-                        next_sibling_link.replace_prev_sibling_cyclic(last_sibling_link_weak);
-                        parent_link.replace_first_child(Some(next_sibling_link));
-                    }
-                    (None, None) => {
-                        // Now the parent has no child.
-                        parent_link.replace_first_child(None);
-                    }
-                }
-            }
-        } else {
-            // `self` is the root.
-            debug_assert!(
-                self.is_root(),
-                "[validity] the node without parent must be the root"
-            );
-
-            // Get the only child.
-            let child_link = match first_child_link {
-                Some(first_child_link) => {
-                    if first_child_link.next_sibling_link().is_some() {
-                        // The root node has more than two children.
-                        return Err(StructureError::SiblingsWithoutParent);
-                    }
-                    first_child_link
-                }
-                // The root has no children.
-                None => return Err(StructureError::EmptyTree),
-            };
-
-            // Disconnect the child from `self`.
-            child_link.replace_parent(IntraTreeLinkWeak::default());
-        }
-
-        // Disconnect `self` from neighbors.
-        self.intra_link.replace_parent(IntraTreeLinkWeak::default());
-        self.intra_link.replace_first_child(None);
-        let self_link_weak = self.intra_link.downgrade();
-        self.intra_link.replace_prev_sibling_cyclic(self_link_weak);
-        self.intra_link.replace_next_sibling(None);
-
-        // Create new tree core for `self`.
-        let tree_core_rc = TreeCore::new_rc(self.intra_link.clone());
-        self.set_memberships_of_descendants_and_self(&tree_core_rc);
-
-        Ok(())
+        edit::replace_with_children(&self.intra_link)
     }
-}
-
-/// Inserts the `new_node` between `prev_sibling` and `next_sibling`
-///
-/// Before:
-///
-/// ```text
-///           parent
-///           /    \
-/// prev_sibling->next_sibling
-/// ```
-///
-/// After:
-///
-/// ```text
-///              parent
-///            ___/|\___
-///           /    |    \
-/// prev_sibling->NEW->next_sibling
-/// ```
-fn create_insert_between<T>(
-    data: T,
-    tree_core: Rc<TreeCore<T>>,
-    parent_link: &IntraTreeLink<T>,
-    prev_sibling_link: &IntraTreeLink<T>,
-    next_sibling_link: &IntraTreeLink<T>,
-) -> Node<T> {
-    // Check consistency of the given nodes.
-    debug_assert!(prev_sibling_link
-        .parent_link()
-        .map_or(false, |p| IntraTreeLink::ptr_eq(&p, parent_link)));
-    debug_assert!(next_sibling_link
-        .parent_link()
-        .map_or(false, |p| IntraTreeLink::ptr_eq(&p, parent_link)));
-    debug_assert!(prev_sibling_link
-        .next_sibling_link()
-        .map_or(false, |p| IntraTreeLink::ptr_eq(&p, next_sibling_link)));
-    debug_assert!(next_sibling_link
-        .prev_sibling_link()
-        .map_or(false, |p| IntraTreeLink::ptr_eq(&p, prev_sibling_link)));
-
-    // Fields to update:
-    //  * parent --> new_child
-    //      * new_child.parent (mandatory)
-    //      * (Note that `parent.first_child` won't be set since `self` is
-    //        not the first child.)
-    //  * prev_sibling --> new_node
-    //      * prev_sibling.next_sibling (mandatory)
-    //      * new_node.prev_sibling_cyclic (mandatory)
-    //  * new_node --> next_sibling
-    //      * new_node.next_sibling (mandatory)
-    //      * next_sibling.prev_sibling_cyclic (mandatory)
-
-    let membership = Membership::create_new_membership(tree_core);
-    let intra_link = NodeBuilder {
-        data,
-        parent: parent_link.downgrade(),
-        first_child: Default::default(),
-        next_sibling: Some(next_sibling_link.clone()),
-        prev_sibling_cyclic: prev_sibling_link.downgrade(),
-        membership: membership.downgrade(),
-    }
-    .build_link();
-
-    next_sibling_link.replace_prev_sibling_cyclic(intra_link.downgrade());
-    prev_sibling_link.replace_next_sibling(Some(intra_link.clone()));
-
-    Node::with_link_and_membership(intra_link, membership)
 }
