@@ -342,6 +342,48 @@ impl<T> FrozenNode<T> {
         self.plain().ancestors_or_self()
     }
 
+    /// Returns the siblings traverser.
+    #[inline]
+    #[must_use]
+    pub fn siblings(&self) -> traverse::SiblingsTraverser<T> {
+        self.plain().siblings()
+    }
+
+    /// Returns the reverse siblings traverser.
+    #[inline]
+    #[must_use]
+    pub fn siblings_reverse(&self) -> traverse::ReverseSiblingsTraverser<T> {
+        self.plain().siblings_reverse()
+    }
+
+    /// Returns the preceding siblings traverser.
+    #[inline]
+    #[must_use]
+    pub fn preceding_siblings_or_self_reverse(&self) -> traverse::ReverseSiblingsTraverser<T> {
+        self.plain().preceding_siblings_or_self_reverse()
+    }
+
+    /// Returns the preceding siblings traverser.
+    #[inline]
+    #[must_use]
+    pub fn preceding_siblings_reverse(&self) -> traverse::ReverseSiblingsTraverser<T> {
+        self.plain().preceding_siblings_reverse()
+    }
+
+    /// Returns the following siblings traverser.
+    #[inline]
+    #[must_use]
+    pub fn following_siblings_or_self(&self) -> traverse::SiblingsTraverser<T> {
+        self.plain().following_siblings_or_self()
+    }
+
+    /// Returns the following siblings traverser.
+    #[inline]
+    #[must_use]
+    pub fn following_siblings(&self) -> traverse::SiblingsTraverser<T> {
+        self.plain().following_siblings()
+    }
+
     /// Returns the stable double-ended depth-first traverser.
     #[inline]
     #[must_use]

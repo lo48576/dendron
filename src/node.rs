@@ -345,6 +345,56 @@ impl<T> Node<T> {
     pub fn ancestors_or_self(&self) -> traverse::AncestorsTraverser<T> {
         traverse::AncestorsTraverser::new(Some(self.clone()))
     }
+
+    /// Returns the siblings traverser.
+    #[must_use]
+    pub fn siblings(&self) -> traverse::SiblingsTraverser<T> {
+        match self.parent() {
+            Some(parent) => parent.children(),
+            None => self.following_siblings_or_self(),
+        }
+    }
+
+    /// Returns the reverse siblings traverser.
+    #[must_use]
+    pub fn siblings_reverse(&self) -> traverse::ReverseSiblingsTraverser<T> {
+        match self.parent() {
+            Some(parent) => parent.children_reverse(),
+            None => self.preceding_siblings_or_self_reverse(),
+        }
+    }
+
+    /// Returns the reverse preceding siblings traverser.
+    #[inline]
+    #[must_use]
+    pub fn preceding_siblings_or_self_reverse(&self) -> traverse::ReverseSiblingsTraverser<T> {
+        traverse::ReverseSiblingsTraverser::new(Some(self.clone()))
+    }
+
+    /// Returns the reverse preceding siblings traverser.
+    #[inline]
+    #[must_use]
+    pub fn preceding_siblings_reverse(&self) -> traverse::ReverseSiblingsTraverser<T> {
+        let mut iter = self.preceding_siblings_or_self_reverse();
+        iter.next();
+        iter
+    }
+
+    /// Returns the following siblings traverser.
+    #[inline]
+    #[must_use]
+    pub fn following_siblings_or_self(&self) -> traverse::SiblingsTraverser<T> {
+        traverse::SiblingsTraverser::new(Some(self.clone()))
+    }
+
+    /// Returns the following siblings traverser.
+    #[inline]
+    #[must_use]
+    pub fn following_siblings(&self) -> traverse::SiblingsTraverser<T> {
+        let mut iter = self.following_siblings_or_self();
+        iter.next();
+        iter
+    }
 }
 
 /// Node creation and structure modification.
