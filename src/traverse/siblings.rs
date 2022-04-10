@@ -173,10 +173,10 @@ impl<T> Iterator for StableSiblingsTraverser<T> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        if self.next.as_ref().is_some() {
-            (1, None)
-        } else {
-            (0, Some(0))
+        match &self.next {
+            Some((next, next_back)) if FrozenNode::ptr_eq(next, next_back) => (1, Some(1)),
+            Some(_) => (2, None),
+            None => (0, Some(0)),
         }
     }
 }
