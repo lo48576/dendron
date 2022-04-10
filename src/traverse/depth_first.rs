@@ -2,7 +2,7 @@
 
 use core::iter;
 
-use crate::node::Node;
+use crate::node::{FrozenNode, HotNode, Node};
 
 /// Event for depth first traversal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -58,51 +58,60 @@ impl<T> DftEvent<T> {
     }
 }
 
-impl<T> DftEvent<Node<T>> {
-    /// Returns the next (forward direction) event.
-    #[must_use]
-    pub fn next(&self) -> Option<Self> {
-        let next = match self {
-            Self::Open(current) => {
-                // Dive into the first child if available, or otherwise leave the node.
-                match current.first_child() {
-                    Some(child) => Self::Open(child),
-                    None => Self::Close(current.clone()),
-                }
+/// Implements `DftEvent<$ty_node<T>>::{next,prev}`.
+macro_rules! impl_dft_event_methods_for_node {
+    ($ty_node:ident) => {
+        impl<T> DftEvent<$ty_node<T>> {
+            /// Returns the next (forward direction) event.
+            #[must_use]
+            pub fn next(&self) -> Option<Self> {
+                let next = match self {
+                    Self::Open(current) => {
+                        // Dive into the first child if available, or otherwise leave the node.
+                        match current.first_child() {
+                            Some(child) => Self::Open(child),
+                            None => Self::Close(current.clone()),
+                        }
+                    }
+                    Self::Close(current) => {
+                        // Dive into the next sibling if available, or leave the parent.
+                        match current.next_sibling() {
+                            Some(next_sib) => Self::Open(next_sib),
+                            None => Self::Close(current.parent()?),
+                        }
+                    }
+                };
+                Some(next)
             }
-            Self::Close(current) => {
-                // Dive into the next sibling if available, or leave the parent.
-                match current.next_sibling() {
-                    Some(next_sib) => Self::Open(next_sib),
-                    None => Self::Close(current.parent()?),
-                }
-            }
-        };
-        Some(next)
-    }
 
-    /// Returns the previous (backward direction) event.
-    #[must_use]
-    pub fn prev(&self) -> Option<Self> {
-        let prev = match self {
-            Self::Close(current) => {
-                // Dive into the last child if available, or otherwise leave the node.
-                match current.last_child() {
-                    Some(child) => Self::Close(child),
-                    None => Self::Open(current.clone()),
-                }
+            /// Returns the previous (backward direction) event.
+            #[must_use]
+            pub fn prev(&self) -> Option<Self> {
+                let prev = match self {
+                    Self::Close(current) => {
+                        // Dive into the last child if available, or otherwise leave the node.
+                        match current.last_child() {
+                            Some(child) => Self::Close(child),
+                            None => Self::Open(current.clone()),
+                        }
+                    }
+                    Self::Open(current) => {
+                        // Dive into the previous sibling if available, or leave the parent.
+                        match current.prev_sibling() {
+                            Some(prev_sib) => Self::Close(prev_sib),
+                            None => Self::Open(current.parent()?),
+                        }
+                    }
+                };
+                Some(prev)
             }
-            Self::Open(current) => {
-                // Dive into the previous sibling if available, or leave the parent.
-                match current.prev_sibling() {
-                    Some(prev_sib) => Self::Close(prev_sib),
-                    None => Self::Open(current.parent()?),
-                }
-            }
-        };
-        Some(prev)
-    }
+        }
+    };
 }
+
+impl_dft_event_methods_for_node!(Node);
+impl_dft_event_methods_for_node!(FrozenNode);
+impl_dft_event_methods_for_node!(HotNode);
 
 /// Depth first traversal iterator.
 #[derive(Debug)]
