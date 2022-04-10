@@ -42,9 +42,15 @@ impl<T: fmt::Debug> fmt::Debug for MembershipCore<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Weak { .. } => write!(f, "Weak {{ .. }}"),
-            Self::Strong { tree_refcount, .. } => {
-                write!(f, "Strong {{ tree_refcount: {tree_refcount}, .. }}")
-            }
+            Self::Strong {
+                tree_refcount,
+                lock_aggregator,
+                ..
+            } => f
+                .debug_struct("Strong")
+                .field("tree_refcount", &tree_refcount)
+                .field("lock_aggregator", &lock_aggregator)
+                .finish_non_exhaustive(),
         }
     }
 }
@@ -408,6 +414,20 @@ impl<T> MembershipWithEditProhibition<T> {
         inner.acquire_edit_prohibition()?;
         Ok(Self { inner })
     }
+
+    /// Returns a reference to the inner [`Membership`].
+    #[inline]
+    #[must_use]
+    pub(crate) fn as_inner(&self) -> &Membership<T> {
+        &self.inner
+    }
+}
+
+impl<T> AsRef<Membership<T>> for MembershipWithEditProhibition<T> {
+    #[inline]
+    fn as_ref(&self) -> &Membership<T> {
+        &self.inner
+    }
 }
 
 /// Membership with tree structure edit grant.
@@ -438,5 +458,19 @@ impl<T> MembershipWithEditGrant<T> {
     pub(crate) fn new(inner: Membership<T>) -> Result<Self, StructureEditGrantError> {
         inner.acquire_edit_grant()?;
         Ok(Self { inner })
+    }
+
+    /// Returns a reference to the inner [`Membership`].
+    #[inline]
+    #[must_use]
+    pub(crate) fn as_inner(&self) -> &Membership<T> {
+        &self.inner
+    }
+}
+
+impl<T> AsRef<Membership<T>> for MembershipWithEditGrant<T> {
+    #[inline]
+    fn as_ref(&self) -> &Membership<T> {
+        &self.inner
     }
 }

@@ -93,6 +93,50 @@ impl<T> Node<T> {
     }
 }
 
+/// Tree structure edit grants and prohibitions.
+impl<T> Node<T> {
+    /// Returns the [`FrozenNode`], a node with tree structure edit prohibition bundled.
+    #[inline]
+    pub fn bundle_new_structure_edit_prohibition(
+        self,
+    ) -> Result<FrozenNode<T>, StructureEditProhibitionError> {
+        FrozenNode::from_node(self)
+    }
+
+    /// Returns the [`HotNode`], a node with tree structure edit grant bundled.
+    #[inline]
+    pub fn bundle_new_structure_edit_grant(self) -> Result<HotNode<T>, StructureEditGrantError> {
+        HotNode::from_node(self)
+    }
+
+    /// Returns the [`FrozenNode`], a node with tree structure edit prohibition bundled.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the structure prohibition grant is not valid for the given node.
+    #[inline]
+    #[must_use]
+    pub fn bundle_structure_edit_prohibition(
+        self,
+        prohibition: StructureEditProhibition<T>,
+    ) -> FrozenNode<T> {
+        FrozenNode::from_node_and_prohibition(self, prohibition)
+    }
+
+    /// Returns the [`HotNode`], a node with tree structure edit grant bundled.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the structure edit grant is not valid for the given node.
+    #[inline]
+    #[must_use]
+    pub fn bundle_structure_edit_grant(self, grant: StructureEditGrant<T>) -> HotNode<T> {
+        HotNode::from_node_and_grant(self, grant)
+    }
+}
+
+// Common methods below.
+
 /// Data access.
 impl<T> Node<T> {
     /// Returns a reference to the data associated to the node.
@@ -264,25 +308,38 @@ impl<T> Node<T> {
 
     /// Detaches the node and its descendant from the current tree, and let it be another tree.
     #[inline]
-    pub fn detach_subtree(&self) {
+    pub fn detach_subtree(&self, grant: StructureEditGrant<T>) {
+        grant.panic_if_invalid_for_node(self);
+
         edit::detach_subtree(&self.intra_link);
     }
 
     /// Creates a node as the next sibling of `self`, and returns the new node.
     #[inline]
-    pub fn try_create_node_as(&self, data: T, dest: AdoptAs) -> Result<Self, StructureError> {
+    pub fn try_create_node_as(
+        &self,
+        grant: StructureEditGrant<T>,
+        data: T,
+        dest: AdoptAs,
+    ) -> Result<Self, StructureError> {
+        grant.panic_if_invalid_for_node(self);
+
         edit::try_create_node_as(&self.intra_link, self.membership.tree_core(), data, dest)
     }
 
     /// Creates a node as the first child of `self`.
     #[inline]
-    pub fn create_as_first_child(&self, data: T) -> Self {
+    pub fn create_as_first_child(&self, grant: StructureEditGrant<T>, data: T) -> Self {
+        grant.panic_if_invalid_for_node(self);
+
         edit::create_as_first_child(&self.intra_link, self.membership.tree_core(), data)
     }
 
     /// Creates a node as the last child of `self`.
     #[inline]
-    pub fn create_as_last_child(&self, data: T) -> Self {
+    pub fn create_as_last_child(&self, grant: StructureEditGrant<T>, data: T) -> Self {
+        grant.panic_if_invalid_for_node(self);
+
         edit::create_as_last_child(&self.intra_link, self.membership.tree_core(), data)
     }
 
@@ -293,7 +350,13 @@ impl<T> Node<T> {
     /// Returns [`StructureError::SiblingsWithoutParent`] as an error if `self`
     /// is a root node.
     #[inline]
-    pub fn try_create_as_prev_sibling(&self, data: T) -> Result<Self, StructureError> {
+    pub fn try_create_as_prev_sibling(
+        &self,
+        grant: StructureEditGrant<T>,
+        data: T,
+    ) -> Result<Self, StructureError> {
+        grant.panic_if_invalid_for_node(self);
+
         edit::try_create_as_prev_sibling(&self.intra_link, self.membership.tree_core(), data)
     }
 
@@ -304,7 +367,13 @@ impl<T> Node<T> {
     /// Returns [`StructureError::SiblingsWithoutParent`] as an error if `self`
     /// is a root node.
     #[inline]
-    pub fn try_create_as_next_sibling(&self, data: T) -> Result<Self, StructureError> {
+    pub fn try_create_as_next_sibling(
+        &self,
+        grant: StructureEditGrant<T>,
+        data: T,
+    ) -> Result<Self, StructureError> {
+        grant.panic_if_invalid_for_node(self);
+
         edit::try_create_as_next_sibling(&self.intra_link, self.membership.tree_core(), data)
     }
 
@@ -346,49 +415,12 @@ impl<T> Node<T> {
     /// * the node is the root and has no children.
     ///     + In this case, [`StructureError::EmptyTree`] error is returned.
     #[inline]
-    pub fn replace_with_children(&self) -> Result<(), StructureError> {
+    pub fn replace_with_children(
+        &self,
+        grant: StructureEditGrant<T>,
+    ) -> Result<(), StructureError> {
+        grant.panic_if_invalid_for_node(self);
+
         edit::replace_with_children(&self.intra_link)
-    }
-}
-
-/// Tree structure edit grants and prohibitions.
-impl<T> Node<T> {
-    /// Returns the [`FrozenNode`], a node with tree structure edit prohibition bundled.
-    #[inline]
-    pub fn bundle_new_structure_edit_prohibition(
-        self,
-    ) -> Result<FrozenNode<T>, StructureEditProhibitionError> {
-        FrozenNode::from_node(self)
-    }
-
-    /// Returns the [`HotNode`], a node with tree structure edit grant bundled.
-    #[inline]
-    pub fn bundle_new_structure_edit_grant(self) -> Result<HotNode<T>, StructureEditGrantError> {
-        HotNode::from_node(self)
-    }
-
-    /// Returns the [`FrozenNode`], a node with tree structure edit prohibition bundled.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the structure prohibition grant is not valid for the given node.
-    #[inline]
-    #[must_use]
-    pub fn bundle_structure_edit_prohibition(
-        self,
-        prohibition: StructureEditProhibition<T>,
-    ) -> FrozenNode<T> {
-        FrozenNode::from_node_and_prohibition(self, prohibition)
-    }
-
-    /// Returns the [`HotNode`], a node with tree structure edit grant bundled.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the structure edit grant is not valid for the given node.
-    #[inline]
-    #[must_use]
-    pub fn bundle_structure_edit_grant(self, grant: StructureEditGrant<T>) -> HotNode<T> {
-        HotNode::from_node_and_grant(self, grant)
     }
 }

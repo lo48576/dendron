@@ -18,7 +18,7 @@ mod tree;
 
 use core::fmt;
 
-pub use self::node::Node;
+pub use self::node::{FrozenNode, HotNode, Node};
 pub use self::tree::{
     StructureEditGrant, StructureEditGrantError, StructureEditProhibition,
     StructureEditProhibitionError, Tree,

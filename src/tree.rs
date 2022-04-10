@@ -49,6 +49,21 @@ impl<T> TreeCore<T> {
             .expect("[consistency] `TreeCore::root` should not be borrowed nestedly")
             .clone()
     }
+
+    /// Transfers a lock.
+    ///
+    /// # Failures
+    ///
+    /// Fails if the tree `dest` cannot be locked with the currently active
+    /// tree structure edit lock for `self`.
+    // Intended only for use by `membership` module.
+    pub(crate) fn transfer_single_lock_to(
+        self: &Rc<TreeCore<T>>,
+        dest: &Rc<TreeCore<T>>,
+    ) -> Result<(), ()> {
+        self.lock_manager
+            .transfer_single_lock_to(&dest.lock_manager)
+    }
 }
 
 // This drop prevents stack overflow on drop of very wide or very deep tree.
