@@ -14,6 +14,7 @@ extern crate alloc;
 mod anchor;
 mod membership;
 mod node;
+pub mod serial;
 pub mod traverse;
 mod tree;
 

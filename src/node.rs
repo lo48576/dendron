@@ -12,6 +12,7 @@ use alloc::rc::{Rc, Weak};
 
 use crate::anchor::AdoptAs;
 use crate::membership::{Membership, WeakMembership};
+use crate::serial;
 use crate::traverse;
 use crate::tree::{
     StructureEditGrant, StructureEditGrantError, StructureEditProhibition,
@@ -541,5 +542,15 @@ impl<T> Node<T> {
         grant.panic_if_invalid_for_node(self);
 
         edit::replace_with_children(&self.intra_link)
+    }
+}
+
+/// Serialization.
+impl<T: Clone> Node<T> {
+    /// Returns an iterator of serialized events for the subtree.
+    #[inline]
+    #[must_use]
+    pub fn to_events(&self) -> serial::TreeSerializeIter<T> {
+        serial::TreeSerializeIter::new(self)
     }
 }
