@@ -13,7 +13,7 @@ use alloc::rc::{Rc, Weak};
 
 use crate::anchor::AdoptAs;
 use crate::membership::{Membership, WeakMembership};
-use crate::serial;
+use crate::serial::{self, TreeBuildError};
 use crate::traverse;
 use crate::tree::{
     StructureEditGrant, StructureEditGrantError, StructureEditProhibition,
@@ -544,6 +544,43 @@ impl<T> Node<T> {
         grant.panic_if_invalid_for_node(self);
 
         edit::replace_with_children(&self.intra_link)
+    }
+
+    /// Clones the subtree and returns it as a new independent tree.
+    ///
+    /// # Failures
+    ///
+    /// Fails if any data associated to the node in the subtree is mutably
+    /// (i.e. exclusively) borrowed.
+    // No grant is required because this operation is read-only for this tree.
+    pub fn clone_subtree(&self) -> Result<Self, BorrowError>
+    where
+        T: Clone,
+    {
+        // NOTE: Can be made simpler by nightly Rust.
+        // `Iterator::try_collect()` is not yet stabilized as of Rust 1.60.0.
+        // See <https://github.com/rust-lang/rust/issues/94047>.
+        //self.to_events()
+        //    .try_collect::<Result<Self, TreeBuildError>>()?
+        //    .map_err(|e| match e {
+        //        TreeBuildError::BorrowData(e) => e,
+        //        TreeBuildError::RootNotOpened | TreeBuildError::RootClosed => {
+        //            unreachable!("[validity] subtree should be consistently serializable")
+        //        }
+        //    })
+
+        self.to_events()
+            .try_fold(serial::TreeBuilder::new(), |mut builder, ev_res| {
+                builder.push_event(ev_res?)?;
+                Ok(builder)
+            })
+            .and_then(|builder| builder.finish())
+            .map_err(|e| match e {
+                TreeBuildError::BorrowData(e) => e,
+                TreeBuildError::RootNotOpened | TreeBuildError::RootClosed => {
+                    unreachable!("[validity] subtree should be consistently serializable")
+                }
+            })
     }
 }
 
