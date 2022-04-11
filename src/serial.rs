@@ -28,6 +28,17 @@ impl<T> Event<T> {
             NonZeroUsize::new(level).expect("[precondition] the close level should not be zero");
         Self::Close(level)
     }
+
+    /// Converts the internal open value.
+    pub fn map<F, U>(self, f: F) -> Event<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        match self {
+            Self::Open(v) => Event::Open(f(v)),
+            Self::Close(v) => Event::Close(v),
+        }
+    }
 }
 
 impl<T: Clone> TryFrom<DftEvent<Node<T>>> for Event<T> {
