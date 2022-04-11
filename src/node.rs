@@ -1,5 +1,6 @@
 //! Node.
 
+mod debug_print;
 mod edit;
 mod frozen;
 mod hot;
@@ -20,6 +21,7 @@ use crate::tree::{
 };
 use crate::StructureError;
 
+pub use self::debug_print::DebugPrettyPrint;
 pub use self::frozen::FrozenNode;
 pub use self::hot::HotNode;
 pub(crate) use self::internal::IntraTreeLink;
@@ -552,5 +554,15 @@ impl<T: Clone> Node<T> {
     #[must_use]
     pub fn to_events(&self) -> serial::TreeSerializeIter<T> {
         serial::TreeSerializeIter::new(self)
+    }
+}
+
+/// Debug printing.
+impl<T> Node<T> {
+    /// Returns the pretty-printable proxy object to the node and descendants.
+    #[inline]
+    #[must_use]
+    pub fn debug_pretty_print(&self) -> DebugPrettyPrint<'_, T> {
+        DebugPrettyPrint::new(&self.intra_link)
     }
 }
