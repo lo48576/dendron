@@ -21,7 +21,7 @@ mod tree;
 use core::fmt;
 
 pub use self::anchor::AdoptAs;
-pub use self::node::{FrozenNode, HotNode, Node};
+pub use self::node::{DebugPrettyPrint, FrozenNode, HotNode, Node};
 pub use self::tree::{
     StructureEditGrant, StructureEditGrantError, StructureEditProhibition,
     StructureEditProhibitionError, Tree,
