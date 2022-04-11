@@ -180,6 +180,16 @@ impl<T> TreeBuilder<T> {
         Self::default()
     }
 
+    /// Creates a new tree builder with the root node set.
+    #[inline]
+    #[must_use]
+    pub fn with_root(root: HotNode<T>) -> Self {
+        Self {
+            root: Some(root.plain()),
+            current: Some(root),
+        }
+    }
+
     /// Returns true if the root node is already closed.
     #[inline]
     #[must_use]
@@ -234,6 +244,14 @@ impl<T> TreeBuilder<T> {
         if let Some(current) = &mut self.current {
             let parent_level = level.get() - 1;
             for _ in 0..parent_level {
+                let root = self
+                    .root
+                    .as_ref()
+                    .expect("[validity] `root` should be set when some node is tracked");
+                if current.ptr_eq_plain(root) {
+                    // This is the root of the subtree, even if it has a parent.
+                    return Err(TreeBuildError::RootClosed);
+                }
                 *current = current.parent().ok_or(TreeBuildError::RootClosed)?;
             }
             // Now `current` is a parent node of the result node.
