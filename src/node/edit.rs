@@ -62,21 +62,10 @@ fn set_memberships_of_descendants_and_self<T>(
     this: &IntraTreeLink<T>,
     tree_core_rc: &Rc<TreeCore<T>>,
 ) -> Result<(), ()> {
-    let start = this;
-    let mut next = Some(DftEvent::Open(start.clone()));
-    while let Some(current) = next.take() {
-        next = current.next();
-        let open_link = match current {
-            DftEvent::Open(link) => link,
-            DftEvent::Close(link) => {
-                if IntraTreeLink::ptr_eq(&link, start) {
-                    // All descendants are modified.
-                    return Ok(());
-                }
-                continue;
-            }
-        };
-        open_link.membership().set_tree_core(tree_core_rc)?;
+    for current in this.depth_first_traverse() {
+        if let DftEvent::Open(link) = current {
+            link.membership().set_tree_core(tree_core_rc)?;
+        }
     }
     Ok(())
 }
