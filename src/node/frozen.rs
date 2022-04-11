@@ -197,6 +197,13 @@ impl<T> FrozenNode<T> {
         self.intra_link.is_root()
     }
 
+    /// Returns true if the given node belong to the same tree.
+    #[inline]
+    #[must_use]
+    pub fn belongs_to_same_tree(&self, other: &Self) -> bool {
+        self.membership.belongs_to_same_tree(&other.membership)
+    }
+
     /// Returns the hot root node.
     #[must_use]
     pub fn root(&self) -> Self {

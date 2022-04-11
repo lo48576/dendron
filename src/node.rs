@@ -201,6 +201,13 @@ impl<T> Node<T> {
         Tree::from_core_rc(self.membership.tree_core())
     }
 
+    /// Returns true if the given node belong to the same tree.
+    #[inline]
+    #[must_use]
+    pub fn belongs_to_same_tree(&self, other: &Self) -> bool {
+        self.membership.belongs_to_same_tree(&other.membership)
+    }
+
     /// Returns true if the node is the root.
     #[inline]
     #[must_use]
