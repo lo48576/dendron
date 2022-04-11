@@ -6,7 +6,8 @@ use core::fmt;
 use alloc::rc::Rc;
 
 use crate::membership::{Membership, MembershipWithEditProhibition};
-use crate::node::{IntraTreeLink, Node};
+use crate::node::{DebugPrettyPrint, IntraTreeLink, Node};
+use crate::serial;
 use crate::traverse;
 use crate::tree::{StructureEditProhibition, StructureEditProhibitionError, Tree, TreeCore};
 
@@ -444,5 +445,25 @@ impl<T> FrozenNode<T> {
         let mut iter = self.following_siblings_or_self_stable();
         iter.next();
         iter
+    }
+}
+
+/// Serialization.
+impl<T: Clone> FrozenNode<T> {
+    /// Returns an iterator of serialized events for the subtree.
+    #[inline]
+    #[must_use]
+    pub fn to_events(&self) -> serial::TreeSerializeIter<T> {
+        serial::TreeSerializeIter::new(&self.plain())
+    }
+}
+
+/// Debug printing.
+impl<T> FrozenNode<T> {
+    /// Returns the pretty-printable proxy object to the node and descendants.
+    #[inline]
+    #[must_use]
+    pub fn debug_pretty_print(&self) -> DebugPrettyPrint<'_, T> {
+        DebugPrettyPrint::new(&self.intra_link)
     }
 }
