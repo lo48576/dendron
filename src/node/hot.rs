@@ -7,7 +7,8 @@ use alloc::rc::Rc;
 
 use crate::anchor::AdoptAs;
 use crate::membership::{Membership, MembershipWithEditGrant};
-use crate::node::{edit, IntraTreeLink, Node};
+use crate::node::{edit, DebugPrettyPrint, IntraTreeLink, Node};
+use crate::serial;
 use crate::traverse;
 use crate::tree::{StructureEditGrant, StructureEditGrantError, Tree, TreeCore};
 use crate::StructureError;
@@ -491,5 +492,25 @@ impl<T> HotNode<T> {
     #[inline]
     pub fn replace_with_children(&self) -> Result<(), StructureError> {
         edit::replace_with_children(&self.intra_link)
+    }
+}
+
+/// Serialization.
+impl<T: Clone> HotNode<T> {
+    /// Returns an iterator of serialized events for the subtree.
+    #[inline]
+    #[must_use]
+    pub fn to_events(&self) -> serial::TreeSerializeIter<T> {
+        serial::TreeSerializeIter::new(&self.plain())
+    }
+}
+
+/// Debug printing.
+impl<T> HotNode<T> {
+    /// Returns the pretty-printable proxy object to the node and descendants.
+    #[inline]
+    #[must_use]
+    pub fn debug_pretty_print(&self) -> DebugPrettyPrint<'_, T> {
+        DebugPrettyPrint::new(&self.intra_link)
     }
 }
