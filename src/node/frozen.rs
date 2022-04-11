@@ -448,6 +448,23 @@ impl<T> FrozenNode<T> {
     }
 }
 
+/// Node creation.
+impl<T> FrozenNode<T> {
+    /// Clones the subtree and returns it as a new independent tree.
+    ///
+    /// # Failures
+    ///
+    /// Fails if any data associated to the node in the subtree is mutably
+    /// (i.e. exclusively) borrowed.
+    #[inline]
+    pub fn clone_subtree(&self) -> Result<Node<T>, BorrowError>
+    where
+        T: Clone,
+    {
+        self.plain().clone_subtree()
+    }
+}
+
 /// Serialization.
 impl<T: Clone> FrozenNode<T> {
     /// Returns an iterator of serialized events for the subtree.

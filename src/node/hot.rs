@@ -493,6 +493,20 @@ impl<T> HotNode<T> {
     pub fn replace_with_children(&self) -> Result<(), StructureError> {
         edit::replace_with_children(&self.intra_link)
     }
+
+    /// Clones the subtree and returns it as a new independent tree.
+    ///
+    /// # Failures
+    ///
+    /// Fails if any data associated to the node in the subtree is mutably
+    /// (i.e. exclusively) borrowed.
+    #[inline]
+    pub fn clone_subtree(&self) -> Result<Node<T>, BorrowError>
+    where
+        T: Clone,
+    {
+        self.plain().clone_subtree()
+    }
 }
 
 /// Serialization.
