@@ -113,6 +113,13 @@ impl<T> IntraTreeLink<T> {
     pub(super) fn belongs_to_tree_core_rc(&self, tree_core: &Rc<TreeCore<T>>) -> bool {
         self.membership().ptr_eq_tree_core(tree_core)
     }
+
+    /// Returns the depth-first traverser for the subtree.
+    #[inline]
+    #[must_use]
+    pub(super) fn depth_first_traverse(&self) -> DepthFirstLinkTraverser<'_, T> {
+        DepthFirstLinkTraverser::with_start(self)
+    }
 }
 
 /// Getters.
@@ -376,6 +383,66 @@ impl<T> DftEvent<IntraTreeLink<T>> {
         Some(next)
     }
 }
+
+/// Depth-first traverser for intra-tree links.
+pub(super) struct DepthFirstLinkTraverser<'a, T> {
+    /// Next event to emit, and the starting node.
+    // Using `&'a IntraTreeLink<T>` to guarantee the subtree lives longer
+    // than the traverser.
+    next: Option<(DftEvent<IntraTreeLink<T>>, &'a IntraTreeLink<T>)>,
+}
+
+impl<T> Clone for DepthFirstLinkTraverser<'_, T> {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self {
+            next: self.next.clone(),
+        }
+    }
+}
+
+impl<'a, T> DepthFirstLinkTraverser<'a, T> {
+    /// Creates a traverser from the opening of the given node.
+    #[inline]
+    #[must_use]
+    fn with_start(next: &'a IntraTreeLink<T>) -> Self {
+        Self {
+            next: Some((DftEvent::Open(next.clone()), next)),
+        }
+    }
+}
+
+impl<T> Iterator for DepthFirstLinkTraverser<'_, T> {
+    type Item = DftEvent<IntraTreeLink<T>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (next_ev, start) = self.next.take()?;
+        if let DftEvent::Close(link) = &next_ev {
+            if IntraTreeLink::ptr_eq(link, start) {
+                return None;
+            }
+        }
+        self.next = next_ev.next().map(|next_of_next| (next_of_next, start));
+        Some(next_ev)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self.next.as_ref() {
+            Some((DftEvent::Open(_), _)) => (2, None),
+            Some((DftEvent::Close(next), start)) => {
+                if IntraTreeLink::ptr_eq(next, start) {
+                    // The next event is the last event.
+                    (1, Some(1))
+                } else {
+                    (1, None)
+                }
+            }
+            None => (0, Some(0)),
+        }
+    }
+}
+
+impl<T> core::iter::FusedIterator for DepthFirstLinkTraverser<'_, T> {}
 
 /// An intra-tree non-owning reference to a node.
 // Note that this value itself acts as optional reference since it has

@@ -75,6 +75,9 @@ impl<T> Drop for TreeCore<T> {
             .try_borrow()
             .expect("[validity] `TreeCore` is being accessed exclusively")
             .clone();
+        // Not using `DepthFirstLinkTraverser` here is intentional.
+        // The links would be in inconsistent states before being dropped, so
+        // avoid introducing hidden invariants from `DepthFirstLinkTraverser`.
         let mut next = Some(DftEvent::Open(root_link));
         while let Some(current) = next.take() {
             next = current.next();
