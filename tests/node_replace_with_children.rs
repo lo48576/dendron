@@ -13,9 +13,8 @@ fn serialize_subtree<T: Clone>(node: &HotNode<T>) -> Vec<DftEvent<T>> {
 fn replace_root_without_children() {
     let root = HotNode::new_tree("root");
 
-    assert_eq!(
-        root.replace_with_children(),
-        Err(StructureError::EmptyTree),
+    assert!(
+        matches!(root.replace_with_children(), Err(StructureError::EmptyTree)),
         "tree cannot be empty"
     );
 }
@@ -31,7 +30,7 @@ fn replace_root_with_single_child() {
 
     //  root
     //  child
-    assert_eq!(root.replace_with_children(), Ok(()));
+    assert!(root.replace_with_children().is_ok());
     assert!(root.is_root());
     assert!(child.is_root());
 }
@@ -45,10 +44,10 @@ fn replace_root_with_multiple_children() {
     //  |-- child0
     //  `-- child1
 
-    assert_eq!(
+    assert!(matches!(
         root.replace_with_children(),
         Err(StructureError::SiblingsWithoutParent)
-    );
+    ));
 }
 
 /// Config.
@@ -149,9 +148,8 @@ fn replace_non_root() {
                 assert!(root.is_root());
                 assert!(!target.is_root(), "config={config:?}");
 
-                assert_eq!(
-                    target.replace_with_children(),
-                    Ok(()),
+                assert!(
+                    target.replace_with_children().is_ok(),
                     "HotNode::replace_with_children should success (config={config:?})"
                 );
                 assert!(
