@@ -5,11 +5,13 @@ use core::fmt;
 
 use alloc::rc::Rc;
 
+use crate::anchor::InsertAs;
 use crate::membership::{Membership, MembershipWithEditProhibition};
-use crate::node::{DebugPrettyPrint, IntraTreeLink, Node};
+use crate::node::{edit, DebugPrettyPrint, HotNode, IntraTreeLink, Node};
 use crate::serial;
 use crate::traverse;
 use crate::tree::{StructureEditProhibition, StructureEditProhibitionError, Tree, TreeCore};
+use crate::StructureError;
 
 /// A [`Node`] with a tree structure edit prohibition bundled.
 ///
@@ -455,7 +457,7 @@ impl<T> FrozenNode<T> {
     }
 }
 
-/// Node creation.
+/// Node creation and modification (to the other tree).
 impl<T> FrozenNode<T> {
     /// Clones the subtree and returns it as a new independent tree.
     ///
@@ -469,6 +471,26 @@ impl<T> FrozenNode<T> {
         T: Clone,
     {
         self.plain().clone_subtree()
+    }
+
+    /// Clones the node with its subtree, and inserts it to the given destination.
+    ///
+    /// Returns the root node of the cloned new subtree.
+    ///
+    /// # Failures
+    ///
+    /// Fails with [`BorrowNodeData`][`StructureError::BorrowNodeData`] if any
+    /// data associated to the node in the subtree is mutably (i.e. exclusively)
+    /// borrowed.
+    #[inline]
+    pub fn clone_insert_subtree(
+        &self,
+        dest: InsertAs<HotNode<T>>,
+    ) -> Result<HotNode<T>, StructureError>
+    where
+        T: Clone,
+    {
+        edit::clone_insert_subtree(&self.plain(), dest)
     }
 }
 

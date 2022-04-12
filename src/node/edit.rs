@@ -2,9 +2,10 @@
 
 use alloc::rc::Rc;
 
-use crate::anchor::AdoptAs;
+use crate::anchor::{AdoptAs, InsertAs};
 use crate::membership::Membership;
-use crate::node::{IntraTreeLink, IntraTreeLinkWeak, Node, NodeBuilder, StructureError};
+use crate::node::{HotNode, IntraTreeLink, IntraTreeLinkWeak, Node, NodeBuilder, StructureError};
+use crate::serial::{TreeBuildError, TreeBuilder};
 use crate::traverse::DftEvent;
 use crate::tree::TreeCore;
 
@@ -480,4 +481,51 @@ pub(super) fn replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<(), St
         .expect("[validity] brand-new tree structure can be locked by any types of lock");
 
     Ok(())
+}
+
+/// Clones the node and its subtree, and inserts it to the given destination.
+///
+/// Returns the root node of the cloned new subtree.
+///
+/// # Failures
+///
+/// Fails with [`BorrowNodeData`][`StructureError::BorrowNodeData`] if any
+/// data associated to the node in the subtree is mutably (i.e. exclusively)
+/// borrowed.
+pub(super) fn clone_insert_subtree<T>(
+    source: &Node<T>,
+    dest: InsertAs<HotNode<T>>,
+) -> Result<HotNode<T>, StructureError>
+where
+    T: Clone,
+{
+    let subtree_root = dest.try_create_node(
+        source
+            .try_borrow_data()
+            .map_err(StructureError::BorrowNodeData)?
+            .clone(),
+    )?;
+    let mut events = source.to_events();
+    // Skip the opening of the root, since it will be processed by calling
+    // `TreeBuilder::with_root()`.
+    events.next();
+    events
+        .try_fold(
+            TreeBuilder::with_root(subtree_root),
+            |mut builder, ev_res| {
+                builder.push_event(ev_res?)?;
+                Ok(builder)
+            },
+        )
+        .and_then(|builder| builder.finish())
+        .map(|node| {
+            node.bundle_new_structure_edit_grant()
+                .expect("[consistency] the structure of the destination tree is already editable")
+        })
+        .map_err(|e| match e {
+            TreeBuildError::BorrowData(e) => StructureError::BorrowNodeData(e),
+            TreeBuildError::RootNotOpened | TreeBuildError::RootClosed => {
+                unreachable!("[validity] subtree should be consistently serializable")
+            }
+        })
 }

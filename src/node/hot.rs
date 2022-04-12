@@ -5,7 +5,7 @@ use core::fmt;
 
 use alloc::rc::Rc;
 
-use crate::anchor::AdoptAs;
+use crate::anchor::{AdoptAs, InsertAs};
 use crate::membership::{Membership, MembershipWithEditGrant};
 use crate::node::{edit, DebugPrettyPrint, IntraTreeLink, Node};
 use crate::serial;
@@ -176,6 +176,13 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn ptr_eq(&self, other: &Self) -> bool {
+        IntraTreeLink::ptr_eq(&self.intra_link, &other.intra_link)
+    }
+
+    /// Returns `true` if `self` and the given `Node` point to the same allocation.
+    #[inline]
+    #[must_use]
+    pub fn ptr_eq_plain(&self, other: &Node<T>) -> bool {
         IntraTreeLink::ptr_eq(&self.intra_link, &other.intra_link)
     }
 }
@@ -513,6 +520,23 @@ impl<T> HotNode<T> {
         T: Clone,
     {
         self.plain().clone_subtree()
+    }
+
+    /// Clones the node with its subtree, and inserts it to the given destination.
+    ///
+    /// Returns the root node of the cloned new subtree.
+    ///
+    /// # Failures
+    ///
+    /// Fails with [`BorrowNodeData`][`StructureError::BorrowNodeData`] if any
+    /// data associated to the node in the subtree is mutably (i.e. exclusively)
+    /// borrowed.
+    #[inline]
+    pub fn clone_insert_subtree(&self, dest: InsertAs<HotNode<T>>) -> Result<Self, StructureError>
+    where
+        T: Clone,
+    {
+        edit::clone_insert_subtree(&self.plain(), dest)
     }
 }
 

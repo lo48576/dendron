@@ -21,7 +21,7 @@ mod tree;
 use core::cell::BorrowError;
 use core::fmt;
 
-pub use self::anchor::AdoptAs;
+pub use self::anchor::{AdoptAs, InsertAs};
 pub use self::node::{DebugPrettyPrint, FrozenNode, HotNode, Node};
 pub use self::tree::{
     StructureEditGrant, StructureEditGrantError, StructureEditProhibition,

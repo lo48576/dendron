@@ -11,7 +11,7 @@ use core::fmt;
 
 use alloc::rc::{Rc, Weak};
 
-use crate::anchor::AdoptAs;
+use crate::anchor::{AdoptAs, InsertAs};
 use crate::membership::{Membership, WeakMembership};
 use crate::serial::{self, TreeBuildError};
 use crate::traverse;
@@ -588,6 +588,26 @@ impl<T> Node<T> {
                     unreachable!("[validity] subtree should be consistently serializable")
                 }
             })
+    }
+
+    /// Clones the node with its subtree, and inserts it to the given destination.
+    ///
+    /// Returns the root node of the cloned new subtree.
+    ///
+    /// # Failures
+    ///
+    /// Fails with [`BorrowNodeData`][`StructureError::BorrowNodeData`] if any
+    /// data associated to the node in the subtree is mutably (i.e. exclusively)
+    /// borrowed.
+    #[inline]
+    pub fn clone_insert_subtree(
+        &self,
+        dest: InsertAs<HotNode<T>>,
+    ) -> Result<HotNode<T>, StructureError>
+    where
+        T: Clone,
+    {
+        edit::clone_insert_subtree(self, dest)
     }
 }
 
