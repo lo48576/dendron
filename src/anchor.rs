@@ -17,7 +17,7 @@ pub enum AdoptAs {
 }
 
 /// Target destination to insert, append, or prepend a node.
-#[derive(Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 // All variants have the common suffix "Of", but this is intended.
 // Variants would be used as, for example, `InsertAs::FirsChildOf(some_node)`.
 #[allow(clippy::enum_variant_names)]
@@ -65,6 +65,17 @@ impl<T> InsertAs<T> {
             Self::LastChildOf(_) => AdoptAs::LastChild,
             Self::PreviousSiblingOf(_) => AdoptAs::PreviousSibling,
             Self::NextSiblingOf(_) => AdoptAs::NextSibling,
+        }
+    }
+
+    /// Converts from `&InsertAs<T>` to `InsertAs<T>`.
+    #[must_use]
+    pub fn as_ref(&self) -> InsertAs<&T> {
+        match self {
+            Self::FirstChildOf(v) => InsertAs::FirstChildOf(v),
+            Self::LastChildOf(v) => InsertAs::LastChildOf(v),
+            Self::PreviousSiblingOf(v) => InsertAs::PreviousSiblingOf(v),
+            Self::NextSiblingOf(v) => InsertAs::NextSiblingOf(v),
         }
     }
 }
