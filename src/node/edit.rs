@@ -16,10 +16,23 @@ pub(super) fn detach_subtree<T>(this: &IntraTreeLink<T>) {
         // Do nothing.
         return;
     }
+
     // Update the references to the tree core.
     let tree_core_rc = TreeCore::new_rc(this.clone());
     set_memberships_of_descendants_and_self(this, &tree_core_rc)
         .expect("[validity] brand-new tree structure can be locked by any types of lock");
+
+    unlink_from_parent_and_siblings(this);
+}
+
+/// Detaches the node and its descendant from the current tree.
+///
+/// The caller should not pass the root node to the subtree, since it is meaningless.
+fn unlink_from_parent_and_siblings<T>(this: &IntraTreeLink<T>) {
+    debug_assert!(
+        !this.is_root(),
+        "[consistency] root node should be rejected by the caller"
+    );
 
     // Unlink from the neighbors.
     // Fields to update:
