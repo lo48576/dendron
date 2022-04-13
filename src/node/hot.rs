@@ -106,17 +106,24 @@ impl<T> HotNode<T> {
         }
     }
 
+    /// Returns the intra-tree link.
+    #[inline]
+    #[must_use]
+    pub(super) fn intra_link(&self) -> &IntraTreeLink<T> {
+        &self.intra_link
+    }
+
     /// Returns a reference to the plain membership.
     #[inline]
     #[must_use]
-    fn plain_membership(&self) -> &Membership<T> {
+    pub(super) fn plain_membership(&self) -> &Membership<T> {
         self.membership.as_inner()
     }
 
     /// Returns the tree core.
     #[inline]
     #[must_use]
-    fn tree_core(&self) -> Rc<TreeCore<T>> {
+    pub(super) fn tree_core(&self) -> Rc<TreeCore<T>> {
         self.plain_membership().tree_core()
     }
 
@@ -537,6 +544,30 @@ impl<T> HotNode<T> {
         T: Clone,
     {
         edit::clone_insert_subtree(&self.plain(), dest)
+    }
+
+    /// Detaches the node with its subtree, and inserts it to the given destination.
+    ///
+    /// Returns the root node of the transplanted subtree.
+    #[inline]
+    pub fn detach_insert_subtree(&self, dest: InsertAs<HotNode<T>>) -> Result<(), StructureError> {
+        if self
+            .plain_membership()
+            .belongs_to_same_tree(dest.anchor().plain_membership())
+        {
+            // The source and the destination belong to the same tree.
+            edit::detach_and_move_inside_same_tree(
+                &self.intra_link,
+                dest.as_ref().map(HotNode::intra_link),
+            )
+        } else {
+            // The source and the destination belong to the different tree.
+            edit::detach_and_move_to_another_tree(
+                &self.intra_link,
+                dest.as_ref().map(HotNode::intra_link),
+                dest.anchor().tree_core(),
+            )
+        }
     }
 }
 

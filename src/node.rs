@@ -609,6 +609,34 @@ impl<T> Node<T> {
     {
         edit::clone_insert_subtree(self, dest)
     }
+
+    /// Detaches the node with its subtree, and inserts it to the given destination.
+    #[inline]
+    pub fn detach_insert_subtree(
+        &self,
+        grant: StructureEditGrant<T>,
+        dest: InsertAs<HotNode<T>>,
+    ) -> Result<(), StructureError> {
+        grant.panic_if_invalid_for_node(self);
+
+        if self
+            .membership
+            .belongs_to_same_tree(dest.anchor().plain_membership())
+        {
+            // The source and the destination belong to the same tree.
+            edit::detach_and_move_inside_same_tree(
+                &self.intra_link,
+                dest.as_ref().map(HotNode::intra_link),
+            )
+        } else {
+            // The source and the destination belong to the different tree.
+            edit::detach_and_move_to_another_tree(
+                &self.intra_link,
+                dest.as_ref().map(HotNode::intra_link),
+                dest.anchor().tree_core(),
+            )
+        }
+    }
 }
 
 /// Serialization.

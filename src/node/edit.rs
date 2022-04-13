@@ -25,6 +25,38 @@ pub(super) fn detach_subtree<T>(this: &IntraTreeLink<T>) {
     unlink_from_parent_and_siblings(this);
 }
 
+/// Detaches the node and its descendant from the current parent, and inserts to other place in the
+/// same tree.
+pub(super) fn detach_and_move_inside_same_tree<T>(
+    this: &IntraTreeLink<T>,
+    dest: InsertAs<&IntraTreeLink<T>>,
+) -> Result<(), StructureError> {
+    if this.is_root() {
+        // Detaching entire tree here is meaningless.
+        // Do nothing.
+        return Ok(());
+    }
+
+    unlink_from_parent_and_siblings(this);
+
+    insert_existing_node(this, dest)
+}
+
+/// Detaches the node and its descendant from the current tree, and inserts to other tree.
+pub(super) fn detach_and_move_to_another_tree<T>(
+    this: &IntraTreeLink<T>,
+    dest: InsertAs<&IntraTreeLink<T>>,
+    dest_tree_core: Rc<TreeCore<T>>,
+) -> Result<(), StructureError> {
+    unlink_from_parent_and_siblings(this);
+
+    // Update the references to the tree core of the destination.
+    set_memberships_of_descendants_and_self(this, &dest_tree_core)
+        .expect("[validity] brand-new tree structure can be locked by any types of lock");
+
+    insert_existing_node(this, dest)
+}
+
 /// Detaches the node and its descendant from the current tree.
 ///
 /// The caller should not pass the root node to the subtree, since it is meaningless.
@@ -345,6 +377,99 @@ fn create_insert_between<T>(
     prev_sibling_link.replace_next_sibling(Some(intra_link.clone()));
 
     Node::with_link_and_membership(intra_link, membership)
+}
+
+/// Inserts the existing (temporarily orphan) node to the destination.
+///
+/// # Precondition
+///
+/// `this` and the anchor node of the destination should belong to the same tree.
+fn insert_existing_node<T>(
+    this: &IntraTreeLink<T>,
+    dest: InsertAs<&IntraTreeLink<T>>,
+) -> Result<(), StructureError> {
+    match dest {
+        InsertAs::FirstChildOf(parent) => {
+            // Fields to update:
+            //  * parent --> this
+            //      * this.parent (mandatory)
+            //      * parent.first_child (mandatory)
+            //  * this --> old_first_child
+            //      * this.next_sibling (if available)
+            //      * old_first_child.prev_sibling_cyclic (if available)
+            //  * last_child --> this
+            //      * new_child.prev_sibling_cyclic (mandatory)
+
+            if let Some((old_first_child_link, last_child_link)) = parent.first_last_child_link() {
+                // Connect the new first child and the last child.
+                this.replace_prev_sibling_cyclic(last_child_link.downgrade());
+                // Connect the new first child and the old first child.
+                IntraTreeLink::connect_adjacent_siblings(this, old_first_child_link);
+            } else {
+                // No siblings for the new node.
+                this.replace_prev_sibling_cyclic(this.downgrade());
+            }
+            this.replace_parent(parent.downgrade());
+            parent.replace_first_child(Some(this.clone()));
+        }
+        InsertAs::LastChildOf(parent) => {
+            // Fields to update:
+            //  * parent --> new_child
+            //      * this.parent (mandatory)
+            //  * old_last_child --> new_child
+            //      * this.prev_sibling_cyclic (mandatory)
+            //      * old_last_child.next (if available)
+            //  * first_child --> new_child
+            //      * first_child.prev_sibling_cyclic (mandatory)
+
+            if let Some((first_child_link, old_last_child_link)) = this.first_last_child_link() {
+                // Connect the first child and the new last child.
+                first_child_link.replace_prev_sibling_cyclic(this.downgrade());
+                // Connect the old last child and the new last child.
+                IntraTreeLink::connect_adjacent_siblings(&old_last_child_link, this.clone());
+            } else {
+                // No siblings for the new node.
+                this.replace_prev_sibling_cyclic(this.downgrade());
+                parent.replace_first_child(Some(this.clone()));
+            }
+            this.replace_parent(parent.downgrade());
+        }
+        InsertAs::PreviousSiblingOf(anchor) => {
+            let parent_link = anchor
+                .parent_link()
+                .ok_or(StructureError::SiblingsWithoutParent)?;
+            match anchor.prev_sibling_link() {
+                Some(prev_sibling_link) => {
+                    // siblings: prev_sibling_link --> this --> anchor
+                    this.replace_parent(parent_link.downgrade());
+                    let anchor_owned = prev_sibling_link.replace_next_sibling(Some(this.clone()));
+                    this.replace_next_sibling(anchor_owned);
+                    let prev_sibling_weak = anchor.replace_prev_sibling_cyclic(this.downgrade());
+                    this.replace_prev_sibling_cyclic(prev_sibling_weak);
+                }
+                None => return insert_existing_node(this, InsertAs::FirstChildOf(&parent_link)),
+            }
+        }
+        InsertAs::NextSiblingOf(anchor) => {
+            let parent_link = anchor
+                .parent_link()
+                .ok_or(StructureError::SiblingsWithoutParent)?;
+            match anchor.next_sibling_link() {
+                Some(next_sibling_link) => {
+                    // siblings: anchor --> this --> next_sibling_link
+                    this.replace_parent(parent_link.downgrade());
+                    let next_sibling_owned = anchor.replace_next_sibling(Some(this.clone()));
+                    this.replace_next_sibling(next_sibling_owned);
+                    let anchor_weak =
+                        next_sibling_link.replace_prev_sibling_cyclic(this.downgrade());
+                    this.replace_prev_sibling_cyclic(anchor_weak);
+                }
+                None => return insert_existing_node(this, InsertAs::LastChildOf(&parent_link)),
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Inserts the children at the position of the node, and detach the node.
