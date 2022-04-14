@@ -35,6 +35,8 @@ pub use self::tree::{
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum StructureError {
+    /// Attempt to make a node its own descendant or ancestor.
+    AncestorDescendantLoop,
     /// Attempt to make a tree empty.
     ///
     /// A tree must have at least one node (the root node), so it cannot be empty.
@@ -48,6 +50,7 @@ pub enum StructureError {
 impl fmt::Display for StructureError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let msg = match *self {
+            Self::AncestorDescendantLoop => "attempt to make a node its own descendant or ancestor",
             Self::EmptyTree => "attempt to make a tree empty",
             Self::SiblingsWithoutParent => "attempt to make a node sibling of the root node",
             Self::BorrowNodeData(_) => "failed to borrow the data associated to the node",

@@ -565,7 +565,7 @@ impl<T> HotNode<T> {
             edit::detach_and_move_to_another_tree(
                 &self.intra_link,
                 dest.as_ref().map(HotNode::intra_link),
-                dest.anchor().tree_core(),
+                &dest.anchor().tree_core(),
             )
         }
     }
