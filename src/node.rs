@@ -11,7 +11,7 @@ use core::fmt;
 
 use alloc::rc::{Rc, Weak};
 
-use crate::anchor::AdoptAs;
+use crate::anchor::{AdoptAs, InsertAs};
 use crate::membership::{Membership, WeakMembership};
 use crate::serial::{self, TreeBuildError};
 use crate::traverse;
@@ -199,6 +199,13 @@ impl<T> Node<T> {
     #[must_use]
     pub fn tree(&self) -> Tree<T> {
         Tree::from_core_rc(self.membership.tree_core())
+    }
+
+    /// Returns true if the given node belong to the same tree.
+    #[inline]
+    #[must_use]
+    pub fn belongs_to_same_tree(&self, other: &Self) -> bool {
+        self.membership.belongs_to_same_tree(&other.membership)
     }
 
     /// Returns true if the node is the root.
@@ -581,6 +588,54 @@ impl<T> Node<T> {
                     unreachable!("[validity] subtree should be consistently serializable")
                 }
             })
+    }
+
+    /// Clones the node with its subtree, and inserts it to the given destination.
+    ///
+    /// Returns the root node of the cloned new subtree.
+    ///
+    /// # Failures
+    ///
+    /// Fails with [`BorrowNodeData`][`StructureError::BorrowNodeData`] if any
+    /// data associated to the node in the subtree is mutably (i.e. exclusively)
+    /// borrowed.
+    #[inline]
+    pub fn clone_insert_subtree(
+        &self,
+        dest: InsertAs<HotNode<T>>,
+    ) -> Result<HotNode<T>, StructureError>
+    where
+        T: Clone,
+    {
+        edit::clone_insert_subtree(self, dest)
+    }
+
+    /// Detaches the node with its subtree, and inserts it to the given destination.
+    #[inline]
+    pub fn detach_insert_subtree(
+        &self,
+        grant: StructureEditGrant<T>,
+        dest: InsertAs<HotNode<T>>,
+    ) -> Result<(), StructureError> {
+        grant.panic_if_invalid_for_node(self);
+
+        if self
+            .membership
+            .belongs_to_same_tree(dest.anchor().plain_membership())
+        {
+            // The source and the destination belong to the same tree.
+            edit::detach_and_move_inside_same_tree(
+                &self.intra_link,
+                dest.as_ref().map(HotNode::intra_link),
+            )
+        } else {
+            // The source and the destination belong to the different tree.
+            edit::detach_and_move_to_another_tree(
+                &self.intra_link,
+                dest.as_ref().map(HotNode::intra_link),
+                &dest.anchor().tree_core(),
+            )
+        }
     }
 }
 

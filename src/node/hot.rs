@@ -5,7 +5,7 @@ use core::fmt;
 
 use alloc::rc::Rc;
 
-use crate::anchor::AdoptAs;
+use crate::anchor::{AdoptAs, InsertAs};
 use crate::membership::{Membership, MembershipWithEditGrant};
 use crate::node::{edit, DebugPrettyPrint, IntraTreeLink, Node};
 use crate::serial;
@@ -106,17 +106,24 @@ impl<T> HotNode<T> {
         }
     }
 
+    /// Returns the intra-tree link.
+    #[inline]
+    #[must_use]
+    pub(super) fn intra_link(&self) -> &IntraTreeLink<T> {
+        &self.intra_link
+    }
+
     /// Returns a reference to the plain membership.
     #[inline]
     #[must_use]
-    fn plain_membership(&self) -> &Membership<T> {
+    pub(super) fn plain_membership(&self) -> &Membership<T> {
         self.membership.as_inner()
     }
 
     /// Returns the tree core.
     #[inline]
     #[must_use]
-    fn tree_core(&self) -> Rc<TreeCore<T>> {
+    pub(super) fn tree_core(&self) -> Rc<TreeCore<T>> {
         self.plain_membership().tree_core()
     }
 
@@ -178,6 +185,13 @@ impl<T> HotNode<T> {
     pub fn ptr_eq(&self, other: &Self) -> bool {
         IntraTreeLink::ptr_eq(&self.intra_link, &other.intra_link)
     }
+
+    /// Returns `true` if `self` and the given `Node` point to the same allocation.
+    #[inline]
+    #[must_use]
+    pub fn ptr_eq_plain(&self, other: &Node<T>) -> bool {
+        IntraTreeLink::ptr_eq(&self.intra_link, &other.intra_link)
+    }
 }
 
 /// Neighbor nodes accessor.
@@ -194,6 +208,13 @@ impl<T> HotNode<T> {
     pub fn is_root(&self) -> bool {
         // The node is a root if and only if the node has no parent.
         self.intra_link.is_root()
+    }
+
+    /// Returns true if the given node belong to the same tree.
+    #[inline]
+    #[must_use]
+    pub fn belongs_to_same_tree(&self, other: &Self) -> bool {
+        self.membership.belongs_to_same_tree(&other.membership)
     }
 
     /// Returns the hot root node.
@@ -506,6 +527,47 @@ impl<T> HotNode<T> {
         T: Clone,
     {
         self.plain().clone_subtree()
+    }
+
+    /// Clones the node with its subtree, and inserts it to the given destination.
+    ///
+    /// Returns the root node of the cloned new subtree.
+    ///
+    /// # Failures
+    ///
+    /// Fails with [`BorrowNodeData`][`StructureError::BorrowNodeData`] if any
+    /// data associated to the node in the subtree is mutably (i.e. exclusively)
+    /// borrowed.
+    #[inline]
+    pub fn clone_insert_subtree(&self, dest: InsertAs<HotNode<T>>) -> Result<Self, StructureError>
+    where
+        T: Clone,
+    {
+        edit::clone_insert_subtree(&self.plain(), dest)
+    }
+
+    /// Detaches the node with its subtree, and inserts it to the given destination.
+    ///
+    /// Returns the root node of the transplanted subtree.
+    #[inline]
+    pub fn detach_insert_subtree(&self, dest: InsertAs<HotNode<T>>) -> Result<(), StructureError> {
+        if self
+            .plain_membership()
+            .belongs_to_same_tree(dest.anchor().plain_membership())
+        {
+            // The source and the destination belong to the same tree.
+            edit::detach_and_move_inside_same_tree(
+                &self.intra_link,
+                dest.as_ref().map(HotNode::intra_link),
+            )
+        } else {
+            // The source and the destination belong to the different tree.
+            edit::detach_and_move_to_another_tree(
+                &self.intra_link,
+                dest.as_ref().map(HotNode::intra_link),
+                &dest.anchor().tree_core(),
+            )
+        }
     }
 }
 

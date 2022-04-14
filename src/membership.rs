@@ -168,6 +168,14 @@ impl<T> Membership<T> {
         Rc::ptr_eq(&self.inner, &other.inner)
     }
 
+    /// Returns true if the given node belong to the same tree.
+    #[must_use]
+    pub(crate) fn belongs_to_same_tree(&self, other: &Self) -> bool {
+        let self_ptr = Rc::as_ptr(&*self.tree_core_ref());
+        let other_ptr = Rc::as_ptr(&*other.tree_core_ref());
+        self_ptr == other_ptr
+    }
+
     /// Decrements aggregated lock count.
     ///
     /// # Panics
@@ -421,6 +429,13 @@ impl<T> MembershipWithEditProhibition<T> {
     pub(crate) fn as_inner(&self) -> &Membership<T> {
         &self.inner
     }
+
+    /// Returns true if the given node belong to the same tree.
+    #[inline]
+    #[must_use]
+    pub(crate) fn belongs_to_same_tree(&self, other: &Self) -> bool {
+        self.inner.belongs_to_same_tree(&other.inner)
+    }
 }
 
 impl<T> AsRef<Membership<T>> for MembershipWithEditProhibition<T> {
@@ -465,6 +480,13 @@ impl<T> MembershipWithEditGrant<T> {
     #[must_use]
     pub(crate) fn as_inner(&self) -> &Membership<T> {
         &self.inner
+    }
+
+    /// Returns true if the given node belong to the same tree.
+    #[inline]
+    #[must_use]
+    pub(crate) fn belongs_to_same_tree(&self, other: &Self) -> bool {
+        self.inner.belongs_to_same_tree(&other.inner)
     }
 }
 
