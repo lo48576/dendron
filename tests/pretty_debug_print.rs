@@ -2,45 +2,7 @@
 
 use core::fmt;
 
-use dendron::serial::Event;
-use dendron::Node;
-
-//  []
-//  |-- [0]
-//  |-- [1]
-//  |   |-- [1, 0]
-//  |   |   `-- [1, 0, 0]
-//  |   |-- [1, 1]
-//  |   `-- [1, 2]
-//  |       `-- [1, 2, 0]
-//  `-- [2]
-//      |-- [2, 0]
-//      |   `-- [2, 0, 0]
-//      `-- [2, 1]
-//          `-- [2, 1, 0]
-fn sample_events() -> Vec<Event<Vec<i32>>> {
-    vec![
-        Event::Open(vec![]),
-        Event::Open(vec![0]),
-        Event::close(1),
-        Event::Open(vec![1]),
-        Event::Open(vec![1, 0]),
-        Event::Open(vec![1, 0, 0]),
-        Event::close(2),
-        Event::Open(vec![1, 1]),
-        Event::close(1),
-        Event::Open(vec![1, 2]),
-        Event::Open(vec![1, 2, 0]),
-        Event::close(3),
-        Event::Open(vec![2]),
-        Event::Open(vec![2, 0]),
-        Event::Open(vec![2, 0, 0]),
-        Event::close(2),
-        Event::Open(vec![2, 1]),
-        Event::Open(vec![2, 1, 0]),
-        Event::close(3),
-    ]
-}
+use dendron::{tree_node, Node};
 
 #[derive(Clone)]
 struct Label(Vec<i32>);
@@ -70,12 +32,48 @@ impl fmt::Display for Label {
     }
 }
 
+macro_rules! label {
+    ($($tt:tt)*) => {
+        Label(vec![$($tt)*])
+    }
+}
+
 fn sample_tree() -> Node<Label> {
-    sample_events()
-        .into_iter()
-        .map(|ev| ev.map(Label))
-        .collect::<Result<_, _>>()
-        .expect("valid events that can construct tree")
+    //  []
+    //  |-- [0]
+    //  |-- [1]
+    //  |   |-- [1, 0]
+    //  |   |   `-- [1, 0, 0]
+    //  |   |-- [1, 1]
+    //  |   `-- [1, 2]
+    //  |       `-- [1, 2, 0]
+    //  `-- [2]
+    //      |-- [2, 0]
+    //      |   `-- [2, 0, 0]
+    //      `-- [2, 1]
+    //          `-- [2, 1, 0]
+    tree_node! {
+        label![], [
+            label![0],
+            /(label![1], [
+                /(label![1, 0], [
+                    label![1, 0, 0],
+                ]),
+                label![1, 1],
+                /(label![1, 2], [
+                    label![1, 2, 0],
+                ]),
+            ]),
+            /(label![2], [
+                /(label![2, 0], [
+                    label![2, 0, 0],
+                ]),
+                /(label![2, 1], [
+                    label![2, 1, 0],
+                ]),
+            ]),
+        ]
+    }
 }
 
 #[test]
