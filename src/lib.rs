@@ -11,6 +11,9 @@
 
 extern crate alloc;
 
+#[macro_use]
+mod macros;
+
 mod anchor;
 mod membership;
 mod node;
