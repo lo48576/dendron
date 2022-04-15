@@ -55,6 +55,110 @@ impl<T: fmt::Debug> fmt::Debug for Node<T> {
     }
 }
 
+impl<T, U: PartialEq<U>> PartialEq<Node<U>> for Node<T>
+where
+    T: PartialEq<U>,
+{
+    /// Compares two subtrees.
+    ///
+    /// Returns `Ok(true)` if the two subtree are equal, even if they are stored
+    /// in different allocation.
+    ///
+    /// # Panics
+    ///
+    /// May panic if associated data of some nodes are already borrowed
+    /// exclusively (i.e. mutably).
+    ///
+    /// To avoid panicking, use [`try_eq`][`Node::try_eq`] method.
+    ///
+    /// # Examples
+    ///
+    /// See the documentation for [`try_eq`][`Self::try_eq`] method.
+    #[inline]
+    fn eq(&self, other: &Node<U>) -> bool {
+        self.try_eq(other).expect(
+            "[precondition] data associated to the nodes in both trees should be borrowable",
+        )
+    }
+}
+
+impl<T: Eq> Eq for Node<T> {}
+
+/// Implements comparisons for different node types.
+macro_rules! impl_cmp_different_node_types {
+    ($ty_lhs:ident, $ty_rhs:ident) => {
+        impl<T, U: PartialEq<U>> PartialEq<$ty_rhs<U>> for $ty_lhs<T>
+        where
+            T: PartialEq<U>,
+        {
+            impl_cmp_different_node_types!(@inner_fn, $ty_rhs<U>);
+        }
+
+        impl<T, U: PartialEq<U>> PartialEq<$ty_lhs<U>> for $ty_rhs<T>
+        where
+            T: PartialEq<U>,
+        {
+            impl_cmp_different_node_types!(@inner_fn, $ty_lhs<U>);
+        }
+
+        impl<T, U: PartialEq<U>> PartialEq<&$ty_rhs<U>> for $ty_lhs<T>
+        where
+            T: PartialEq<U>,
+        {
+            impl_cmp_different_node_types!(@inner_fn, &$ty_rhs<U>);
+        }
+
+        impl<T, U: PartialEq<U>> PartialEq<&$ty_lhs<U>> for $ty_rhs<T>
+        where
+            T: PartialEq<U>,
+        {
+            impl_cmp_different_node_types!(@inner_fn, &$ty_lhs<U>);
+        }
+
+        impl<T, U: PartialEq<U>> PartialEq<$ty_rhs<U>> for &$ty_lhs<T>
+        where
+            T: PartialEq<U>,
+        {
+            impl_cmp_different_node_types!(@inner_fn, $ty_rhs<U>);
+        }
+
+        impl<T, U: PartialEq<U>> PartialEq<$ty_lhs<U>> for &$ty_rhs<T>
+        where
+            T: PartialEq<U>,
+        {
+            impl_cmp_different_node_types!(@inner_fn, $ty_lhs<U>);
+        }
+    };
+    (@inner_fn, $ty_rhs:ty) => {
+        /// Compares two subtrees.
+        ///
+        /// Returns `Ok(true)` if the two subtree are equal, even if they are stored
+        /// in different allocation.
+        ///
+        /// # Panics
+        ///
+        /// May panic if associated data of some nodes are already borrowed
+        /// exclusively (i.e. mutably).
+        ///
+        /// To avoid panicking, use [`Node::try_eq`], [`FrozenNode::plain`], and
+        /// [`HotNode::plain`] methods.
+        ///
+        /// # Examples
+        ///
+        /// See the documentation for [`Node::try_eq`] method.
+        #[inline]
+        fn eq(&self, other: &$ty_rhs) -> bool {
+            self.intra_link.try_eq(&other.intra_link).expect(
+                "[precondition] data associated to the nodes in both trees should be borrowable",
+            )
+        }
+    }
+}
+
+impl_cmp_different_node_types!(Node, FrozenNode);
+impl_cmp_different_node_types!(Node, HotNode);
+impl_cmp_different_node_types!(FrozenNode, HotNode);
+
 /// Node object creation.
 impl<T> Node<T> {
     /// Creates a node from the internal values.
@@ -636,6 +740,74 @@ impl<T> Node<T> {
                 &dest.anchor().tree_core(),
             )
         }
+    }
+}
+
+/// Comparison.
+impl<T> Node<T> {
+    /// Compares two subtrees.
+    ///
+    /// Returns `Ok(true)` if the two subtree are equal, even if they are stored
+    /// in different allocation.
+    ///
+    /// # Failures
+    ///
+    /// May return `Err(_)` if associated data of some nodes are already
+    /// borrowed exclusively (i.e. mutably).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::{tree_node, Node};
+    ///
+    /// //  root
+    /// //  |-- 0
+    /// //  |   |-- 0-0
+    /// //  |   `-- 0-1
+    /// //  |       `-- 0-1-0
+    /// //  `-- 1
+    /// let node1: Node<&'static str> = tree_node! {
+    ///     "root", [
+    ///         /("0", [
+    ///             "0-0",
+    ///             /("0-1", [
+    ///                 "0-1-0",
+    ///             ]),
+    ///         ]),
+    ///         "1",
+    ///     ]
+    /// };
+    ///
+    /// //  0
+    /// //  |-- 0-0
+    /// //  `-- 0-1
+    /// //      `-- 0-1-0
+    /// let node2: Node<String> = tree_node! {
+    ///     "0".to_owned(), [
+    ///         "0-0".into(),
+    ///         /("0-1".into(), [
+    ///             "0-1-0".into(),
+    ///         ]),
+    ///     ]
+    /// };
+    ///
+    /// assert!(
+    ///     !node1.try_eq(&node2).expect("data are not borrowed"),
+    ///     "node1 and node2 are not equal"
+    /// );
+    ///
+    /// let node1_first_child = node1.first_child().expect("node1 has a child");
+    /// assert!(
+    ///     node1_first_child.try_eq(&node2).expect("data are not borrowed"),
+    ///     "the first child of node1 and node2 are equal"
+    /// );
+    /// ```
+    #[inline]
+    pub fn try_eq<U>(&self, other: &Node<U>) -> Result<bool, BorrowError>
+    where
+        T: PartialEq<U>,
+    {
+        self.intra_link.try_eq(&other.intra_link)
     }
 }
 

@@ -21,7 +21,7 @@ use crate::StructureError;
 /// `usize::MAX`. This is very unlikely to happen without leaking prohibitions.
 pub struct FrozenNode<T> {
     /// Target node core.
-    intra_link: IntraTreeLink<T>,
+    pub(super) intra_link: IntraTreeLink<T>,
     /// Membership of a node with ownership of the tree.
     membership: MembershipWithEditProhibition<T>,
 }
@@ -45,6 +45,36 @@ impl<T: fmt::Debug> fmt::Debug for FrozenNode<T> {
             .finish()
     }
 }
+
+impl<T, U: PartialEq<U>> PartialEq<FrozenNode<U>> for FrozenNode<T>
+where
+    T: PartialEq<U>,
+{
+    /// Compares two subtrees.
+    ///
+    /// Returns `Ok(true)` if the two subtree are equal, even if they are stored
+    /// in different allocation.
+    ///
+    /// # Panics
+    ///
+    /// May panic if associated data of some nodes are already borrowed
+    /// exclusively (i.e. mutably).
+    ///
+    /// To avoid panicking, use [`Node::try_eq`] and [`plain`][`Self::plain`]
+    /// method.
+    ///
+    /// # Examples
+    ///
+    /// See the documentation for [`Node::try_eq`] method.
+    #[inline]
+    fn eq(&self, other: &FrozenNode<U>) -> bool {
+        self.intra_link.try_eq(&other.intra_link).expect(
+            "[precondition] data associated to the nodes in both trees should be borrowable",
+        )
+    }
+}
+
+impl<T: Eq> Eq for FrozenNode<T> {}
 
 impl<T> FrozenNode<T> {
     /// Creates a new `FrozenNode` from the given plain node.

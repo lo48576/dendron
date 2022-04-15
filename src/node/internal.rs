@@ -353,6 +353,42 @@ impl<T> IntraTreeLink<T> {
     }
 }
 
+/// Comparison.
+impl<T> IntraTreeLink<T> {
+    /// Compares two subtrees.
+    ///
+    /// Returns `Ok(true)` if the two subtree are equal, even if they are stored
+    /// in different allocation.
+    ///
+    /// # Failures
+    ///
+    /// May return `Err(_)` if associated data of some nodes are already
+    /// borrowed exclusively (i.e. mutably).
+    pub(super) fn try_eq<U>(&self, other: &IntraTreeLink<U>) -> Result<bool, BorrowError>
+    where
+        T: PartialEq<U>,
+    {
+        // NOTE: `Iterator::eq_by` is not yet stabilized (as of Rust 1.60).
+        let mut self_iter = self.depth_first_traverse();
+        let mut other_iter = other.depth_first_traverse();
+        loop {
+            match (self_iter.next(), other_iter.next()) {
+                (None, None) => return Ok(true),
+                (Some(l), Some(r)) => match (l, r) {
+                    (DftEvent::Open(l), DftEvent::Open(r)) => {
+                        if *l.try_borrow_data()? != *r.try_borrow_data()? {
+                            return Ok(false);
+                        }
+                    }
+                    (DftEvent::Close(_), DftEvent::Close(_)) => {}
+                    _ => return Ok(false),
+                },
+                _ => return Ok(false),
+            }
+        }
+    }
+}
+
 impl<T> DftEvent<IntraTreeLink<T>> {
     /// Returns the next (forward direction) event.
     ///
