@@ -63,6 +63,17 @@ impl<T: Clone> TryFrom<DftEvent<FrozenNode<T>>> for Event<T> {
     }
 }
 
+impl<T: Clone> TryFrom<DftEvent<HotNode<T>>> for Event<T> {
+    type Error = BorrowError;
+
+    fn try_from(ev: DftEvent<HotNode<T>>) -> Result<Self, Self::Error> {
+        match ev {
+            DftEvent::Open(node) => node.try_borrow_data().map(|data| Event::Open(data.clone())),
+            DftEvent::Close(_) => Ok(Event::close(1)),
+        }
+    }
+}
+
 impl<T> FromIterator<Event<T>> for Result<Node<T>, TreeBuildError> {
     fn from_iter<I>(iter: I) -> Self
     where
