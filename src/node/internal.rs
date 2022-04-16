@@ -324,6 +324,14 @@ impl<T> IntraTreeLink<T> {
     pub(super) fn count_following_siblings(&self) -> usize {
         iter::successors(self.next_sibling_link(), |link| link.next_sibling_link()).count()
     }
+
+    /// Returns the number of ancestors.
+    ///
+    /// Note that this is O(N) operation.
+    #[must_use]
+    pub(super) fn count_ancestors(&self) -> usize {
+        iter::successors(self.parent_link(), |link| link.parent_link()).count()
+    }
 }
 
 /// Setters.

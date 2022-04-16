@@ -409,6 +409,15 @@ impl<T> FrozenNode<T> {
     pub fn count_following_siblings(&self) -> usize {
         self.intra_link.count_following_siblings()
     }
+
+    /// Returns the number of ancestors.
+    ///
+    /// Note that this is O(N) operation.
+    #[inline]
+    #[must_use]
+    pub fn count_ancestors(&self) -> usize {
+        self.intra_link.count_ancestors()
+    }
 }
 
 /// Tree traverser.
