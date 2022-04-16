@@ -6,7 +6,9 @@ mod depth_first;
 mod siblings;
 
 pub use self::ancestors::AncestorsTraverser;
-pub use self::breadth_first::NonAllocatingBreadthFirstTraverser;
+pub use self::breadth_first::{
+    AllocatingBreadthFirstTraverser, NonAllocatingBreadthFirstTraverser,
+};
 pub use self::depth_first::{
     DepthFirstTraverser, DftEvent, ReverseDepthFirstTraverser, StableDepthFirstTraverser,
     StableShallowDepthFirstTraverser,
