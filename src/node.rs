@@ -25,7 +25,7 @@ pub use self::debug_print::DebugPrettyPrint;
 pub use self::frozen::FrozenNode;
 pub use self::hot::HotNode;
 pub(crate) use self::internal::IntraTreeLink;
-use self::internal::{IntraTreeLinkWeak, NodeBuilder};
+use self::internal::{IntraTreeLinkWeak, NodeBuilder, NumChildren};
 
 /// A shared owning reference to a node.
 pub struct Node<T> {
@@ -433,6 +433,20 @@ impl<T> Node<T> {
     #[must_use]
     pub fn has_children(&self) -> bool {
         self.intra_link.has_children()
+    }
+
+    /// Returns true if the node has just one child.
+    #[inline]
+    #[must_use]
+    pub fn has_one_child(&self) -> bool {
+        self.intra_link.num_children_rough() == NumChildren::One
+    }
+
+    /// Returns true if the node has two or more children.
+    #[inline]
+    #[must_use]
+    pub fn has_multiple_children(&self) -> bool {
+        self.intra_link.num_children_rough() == NumChildren::TwoOrMore
     }
 }
 

@@ -7,7 +7,7 @@ use alloc::rc::Rc;
 
 use crate::anchor::InsertAs;
 use crate::membership::{Membership, MembershipWithEditProhibition};
-use crate::node::{edit, DebugPrettyPrint, HotNode, IntraTreeLink, Node};
+use crate::node::{edit, DebugPrettyPrint, HotNode, IntraTreeLink, Node, NumChildren};
 use crate::serial;
 use crate::traverse;
 use crate::tree::{StructureEditProhibition, StructureEditProhibitionError, Tree, TreeCore};
@@ -367,6 +367,20 @@ impl<T> FrozenNode<T> {
     #[must_use]
     pub fn has_children(&self) -> bool {
         self.intra_link.has_children()
+    }
+
+    /// Returns true if the node has just one child.
+    #[inline]
+    #[must_use]
+    pub fn has_one_child(&self) -> bool {
+        self.intra_link.num_children_rough() == NumChildren::One
+    }
+
+    /// Returns true if the node has two or more children.
+    #[inline]
+    #[must_use]
+    pub fn has_multiple_children(&self) -> bool {
+        self.intra_link.num_children_rough() == NumChildren::TwoOrMore
     }
 }
 

@@ -7,7 +7,7 @@ use alloc::rc::Rc;
 
 use crate::anchor::{AdoptAs, InsertAs};
 use crate::membership::{Membership, MembershipWithEditGrant};
-use crate::node::{edit, DebugPrettyPrint, IntraTreeLink, Node};
+use crate::node::{edit, DebugPrettyPrint, IntraTreeLink, Node, NumChildren};
 use crate::serial;
 use crate::traverse;
 use crate::tree::{StructureEditGrant, StructureEditGrantError, Tree, TreeCore};
@@ -378,6 +378,20 @@ impl<T> HotNode<T> {
     #[must_use]
     pub fn has_children(&self) -> bool {
         self.intra_link.has_children()
+    }
+
+    /// Returns true if the node has just one child.
+    #[inline]
+    #[must_use]
+    pub fn has_one_child(&self) -> bool {
+        self.intra_link.num_children_rough() == NumChildren::One
+    }
+
+    /// Returns true if the node has two or more children.
+    #[inline]
+    #[must_use]
+    pub fn has_multiple_children(&self) -> bool {
+        self.intra_link.num_children_rough() == NumChildren::TwoOrMore
     }
 }
 

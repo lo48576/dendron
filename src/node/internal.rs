@@ -262,6 +262,21 @@ impl<T> IntraTreeLink<T> {
             .is_some()
     }
 
+    /// Returns the number of children.
+    #[must_use]
+    pub(super) fn num_children_rough(&self) -> NumChildren {
+        let first_child = match self.first_child_link() {
+            Some(v) => v,
+            None => return NumChildren::Zero,
+        };
+        let last_child = first_child.prev_sibling_cyclic_link();
+        if first_child.ptr_eq(&last_child) {
+            NumChildren::One
+        } else {
+            NumChildren::TwoOrMore
+        }
+    }
+
     /// Returns the membership.
     #[inline]
     #[must_use]
@@ -559,4 +574,15 @@ impl<T> IntraTreeLinkWeak<T> {
     fn is_unavailable(&self) -> bool {
         self.core.strong_count() == 0
     }
+}
+
+/// The number of children.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(super) enum NumChildren {
+    /// No children.
+    Zero,
+    /// Just one child.
+    One,
+    /// More than two children.
+    TwoOrMore,
 }
