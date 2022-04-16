@@ -116,3 +116,22 @@ macro_rules! tree_node {
     // No children.
     (@@process_descendant, $parent:ident, []) => {};
 }
+
+/// A macro that evaluates to the root node of a new tree.
+///
+/// Syntax is simple:
+///
+/// * For non-root nodes:
+///     + `data` to describe a leaf node.
+///     + `(data, [descendants_recursive])` to describe a node with descendants.
+/// * For the root node:
+///     + `data` to describe single node tree.
+///     + `data, [descendants_recursive]` to describe a tree with descendants.
+///
+/// See [`tree_node`] macro for usage examples.
+#[macro_export]
+macro_rules! tree {
+    ($($tt:tt)*) => {
+        $crate::tree_node!($($tt)*).tree()
+    };
+}
