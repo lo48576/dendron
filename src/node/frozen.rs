@@ -167,6 +167,17 @@ impl<T> From<FrozenNode<T>> for Node<T> {
     }
 }
 
+/// Tree structure edit prohibitions.
+impl<T> FrozenNode<T> {
+    /// Returns a copy of the tree structure edit prohibition.
+    #[must_use]
+    pub fn extract_structure_edit_prohibition(&self) -> StructureEditProhibition<T> {
+        self.tree()
+            .prohibit_structure_edit()
+            .expect("[validity] the tree structure is already prohibited to be edit")
+    }
+}
+
 // Common methods below.
 
 /// Data access.
