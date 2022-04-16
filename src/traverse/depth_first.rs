@@ -58,6 +58,24 @@ impl<T> DftEvent<T> {
             Self::Close(v) => DftEvent::Close(f(v)),
         }
     }
+
+    /// Extracts the value for `Open` event if possible.
+    #[must_use]
+    pub fn into_open(self) -> Option<T> {
+        match self {
+            Self::Open(v) => Some(v),
+            Self::Close(_) => None,
+        }
+    }
+
+    /// Extracts the value for `Close` event if possible.
+    #[must_use]
+    pub fn into_close(self) -> Option<T> {
+        match self {
+            Self::Open(_) => None,
+            Self::Close(v) => Some(v),
+        }
+    }
 }
 
 /// Implements `DftEvent<$ty_node<T>>::{next,prev}`.
