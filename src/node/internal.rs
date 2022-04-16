@@ -2,6 +2,7 @@
 
 use core::cell::{BorrowError, BorrowMutError, Ref, RefCell, RefMut};
 use core::fmt;
+use core::iter;
 use core::mem;
 
 use alloc::rc::{Rc, Weak};
@@ -298,6 +299,14 @@ impl<T> IntraTreeLink<T> {
             .try_borrow()
             .expect("[consistency] `NodeCore::next_sibling` should not be borrowed nestedly")
             .is_none()
+    }
+
+    /// Returns the number of children.
+    ///
+    /// Note that this is O(N) operation.
+    #[must_use]
+    pub(super) fn count_children(&self) -> usize {
+        iter::successors(self.first_child_link(), |link| link.next_sibling_link()).count()
     }
 }
 

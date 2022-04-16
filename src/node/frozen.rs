@@ -382,6 +382,15 @@ impl<T> FrozenNode<T> {
     pub fn has_multiple_children(&self) -> bool {
         self.intra_link.num_children_rough() == NumChildren::TwoOrMore
     }
+
+    /// Returns the number of children.
+    ///
+    /// Note that this is O(N) operation.
+    #[inline]
+    #[must_use]
+    pub fn count_children(&self) -> usize {
+        self.intra_link.count_children()
+    }
 }
 
 /// Tree traverser.
