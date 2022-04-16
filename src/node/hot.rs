@@ -402,6 +402,24 @@ impl<T> HotNode<T> {
     pub fn count_children(&self) -> usize {
         self.intra_link.count_children()
     }
+
+    /// Returns the number of preceding siblings.
+    ///
+    /// Note that this is O(N) operation.
+    #[inline]
+    #[must_use]
+    pub fn count_preceding_siblings(&self) -> usize {
+        self.intra_link.count_preceding_siblings()
+    }
+
+    /// Returns the number of following siblings.
+    ///
+    /// Note that this is O(N) operation.
+    #[inline]
+    #[must_use]
+    pub fn count_following_siblings(&self) -> usize {
+        self.intra_link.count_following_siblings()
+    }
 }
 
 /// Tree traverser.
