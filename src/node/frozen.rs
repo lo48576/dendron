@@ -578,6 +578,32 @@ impl<T> FrozenNode<T> {
     ) -> traverse::StableShallowDepthFirstTraverser<T> {
         traverse::StableShallowDepthFirstTraverser::with_toplevel(Some(self.clone()), max_depth)
     }
+
+    /// Returns the stable non-allocating breadth-first traverser.
+    ///
+    /// Note that traversing all nodes will be `O(n^2)` operation in worst case,
+    /// not `O(n)`.
+    #[inline]
+    #[must_use]
+    pub fn non_allocating_breadth_first_traverse_stable(
+        &self,
+        start_depth: usize,
+    ) -> traverse::NonAllocatingBreadthFirstTraverser<T> {
+        traverse::NonAllocatingBreadthFirstTraverser::with_toplevel(self.clone(), start_depth)
+    }
+
+    /// Returns the stable allocating breadth-first traverser.
+    ///
+    /// The returned traverser will heap-allocate, and iterating all nodes is
+    /// `O(n)` operation.
+    #[inline]
+    #[must_use]
+    pub fn allocating_breadth_first_traverse_stable(
+        &self,
+        start_depth: usize,
+    ) -> traverse::AllocatingBreadthFirstTraverser<T> {
+        traverse::AllocatingBreadthFirstTraverser::with_toplevel(self.clone(), start_depth)
+    }
 }
 
 /// Node creation and modification (to the other tree).
