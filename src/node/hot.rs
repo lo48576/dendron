@@ -7,11 +7,10 @@ use alloc::rc::Rc;
 
 use crate::anchor::{AdoptAs, InsertAs};
 use crate::membership::{Membership, MembershipWithEditGrant};
-use crate::node::{edit, DebugPrettyPrint, IntraTreeLink, Node, NumChildren};
+use crate::node::{edit, DebugPrettyPrint, IntraTreeLink, Node, NumChildren, StructureError};
 use crate::serial;
 use crate::traverse;
 use crate::tree::{StructureEditGrant, StructureEditGrantError, Tree, TreeCore};
-use crate::StructureError;
 
 /// A [`Node`] with a tree structure edit grant bundled.
 ///
