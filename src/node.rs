@@ -25,7 +25,7 @@ pub use self::debug_print::DebugPrettyPrint;
 pub use self::frozen::FrozenNode;
 pub use self::hot::HotNode;
 pub(crate) use self::internal::IntraTreeLink;
-use self::internal::{IntraTreeLinkWeak, NodeBuilder};
+use self::internal::{IntraTreeLinkWeak, NodeBuilder, NumChildren};
 
 /// A shared owning reference to a node.
 pub struct Node<T> {
@@ -412,6 +412,77 @@ impl<T> Node<T> {
     pub fn first_last_child(&self) -> Option<(Self, Self)> {
         let (first_link, last_link) = self.intra_link.first_last_child_link()?;
         Some((Self::with_link(first_link), Self::with_link(last_link)))
+    }
+
+    /// Returns true if the previous sibling exists.
+    #[inline]
+    #[must_use]
+    pub fn has_prev_sibling(&self) -> bool {
+        self.intra_link.has_prev_sibling()
+    }
+
+    /// Returns true if the next sibling exists.
+    #[inline]
+    #[must_use]
+    pub fn has_next_sibling(&self) -> bool {
+        self.intra_link.has_next_sibling()
+    }
+
+    /// Returns true if the node has any children.
+    #[inline]
+    #[must_use]
+    pub fn has_children(&self) -> bool {
+        self.intra_link.has_children()
+    }
+
+    /// Returns true if the node has just one child.
+    #[inline]
+    #[must_use]
+    pub fn has_one_child(&self) -> bool {
+        self.intra_link.num_children_rough() == NumChildren::One
+    }
+
+    /// Returns true if the node has two or more children.
+    #[inline]
+    #[must_use]
+    pub fn has_multiple_children(&self) -> bool {
+        self.intra_link.num_children_rough() == NumChildren::TwoOrMore
+    }
+
+    /// Returns the number of children.
+    ///
+    /// Note that this is O(N) operation.
+    #[inline]
+    #[must_use]
+    pub fn count_children(&self) -> usize {
+        self.intra_link.count_children()
+    }
+
+    /// Returns the number of preceding siblings.
+    ///
+    /// Note that this is O(N) operation.
+    #[inline]
+    #[must_use]
+    pub fn count_preceding_siblings(&self) -> usize {
+        self.intra_link.count_preceding_siblings()
+    }
+
+    /// Returns the number of following siblings.
+    ///
+    /// Note that this is O(N) operation.
+    #[inline]
+    #[must_use]
+    pub fn count_following_siblings(&self) -> usize {
+        self.intra_link.count_following_siblings()
+    }
+
+    /// Returns the number of ancestors.
+    ///
+    /// Note that this is O(N) operation.
+    #[inline]
+    #[must_use]
+    pub fn count_ancestors(&self) -> usize {
+        self.intra_link.count_ancestors()
     }
 }
 

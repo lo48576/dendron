@@ -2,6 +2,7 @@
 
 use core::cell::{BorrowError, BorrowMutError, Ref, RefCell, RefMut};
 use core::fmt;
+use core::iter;
 use core::mem;
 
 use alloc::rc::{Rc, Weak};
@@ -186,6 +187,20 @@ impl<T> IntraTreeLink<T> {
         }
     }
 
+    /// Returns true if the previous sibling exists.
+    #[must_use]
+    pub(super) fn has_prev_sibling(&self) -> bool {
+        let prev_sibling_cyclic = self.prev_sibling_cyclic_link();
+
+        let result = prev_sibling_cyclic
+            .core
+            .next_sibling
+            .try_borrow()
+            .expect("[consistency] `NodeCore::next_sibling` should not be borrowed nestedly")
+            .is_some();
+        result
+    }
+
     /// Returns a link to the next sibling.
     #[must_use]
     pub(crate) fn next_sibling_link(&self) -> Option<Self> {
@@ -194,6 +209,16 @@ impl<T> IntraTreeLink<T> {
             .try_borrow()
             .expect("[consistency] `NodeCore::next_sibling` should not be borrowed nestedly")
             .clone()
+    }
+
+    /// Returns true if the next sibling exists.
+    #[must_use]
+    pub(super) fn has_next_sibling(&self) -> bool {
+        self.core
+            .next_sibling
+            .try_borrow()
+            .expect("[consistency] `NodeCore::next_sibling` should not be borrowed nestedly")
+            .is_some()
     }
 
     /// Returns a link to the first child node.
@@ -228,6 +253,31 @@ impl<T> IntraTreeLink<T> {
         Some((first_child, last_child))
     }
 
+    /// Returns true if the node has any children.
+    #[must_use]
+    pub(super) fn has_children(&self) -> bool {
+        self.core
+            .first_child
+            .try_borrow()
+            .expect("[consistency] `NodeCore::first_child` should not be borrowed nestedly")
+            .is_some()
+    }
+
+    /// Returns the number of children.
+    #[must_use]
+    pub(super) fn num_children_rough(&self) -> NumChildren {
+        let first_child = match self.first_child_link() {
+            Some(v) => v,
+            None => return NumChildren::Zero,
+        };
+        let last_child = first_child.prev_sibling_cyclic_link();
+        if first_child.ptr_eq(&last_child) {
+            NumChildren::One
+        } else {
+            NumChildren::TwoOrMore
+        }
+    }
+
     /// Returns the membership.
     #[inline]
     #[must_use]
@@ -249,6 +299,38 @@ impl<T> IntraTreeLink<T> {
             .try_borrow()
             .expect("[consistency] `NodeCore::next_sibling` should not be borrowed nestedly")
             .is_none()
+    }
+
+    /// Returns the number of children.
+    ///
+    /// Note that this is O(N) operation.
+    #[must_use]
+    pub(super) fn count_children(&self) -> usize {
+        iter::successors(self.first_child_link(), |link| link.next_sibling_link()).count()
+    }
+
+    /// Returns the number of preceding siblings.
+    ///
+    /// Note that this is O(N) operation.
+    #[must_use]
+    pub(super) fn count_preceding_siblings(&self) -> usize {
+        iter::successors(self.prev_sibling_link(), |link| link.prev_sibling_link()).count()
+    }
+
+    /// Returns the number of following siblings.
+    ///
+    /// Note that this is O(N) operation.
+    #[must_use]
+    pub(super) fn count_following_siblings(&self) -> usize {
+        iter::successors(self.next_sibling_link(), |link| link.next_sibling_link()).count()
+    }
+
+    /// Returns the number of ancestors.
+    ///
+    /// Note that this is O(N) operation.
+    #[must_use]
+    pub(super) fn count_ancestors(&self) -> usize {
+        iter::successors(self.parent_link(), |link| link.parent_link()).count()
     }
 }
 
@@ -525,4 +607,15 @@ impl<T> IntraTreeLinkWeak<T> {
     fn is_unavailable(&self) -> bool {
         self.core.strong_count() == 0
     }
+}
+
+/// The number of children.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(super) enum NumChildren {
+    /// No children.
+    Zero,
+    /// Just one child.
+    One,
+    /// More than two children.
+    TwoOrMore,
 }
