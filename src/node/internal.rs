@@ -186,6 +186,20 @@ impl<T> IntraTreeLink<T> {
         }
     }
 
+    /// Returns true if the previous sibling exists.
+    #[must_use]
+    pub(super) fn has_prev_sibling(&self) -> bool {
+        let prev_sibling_cyclic = self.prev_sibling_cyclic_link();
+
+        let result = prev_sibling_cyclic
+            .core
+            .next_sibling
+            .try_borrow()
+            .expect("[consistency] `NodeCore::next_sibling` should not be borrowed nestedly")
+            .is_some();
+        result
+    }
+
     /// Returns a link to the next sibling.
     #[must_use]
     pub(crate) fn next_sibling_link(&self) -> Option<Self> {
@@ -194,6 +208,16 @@ impl<T> IntraTreeLink<T> {
             .try_borrow()
             .expect("[consistency] `NodeCore::next_sibling` should not be borrowed nestedly")
             .clone()
+    }
+
+    /// Returns true if the next sibling exists.
+    #[must_use]
+    pub(super) fn has_next_sibling(&self) -> bool {
+        self.core
+            .next_sibling
+            .try_borrow()
+            .expect("[consistency] `NodeCore::next_sibling` should not be borrowed nestedly")
+            .is_some()
     }
 
     /// Returns a link to the first child node.
@@ -226,6 +250,16 @@ impl<T> IntraTreeLink<T> {
         let first_child = self.first_child_link()?;
         let last_child = first_child.prev_sibling_cyclic_link();
         Some((first_child, last_child))
+    }
+
+    /// Returns true if the node has any children.
+    #[must_use]
+    pub(super) fn has_children(&self) -> bool {
+        self.core
+            .first_child
+            .try_borrow()
+            .expect("[consistency] `NodeCore::first_child` should not be borrowed nestedly")
+            .is_some()
     }
 
     /// Returns the membership.

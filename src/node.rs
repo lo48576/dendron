@@ -413,6 +413,27 @@ impl<T> Node<T> {
         let (first_link, last_link) = self.intra_link.first_last_child_link()?;
         Some((Self::with_link(first_link), Self::with_link(last_link)))
     }
+
+    /// Returns true if the previous sibling exists.
+    #[inline]
+    #[must_use]
+    pub fn has_prev_sibling(&self) -> bool {
+        self.intra_link.has_prev_sibling()
+    }
+
+    /// Returns true if the next sibling exists.
+    #[inline]
+    #[must_use]
+    pub fn has_next_sibling(&self) -> bool {
+        self.intra_link.has_next_sibling()
+    }
+
+    /// Returns true if the node has any children.
+    #[inline]
+    #[must_use]
+    pub fn has_children(&self) -> bool {
+        self.intra_link.has_children()
+    }
 }
 
 /// Tree traverser.
