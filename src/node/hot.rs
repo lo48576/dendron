@@ -171,6 +171,17 @@ impl<T> From<HotNode<T>> for Node<T> {
     }
 }
 
+/// Tree structure edit grants.
+impl<T> HotNode<T> {
+    /// Returns a copy of the tree structure edit grant.
+    #[must_use]
+    pub fn extract_structure_edit_grant(&self) -> StructureEditGrant<T> {
+        self.tree()
+            .grant_structure_edit()
+            .expect("[validity] the tree structure is already granted to be edit")
+    }
+}
+
 // Common methods below.
 
 /// Data access.
