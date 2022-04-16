@@ -7,11 +7,12 @@ use alloc::rc::Rc;
 
 use crate::anchor::InsertAs;
 use crate::membership::{Membership, MembershipWithEditProhibition};
-use crate::node::{edit, DebugPrettyPrint, HotNode, IntraTreeLink, Node, NumChildren};
+use crate::node::{
+    edit, DebugPrettyPrint, HotNode, IntraTreeLink, Node, NumChildren, StructureError,
+};
 use crate::serial;
 use crate::traverse;
 use crate::tree::{StructureEditProhibition, StructureEditProhibitionError, Tree, TreeCore};
-use crate::StructureError;
 
 /// A [`Node`] with a tree structure edit prohibition bundled.
 ///
