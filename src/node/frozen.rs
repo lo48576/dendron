@@ -568,6 +568,16 @@ impl<T> FrozenNode<T> {
         iter.next();
         iter
     }
+
+    /// Returns the stable depth-first traverser that can limit the depth to iterate.
+    #[inline]
+    #[must_use]
+    pub fn shallow_depth_first_traverse_stable(
+        &self,
+        max_depth: Option<usize>,
+    ) -> traverse::StableShallowDepthFirstTraverser<T> {
+        traverse::StableShallowDepthFirstTraverser::with_toplevel(Some(self.clone()), max_depth)
+    }
 }
 
 /// Node creation and modification (to the other tree).
