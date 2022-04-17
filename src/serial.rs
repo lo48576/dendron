@@ -2,7 +2,6 @@
 
 use core::cell::BorrowError;
 use core::fmt;
-use core::num::NonZeroUsize;
 
 use crate::node::{FrozenNode, HotNode, Node};
 use crate::traverse::{self, DftEvent};
@@ -13,22 +12,10 @@ pub enum Event<T> {
     /// An opening of a node with the given associated data.
     Open(T),
     /// Consecutive closings of nodes.
-    Close(NonZeroUsize),
+    Close(usize),
 }
 
 impl<T> Event<T> {
-    /// Creates `Close(_)` event from the given value easily.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the given value is zero.
-    #[must_use]
-    pub fn close(level: usize) -> Self {
-        let level =
-            NonZeroUsize::new(level).expect("[precondition] the close level should not be zero");
-        Self::Close(level)
-    }
-
     /// Converts the internal open value.
     pub fn map<F, U>(self, f: F) -> Event<U>
     where
@@ -47,7 +34,7 @@ impl<T: Clone> TryFrom<DftEvent<Node<T>>> for Event<T> {
     fn try_from(ev: DftEvent<Node<T>>) -> Result<Self, Self::Error> {
         match ev {
             DftEvent::Open(node) => node.try_borrow_data().map(|data| Event::Open(data.clone())),
-            DftEvent::Close(_) => Ok(Event::close(1)),
+            DftEvent::Close(_) => Ok(Event::Close(1)),
         }
     }
 }
@@ -58,7 +45,7 @@ impl<T: Clone> TryFrom<DftEvent<FrozenNode<T>>> for Event<T> {
     fn try_from(ev: DftEvent<FrozenNode<T>>) -> Result<Self, Self::Error> {
         match ev {
             DftEvent::Open(node) => node.try_borrow_data().map(|data| Event::Open(data.clone())),
-            DftEvent::Close(_) => Ok(Event::close(1)),
+            DftEvent::Close(_) => Ok(Event::Close(1)),
         }
     }
 }
@@ -69,7 +56,7 @@ impl<T: Clone> TryFrom<DftEvent<HotNode<T>>> for Event<T> {
     fn try_from(ev: DftEvent<HotNode<T>>) -> Result<Self, Self::Error> {
         match ev {
             DftEvent::Open(node) => node.try_borrow_data().map(|data| Event::Open(data.clone())),
-            DftEvent::Close(_) => Ok(Event::close(1)),
+            DftEvent::Close(_) => Ok(Event::Close(1)),
         }
     }
 }
@@ -251,9 +238,13 @@ impl<T> TreeBuilder<T> {
     }
 
     /// Closes the current node.
-    pub fn close(&mut self, level: NonZeroUsize) -> Result<(), TreeBuildError> {
+    pub fn close(&mut self, level: usize) -> Result<(), TreeBuildError> {
+        if level == 0 {
+            // Close zero nodes, i.e. do nothing.
+            return Ok(());
+        }
         if let Some(current) = &mut self.current {
-            let parent_level = level.get() - 1;
+            let parent_level = level - 1;
             for _ in 0..parent_level {
                 let root = self
                     .root
@@ -380,9 +371,7 @@ impl<T: Clone> Iterator for TreeSerializeIter<T> {
                         None => break,
                     };
                 }
-                let level = NonZeroUsize::new(count)
-                    .expect("[consistency] count starts from nonzero and increases monotonically");
-                Some(Ok(Event::Close(level)))
+                Some(Ok(Event::Close(count)))
             }
         }
     }
@@ -409,17 +398,17 @@ mod tests {
         vec![
             Event::Open("root"),
             Event::Open("0"),
-            Event::close(1),
+            Event::Close(1),
             Event::Open("1"),
             Event::Open("1-0"),
-            Event::close(1),
+            Event::Close(1),
             Event::Open("1-1"),
-            Event::close(1),
+            Event::Close(1),
             Event::Open("1-2"),
             Event::Open("1-2-0"),
-            Event::close(3),
+            Event::Close(3),
             Event::Open("2"),
-            Event::close(2),
+            Event::Close(2),
         ]
     }
 
