@@ -210,6 +210,9 @@ impl fmt::Write for IndentWriter<'_, '_> {
 /// This is provided mainly for debugging purpose. Node that the output format
 /// is not guaranteed to be stable, and any format changes won't be considered
 /// as breaking changes.
+///
+/// For usage and output examples, see
+/// [`Node::debug_pretty_print`][`crate::Node::debug_pretty_print`] method.
 pub struct DebugPrettyPrint<'a, T> {
     /// Root node link of the (sub)tree to print.
     link: &'a IntraTreeLink<T>,

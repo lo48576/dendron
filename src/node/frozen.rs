@@ -656,6 +656,12 @@ impl<T: Clone> FrozenNode<T> {
 /// Debug printing.
 impl<T> FrozenNode<T> {
     /// Returns the pretty-printable proxy object to the node and descendants.
+    ///
+    /// This is provided mainly for debugging purpose. Node that the output
+    /// format is not guaranteed to be stable, and any format changes won't be
+    /// considered as breaking changes.
+    ///
+    /// See [`Node::debug_pretty_print`] for usage and example output.
     #[inline]
     #[must_use]
     pub fn debug_pretty_print(&self) -> DebugPrettyPrint<'_, T> {
