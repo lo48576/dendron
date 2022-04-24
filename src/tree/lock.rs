@@ -246,7 +246,7 @@ impl<T> StructureEditProhibition<T> {
     /// Panics if the edit prohibition is not valid for the given node.
     #[inline]
     pub(crate) fn panic_if_invalid_for_node(&self, node: &Node<T>) {
-        if self.is_valid_for_node(node) {
+        if !self.is_valid_for_node(node) {
             panic!("[precondition] the prohibition is not valid for the node of interest");
         }
     }
@@ -309,7 +309,7 @@ impl<T> StructureEditGrant<T> {
     /// Panics if the edit grant is not valid for the given node.
     #[inline]
     pub(crate) fn panic_if_invalid_for_node(&self, node: &Node<T>) {
-        if self.is_valid_for_node(node) {
+        if !self.is_valid_for_node(node) {
             panic!("[precondition] the grant is not valid for the node of interest");
         }
     }
