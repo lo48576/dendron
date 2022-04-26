@@ -101,7 +101,7 @@ impl<T> FrozenNode<T> {
     #[must_use]
     pub(super) fn from_node_and_prohibition(
         node: Node<T>,
-        prohibition: StructureEditProhibition<T>,
+        prohibition: &StructureEditProhibition<T>,
     ) -> Self {
         prohibition.panic_if_invalid_for_node(&node);
 
