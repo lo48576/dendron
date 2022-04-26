@@ -79,7 +79,7 @@ macro_rules! tree_node {
         $crate::Node::new_tree($data)
     };
     // A tree (possibly) with descendants.
-    ($data:expr, [$($descendant:tt)*]) => {{
+    ($data:expr, [$($descendant:tt)*] $(,)?) => {{
         let root = $crate::HotNode::new_tree($data);
         $crate::tree_node!(@@process_descendant, root, [$($descendant)*]);
         root.plain()
