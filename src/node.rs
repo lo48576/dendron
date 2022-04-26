@@ -266,7 +266,7 @@ impl<T> Node<T> {
     #[must_use]
     pub fn bundle_structure_edit_prohibition(
         self,
-        prohibition: StructureEditProhibition<T>,
+        prohibition: &StructureEditProhibition<T>,
     ) -> FrozenNode<T> {
         FrozenNode::from_node_and_prohibition(self, prohibition)
     }
@@ -278,7 +278,7 @@ impl<T> Node<T> {
     /// Panics if the structure edit grant is not valid for the given node.
     #[inline]
     #[must_use]
-    pub fn bundle_structure_edit_grant(self, grant: StructureEditGrant<T>) -> HotNode<T> {
+    pub fn bundle_structure_edit_grant(self, grant: &StructureEditGrant<T>) -> HotNode<T> {
         HotNode::from_node_and_grant(self, grant)
     }
 }
@@ -652,7 +652,7 @@ impl<T> Node<T> {
 
     /// Detaches the node and its descendant from the current tree, and let it be another tree.
     #[inline]
-    pub fn detach_subtree(&self, grant: StructureEditGrant<T>) {
+    pub fn detach_subtree(&self, grant: &StructureEditGrant<T>) {
         grant.panic_if_invalid_for_node(self);
 
         edit::detach_subtree(&self.intra_link);
@@ -662,7 +662,7 @@ impl<T> Node<T> {
     #[inline]
     pub fn try_create_node_as(
         &self,
-        grant: StructureEditGrant<T>,
+        grant: &StructureEditGrant<T>,
         data: T,
         dest: AdoptAs,
     ) -> Result<Self, StructureError> {
@@ -673,7 +673,7 @@ impl<T> Node<T> {
 
     /// Creates a node as the first child of `self`.
     #[inline]
-    pub fn create_as_first_child(&self, grant: StructureEditGrant<T>, data: T) -> Self {
+    pub fn create_as_first_child(&self, grant: &StructureEditGrant<T>, data: T) -> Self {
         grant.panic_if_invalid_for_node(self);
 
         edit::create_as_first_child(&self.intra_link, self.membership.tree_core(), data)
@@ -681,7 +681,7 @@ impl<T> Node<T> {
 
     /// Creates a node as the last child of `self`.
     #[inline]
-    pub fn create_as_last_child(&self, grant: StructureEditGrant<T>, data: T) -> Self {
+    pub fn create_as_last_child(&self, grant: &StructureEditGrant<T>, data: T) -> Self {
         grant.panic_if_invalid_for_node(self);
 
         edit::create_as_last_child(&self.intra_link, self.membership.tree_core(), data)
@@ -696,7 +696,7 @@ impl<T> Node<T> {
     #[inline]
     pub fn try_create_as_prev_sibling(
         &self,
-        grant: StructureEditGrant<T>,
+        grant: &StructureEditGrant<T>,
         data: T,
     ) -> Result<Self, StructureError> {
         grant.panic_if_invalid_for_node(self);
@@ -713,7 +713,7 @@ impl<T> Node<T> {
     #[inline]
     pub fn try_create_as_next_sibling(
         &self,
-        grant: StructureEditGrant<T>,
+        grant: &StructureEditGrant<T>,
         data: T,
     ) -> Result<Self, StructureError> {
         grant.panic_if_invalid_for_node(self);
@@ -761,7 +761,7 @@ impl<T> Node<T> {
     #[inline]
     pub fn replace_with_children(
         &self,
-        grant: StructureEditGrant<T>,
+        grant: &StructureEditGrant<T>,
     ) -> Result<(), StructureError> {
         grant.panic_if_invalid_for_node(self);
 
@@ -829,7 +829,7 @@ impl<T> Node<T> {
     #[inline]
     pub fn detach_insert_subtree(
         &self,
-        grant: StructureEditGrant<T>,
+        grant: &StructureEditGrant<T>,
         dest: InsertAs<HotNode<T>>,
     ) -> Result<(), StructureError> {
         grant.panic_if_invalid_for_node(self);

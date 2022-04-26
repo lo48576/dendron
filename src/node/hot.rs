@@ -97,7 +97,7 @@ impl<T> HotNode<T> {
     ///
     /// Panics if there are too many grants for the node or for the tree.
     #[must_use]
-    pub(super) fn from_node_and_grant(node: Node<T>, grant: StructureEditGrant<T>) -> Self {
+    pub(super) fn from_node_and_grant(node: Node<T>, grant: &StructureEditGrant<T>) -> Self {
         grant.panic_if_invalid_for_node(&node);
 
         let Node {
