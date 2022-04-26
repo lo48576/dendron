@@ -225,7 +225,7 @@ impl<T> ReverseDepthFirstTraverser<T> {
     #[must_use]
     pub fn with_start(next: Option<Node<T>>) -> Self {
         Self {
-            next: next.map(|node| (DftEvent::Open(node.clone()), node)),
+            next: next.map(|node| (DftEvent::Close(node.clone()), node)),
         }
     }
 
