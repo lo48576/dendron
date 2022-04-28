@@ -79,7 +79,7 @@ impl<T> InsertAs<T> {
     }
 }
 
-impl<T> InsertAs<HotNode<T>> {
+impl<T> InsertAs<&HotNode<T>> {
     /// Creates a new node and inserts to the destination.
     #[inline]
     pub(super) fn try_create_node(&self, data: T) -> Result<HotNode<T>, StructureError> {

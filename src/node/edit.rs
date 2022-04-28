@@ -657,7 +657,7 @@ pub(super) fn replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<(), St
 /// borrowed.
 pub(super) fn clone_insert_subtree<T>(
     source: &Node<T>,
-    dest: InsertAs<HotNode<T>>,
+    dest: InsertAs<&HotNode<T>>,
 ) -> Result<HotNode<T>, StructureError>
 where
     T: Clone,

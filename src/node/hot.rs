@@ -650,7 +650,7 @@ impl<T> HotNode<T> {
     /// data associated to the node in the subtree is mutably (i.e. exclusively)
     /// borrowed.
     #[inline]
-    pub fn clone_insert_subtree(&self, dest: InsertAs<HotNode<T>>) -> Result<Self, StructureError>
+    pub fn clone_insert_subtree(&self, dest: InsertAs<&HotNode<T>>) -> Result<Self, StructureError>
     where
         T: Clone,
     {
@@ -661,21 +661,18 @@ impl<T> HotNode<T> {
     ///
     /// Returns the root node of the transplanted subtree.
     #[inline]
-    pub fn detach_insert_subtree(&self, dest: InsertAs<HotNode<T>>) -> Result<(), StructureError> {
+    pub fn detach_insert_subtree(&self, dest: InsertAs<&HotNode<T>>) -> Result<(), StructureError> {
         if self
             .plain_membership()
             .belongs_to_same_tree(dest.anchor().plain_membership())
         {
             // The source and the destination belong to the same tree.
-            edit::detach_and_move_inside_same_tree(
-                &self.intra_link,
-                dest.as_ref().map(HotNode::intra_link),
-            )
+            edit::detach_and_move_inside_same_tree(&self.intra_link, dest.map(HotNode::intra_link))
         } else {
             // The source and the destination belong to the different tree.
             edit::detach_and_move_to_another_tree(
                 &self.intra_link,
-                dest.as_ref().map(HotNode::intra_link),
+                dest.map(HotNode::intra_link),
                 &dest.anchor().tree_core(),
             )
         }
