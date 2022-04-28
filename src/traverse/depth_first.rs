@@ -181,7 +181,10 @@ impl<T> Iterator for DepthFirstTraverser<T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let (next_ev, start) = self.next.take()?;
-        self.next = next_ev.next().map(|next_of_next| (next_of_next, start));
+        self.next = match &next_ev {
+            DftEvent::Close(next_close) if next_close.ptr_eq(&start) => None,
+            _ => next_ev.next().map(|next_of_next| (next_of_next, start)),
+        };
         Some(next_ev)
     }
 
@@ -251,7 +254,10 @@ impl<T> Iterator for ReverseDepthFirstTraverser<T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let (next_ev, start) = self.next.take()?;
-        self.next = next_ev.prev().map(|next_of_next| (next_of_next, start));
+        self.next = match &next_ev {
+            DftEvent::Open(next_open) if next_open.ptr_eq(&start) => None,
+            _ => next_ev.prev().map(|next_of_next| (next_of_next, start)),
+        };
         Some(next_ev)
     }
 
