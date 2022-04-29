@@ -315,4 +315,66 @@ impl<T> Tree<T> {
     {
         self.root().try_eq(&other.root())
     }
+
+    /// Creates a new tree that a clone of the tree.
+    ///
+    /// `Tree` type is a reference-conuted handle to the actual tree object, so
+    /// `Tree::clone` (that is `<Tree as Clone>::clone`) does not duplicate the
+    /// tree. Use this method to make an independent tree with the identical
+    /// structure and content.
+    ///
+    /// # Failures
+    ///
+    /// Fails if any data associated to the node in the tree is mutably
+    /// (i.e. exclusively) borrowed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::tree;
+    ///
+    /// let tree = tree! {
+    ///     "root", [
+    ///         "0",
+    ///         /("1", [
+    ///             "1-0",
+    ///             "1-1",
+    ///         ]),
+    ///         "2",
+    ///     ]
+    /// };
+    ///
+    /// let cloned = tree.try_clone_tree()
+    ///     .expect("data are currently not borrowed");
+    ///
+    /// // Different allocation.
+    /// assert!(!tree.ptr_eq(&cloned));
+    /// // Identical content.
+    /// assert_eq!(tree, cloned);
+    /// ```
+    #[inline]
+    pub fn try_clone_tree(&self) -> Result<Self, BorrowError>
+    where
+        T: Clone,
+    {
+        self.root().try_clone_subtree().map(|root| root.tree())
+    }
+
+    /// Creates a new tree that a clone of the tree.
+    ///
+    /// See [`try_clone_tree`][`Self::try_clone_tree`] for detail.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any data associated to the node in the tree is mutably
+    /// (i.e. exclusively) borrowed.
+    #[inline]
+    #[must_use]
+    pub fn clone_tree(&self) -> Self
+    where
+        T: Clone,
+    {
+        self.try_clone_tree()
+            .expect("[precondition] data associated to nodes should be borrowable")
+    }
 }
