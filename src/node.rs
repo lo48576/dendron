@@ -1793,6 +1793,24 @@ impl<T> Node<T> {
         edit::try_create_node_as(&self.intra_link, self.membership.tree_core(), data, dest)
     }
 
+    /// Creates a node as the next sibling of `self`, and returns the new node.
+    ///
+    /// See [`try_create_node_as`][`Self::try_create_node_as`] for usage
+    /// examples.
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    ///
+    /// * the hierarchy edit grant is not valid for the given node, or
+    /// * creation of a node at the specified position will make the tree
+    ///   hierarchy invalid.
+    #[inline]
+    pub fn create_node_as(&self, grant: &HierarchyEditGrant<T>, data: T, dest: AdoptAs) -> Self {
+        self.try_create_node_as(grant, data, dest)
+            .expect("[precondition] hierarchy to be created should be valid")
+    }
+
     /// Creates a node as the first child of `self`.
     ///
     /// # Panics
@@ -1920,6 +1938,23 @@ impl<T> Node<T> {
         edit::try_create_as_prev_sibling(&self.intra_link, self.membership.tree_core(), data)
     }
 
+    /// Creates a node as the previous sibling of `self`.
+    ///
+    /// See [`try_create_as_prev_sibling`][`Self::try_create_as_prev_sibling`]
+    /// for usage examples.
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    ///
+    /// - the hierarchy edit grant is not valid for the given node, or
+    /// - `self` is a root node.
+    #[inline]
+    pub fn create_as_prev_sibling(&self, grant: &HierarchyEditGrant<T>, data: T) -> Self {
+        self.try_create_as_prev_sibling(grant, data)
+            .expect("[precondition] hierarchy to be created should be valid")
+    }
+
     /// Creates a node as the next sibling of `self`.
     ///
     /// # Failures
@@ -1965,6 +2000,23 @@ impl<T> Node<T> {
         grant.panic_if_invalid_for_node(self);
 
         edit::try_create_as_next_sibling(&self.intra_link, self.membership.tree_core(), data)
+    }
+
+    /// Creates a node as the next sibling of `self`.
+    ///
+    /// See [`try_create_as_next_sibling`][`Self::try_create_as_next_sibling`]
+    /// for usage examples.
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    ///
+    /// - the hierarchy edit grant is not valid for the given node, or
+    /// - `self` is a root node.
+    #[inline]
+    pub fn create_as_next_sibling(&self, grant: &HierarchyEditGrant<T>, data: T) -> Self {
+        self.try_create_as_next_sibling(grant, data)
+            .expect("[precondition] hierarchy to be created should be valid")
     }
 
     /// Inserts the children at the position of the node, and detach the node.

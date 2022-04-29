@@ -755,6 +755,20 @@ impl<T> HotNode<T> {
             .map(|node| Self::from_node(node).expect("[validity] a new node can be locked"))
     }
 
+    /// Creates a node as the next sibling of `self`, and returns the new node.
+    ///
+    /// See [`Node::create_node_as`] for usage examples.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the creation of a node at the specified position will make the
+    /// tree hierarchy invalid.
+    #[inline]
+    pub fn create_node_as(&self, data: T, dest: AdoptAs) -> Self {
+        self.try_create_node_as(data, dest)
+            .expect("[precondition] hierarchy to be created should be valid")
+    }
+
     /// Creates a node as the first child of `self`.
     ///
     /// See [`Node::create_as_first_child`] for usage examples.
@@ -795,6 +809,19 @@ impl<T> HotNode<T> {
             .map(|node| Self::from_node(node).expect("[validity] a new node can be locked"))
     }
 
+    /// Creates a node as the previous sibling of `self`.
+    ///
+    /// See [`Node::try_create_as_prev_sibling`] for usage examples.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `self` is a root node.
+    #[inline]
+    pub fn create_as_prev_sibling(&self, data: T) -> Self {
+        self.try_create_as_prev_sibling(data)
+            .expect("[precondition] hierarchy to be created should be valid")
+    }
+
     /// Creates a node as the next sibling of `self`.
     ///
     /// See [`Node::try_create_as_next_sibling`] for usage examples.
@@ -807,6 +834,20 @@ impl<T> HotNode<T> {
     pub fn try_create_as_next_sibling(&self, data: T) -> Result<Self, HierarchyError> {
         edit::try_create_as_next_sibling(&self.intra_link, self.tree_core(), data)
             .map(|node| Self::from_node(node).expect("[validity] a new node can be locked"))
+    }
+
+    /// Creates a node as the next sibling of `self`.
+    ///
+    /// See [`Node::try_create_as_next_sibling`] for usage examples.
+    ///
+    /// # Failures
+    ///
+    /// Returns [`HierarchyError::SiblingsWithoutParent`] as an error if `self`
+    /// is a root node.
+    #[inline]
+    pub fn create_as_next_sibling(&self, data: T) -> Self {
+        self.try_create_as_next_sibling(data)
+            .expect("[precondition] hierarchy to be created should be valid")
     }
 
     /// Inserts the children at the position of the node, and detach the node.
