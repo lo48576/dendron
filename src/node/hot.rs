@@ -987,9 +987,12 @@ impl<T> HotNode<T> {
     ///
     /// Returns the root node of the transplanted subtree.
     ///
-    /// See [`Node::detach_insert_subtree`] for usage examples.
+    /// See [`Node::try_detach_insert_subtree`] for usage examples.
     #[inline]
-    pub fn detach_insert_subtree(&self, dest: InsertAs<&HotNode<T>>) -> Result<(), HierarchyError> {
+    pub fn try_detach_insert_subtree(
+        &self,
+        dest: InsertAs<&HotNode<T>>,
+    ) -> Result<(), HierarchyError> {
         if self
             .plain_membership()
             .belongs_to_same_tree(dest.anchor().plain_membership())

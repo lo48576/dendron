@@ -2311,7 +2311,10 @@ impl<T> Node<T> {
     ///
     /// let node2_0_hot = node2_0.bundle_hierarchy_edit_grant(&grant);
     /// node1
-    ///     .detach_insert_subtree(&grant, InsertAs::PreviousSiblingOf(&node2_0_hot))
+    ///     .try_detach_insert_subtree(
+    ///         &grant,
+    ///         InsertAs::PreviousSiblingOf(&node2_0_hot)
+    ///     )
     ///     .expect("creating valid hierarchy");
     /// //  root
     /// //  |-- 0
@@ -2344,7 +2347,7 @@ impl<T> Node<T> {
     /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
-    pub fn detach_insert_subtree(
+    pub fn try_detach_insert_subtree(
         &self,
         grant: &HierarchyEditGrant<T>,
         dest: InsertAs<&HotNode<T>>,
