@@ -157,6 +157,15 @@ impl<T> HotNode<T> {
     }
 
     /// Creates a plain node reference for the node.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::{HotNode, Node};
+    ///
+    /// let hot = HotNode::new_tree("root");
+    /// let plain: Node<_> = hot.plain();
+    /// ```
     #[must_use]
     pub fn plain(&self) -> Node<T> {
         Node::with_link_and_membership(self.intra_link.clone(), self.membership.as_inner().clone())
@@ -173,6 +182,15 @@ impl<T> From<HotNode<T>> for Node<T> {
 /// Tree structure edit grants.
 impl<T> HotNode<T> {
     /// Returns a copy of the tree structure edit grant.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::HotNode;
+    ///
+    /// let hot = HotNode::new_tree("root");
+    /// let grant = hot.extract_structure_edit_grant();
+    /// ```
     #[must_use]
     pub fn extract_structure_edit_grant(&self) -> StructureEditGrant<T> {
         self.tree()
@@ -186,6 +204,20 @@ impl<T> HotNode<T> {
 /// Data access.
 impl<T> HotNode<T> {
     /// Returns a reference to the data associated to the node.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::HotNode;
+    ///
+    /// let hot = HotNode::new_tree("root");
+    /// assert_eq!(
+    ///     *hot
+    ///         .try_borrow_data()
+    ///         .expect("should not fail since not mutably borrowed from other place"),
+    ///     "root"
+    /// );
+    /// ```
     #[inline]
     pub fn try_borrow_data(&self) -> Result<Ref<'_, T>, BorrowError> {
         self.intra_link.try_borrow_data()
@@ -196,6 +228,15 @@ impl<T> HotNode<T> {
     /// # Panics
     ///
     /// Panics if the data is already mutably borrowed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::HotNode;
+    ///
+    /// let hot = HotNode::new_tree("root");
+    /// assert_eq!(*hot.borrow_data(), "root");
+    /// ```
     #[inline]
     #[must_use]
     pub fn borrow_data(&self) -> Ref<'_, T> {
@@ -203,6 +244,19 @@ impl<T> HotNode<T> {
     }
 
     /// Returns a mutable reference to the data associated to the node.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::HotNode;
+    ///
+    /// let hot = HotNode::new_tree("root");
+    ///
+    /// *hot.try_borrow_data_mut()
+    ///     .expect("should not fail since not borrowed from other place")
+    ///     = "ROOT";
+    /// assert_eq!(*hot.borrow_data(), "ROOT");
+    /// ```
     #[inline]
     pub fn try_borrow_data_mut(&self) -> Result<RefMut<'_, T>, BorrowMutError> {
         self.intra_link.try_borrow_data_mut()
@@ -213,6 +267,17 @@ impl<T> HotNode<T> {
     /// # Panics
     ///
     /// Panics if the data is already mutably borrowed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::HotNode;
+    ///
+    /// let hot = HotNode::new_tree("root");
+    ///
+    /// *hot.borrow_data_mut() = "ROOT";
+    /// assert_eq!(*hot.borrow_data(), "ROOT");
+    /// ```
     #[inline]
     #[must_use]
     pub fn borrow_data_mut(&self) -> RefMut<'_, T> {
@@ -220,6 +285,23 @@ impl<T> HotNode<T> {
     }
 
     /// Returns `true` if the two `HotNode`s point to the same allocation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::HotNode;
+    ///
+    /// let hot1 = HotNode::new_tree("root");
+    /// let hot2 = HotNode::new_tree("root");
+    ///
+    /// assert!(hot1.ptr_eq(&hot1));
+    ///
+    /// assert!(hot1 == hot2, "same content and hierarchy");
+    /// assert!(
+    ///     !hot1.ptr_eq(&hot2),
+    ///     "same content and hierarchy but different allocation"
+    /// );
+    /// ```
     #[inline]
     #[must_use]
     pub fn ptr_eq(&self, other: &Self) -> bool {
@@ -227,6 +309,15 @@ impl<T> HotNode<T> {
     }
 
     /// Returns `true` if `self` and the given `Node` point to the same allocation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::HotNode;
+    ///
+    /// let hot = HotNode::new_tree("root");
+    /// assert!(hot.ptr_eq_plain(&hot.plain()));
+    /// ```
     #[inline]
     #[must_use]
     pub fn ptr_eq_plain(&self, other: &Node<T>) -> bool {
@@ -237,6 +328,17 @@ impl<T> HotNode<T> {
 /// Neighbor nodes accessor.
 impl<T> HotNode<T> {
     /// Returns the tree the node belongs to.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::HotNode;
+    ///
+    /// let hot = HotNode::new_tree("root");
+    /// let tree = hot.tree();
+    ///
+    /// assert!(tree.root().ptr_eq(&hot.plain()));
+    /// ```
     #[inline]
     #[must_use]
     pub fn tree(&self) -> Tree<T> {
@@ -244,6 +346,20 @@ impl<T> HotNode<T> {
     }
 
     /// Returns true if the node is the root.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::HotNode;
+    ///
+    /// let root = HotNode::new_tree("root");
+    /// let child = root.create_as_last_child("child");
+    /// //  root
+    /// //  `-- child
+    ///
+    /// assert!(root.is_root());
+    /// assert!(!child.is_root());
+    /// ```
     #[must_use]
     pub fn is_root(&self) -> bool {
         // The node is a root if and only if the node has no parent.
@@ -251,6 +367,24 @@ impl<T> HotNode<T> {
     }
 
     /// Returns true if the given node belong to the same tree.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::HotNode;
+    ///
+    /// let root = HotNode::new_tree("root");
+    /// let child = root.create_as_last_child("child");
+    /// //  root
+    /// //  `-- child
+    ///
+    /// let other_node = HotNode::new_tree("other");
+    ///
+    /// assert!(root.belongs_to_same_tree(&child));
+    /// assert!(child.belongs_to_same_tree(&root));
+    ///
+    /// assert!(!root.belongs_to_same_tree(&other_node));
+    /// ```
     #[inline]
     #[must_use]
     pub fn belongs_to_same_tree(&self, other: &Self) -> bool {
@@ -258,12 +392,25 @@ impl<T> HotNode<T> {
     }
 
     /// Returns the hot root node.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::HotNode;
+    ///
+    /// let node = HotNode::new_tree("root");
+    /// let tree = node.tree();
+    ///
+    /// assert!(tree.root().ptr_eq(&node.plain()));
+    /// ```
     #[must_use]
     pub fn root(&self) -> Self {
         Self::from_node_link_with_grant(self.tree_core().root_link())
     }
 
     /// Returns the parent node.
+    ///
+    /// See [`Node::parent`] for usage examples.
     #[must_use]
     pub fn parent(&self) -> Option<Self> {
         self.intra_link
@@ -272,6 +419,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns the previous sibling.
+    ///
+    /// See [`Node::prev_sibling`] for usage examples.
     #[must_use]
     pub fn prev_sibling(&self) -> Option<Self> {
         self.intra_link
@@ -280,6 +429,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns the next sibling.
+    ///
+    /// See [`Node::next_sibling`] for usage examples.
     #[must_use]
     pub fn next_sibling(&self) -> Option<Self> {
         self.intra_link
@@ -288,6 +439,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns the first sibling.
+    ///
+    /// See [`Node::first_sibling`] for usage examples.
     #[must_use]
     pub fn first_sibling(&self) -> Self {
         if let Some(parent_link) = self.intra_link.parent_link() {
@@ -302,6 +455,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns the last sibling.
+    ///
+    /// See [`Node::last_sibling`] for usage examples.
     #[must_use]
     pub fn last_sibling(&self) -> Self {
         if let Some(parent_link) = self.intra_link.parent_link() {
@@ -315,7 +470,9 @@ impl<T> HotNode<T> {
         }
     }
 
-    /// Returns the first and the last sibling.
+    /// Returns the first and the last siblings.
+    ///
+    /// See [`Node::first_last_sibling`] for usage examples.
     #[must_use]
     pub fn first_last_sibling(&self) -> (Self, Self) {
         if let Some(parent_link) = self.intra_link.parent_link() {
@@ -333,6 +490,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns the first child node.
+    ///
+    /// See [`Node::first_child`] for usage examples.
     #[must_use]
     pub fn first_child(&self) -> Option<Self> {
         self.intra_link
@@ -341,6 +500,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns the last child node.
+    ///
+    /// See [`Node::last_child`] for usage examples.
     #[must_use]
     pub fn last_child(&self) -> Option<Self> {
         self.intra_link
@@ -349,6 +510,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns links to the first and the last child nodes.
+    ///
+    /// See [`Node::first_last_child`] for usage examples.
     #[must_use]
     pub fn first_last_child(&self) -> Option<(Self, Self)> {
         let (first_link, last_link) = self.intra_link.first_last_child_link()?;
@@ -359,6 +522,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns true if the previous sibling exists.
+    ///
+    /// See [`Node::has_prev_sibling`] for usage examples.
     #[inline]
     #[must_use]
     pub fn has_prev_sibling(&self) -> bool {
@@ -366,6 +531,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns true if the next sibling exists.
+    ///
+    /// See [`Node::has_next_sibling`] for usage examples.
     #[inline]
     #[must_use]
     pub fn has_next_sibling(&self) -> bool {
@@ -373,6 +540,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns true if the node has any children.
+    ///
+    /// See [`Node::has_children`] for usage examples.
     #[inline]
     #[must_use]
     pub fn has_children(&self) -> bool {
@@ -380,6 +549,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns true if the node has just one child.
+    ///
+    /// See [`Node::has_one_child`] for usage examples.
     #[inline]
     #[must_use]
     pub fn has_one_child(&self) -> bool {
@@ -387,6 +558,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns true if the node has two or more children.
+    ///
+    /// See [`Node::has_multiple_children`] for usage examples.
     #[inline]
     #[must_use]
     pub fn has_multiple_children(&self) -> bool {
@@ -396,6 +569,8 @@ impl<T> HotNode<T> {
     /// Returns the number of children.
     ///
     /// Note that this is O(N) operation.
+    ///
+    /// See [`Node::count_children`] for usage examples.
     #[inline]
     #[must_use]
     pub fn count_children(&self) -> usize {
@@ -405,6 +580,8 @@ impl<T> HotNode<T> {
     /// Returns the number of preceding siblings.
     ///
     /// Note that this is O(N) operation.
+    ///
+    /// See [`Node::count_preceding_siblings`] for usage examples.
     #[inline]
     #[must_use]
     pub fn count_preceding_siblings(&self) -> usize {
@@ -414,6 +591,8 @@ impl<T> HotNode<T> {
     /// Returns the number of following siblings.
     ///
     /// Note that this is O(N) operation.
+    ///
+    /// See [`Node::count_following_siblings`] for usage examples.
     #[inline]
     #[must_use]
     pub fn count_following_siblings(&self) -> usize {
@@ -423,6 +602,8 @@ impl<T> HotNode<T> {
     /// Returns the number of ancestors.
     ///
     /// Note that this is O(N) operation.
+    ///
+    /// See [`Node::count_ancestors`] for usage examples.
     #[inline]
     #[must_use]
     pub fn count_ancestors(&self) -> usize {
@@ -433,6 +614,8 @@ impl<T> HotNode<T> {
 /// Tree traverser.
 impl<T> HotNode<T> {
     /// Returns the depth-first traverser.
+    ///
+    /// See [`Node::depth_first_traverse`] for usage examples.
     #[inline]
     #[must_use]
     pub fn depth_first_traverse(&self) -> traverse::DepthFirstTraverser<T> {
@@ -440,6 +623,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns the reverse depth-first traverser.
+    ///
+    /// See [`Node::depth_first_reverse_traverse`] for usage examples.
     #[inline]
     #[must_use]
     pub fn depth_first_reverse_traverse(&self) -> traverse::ReverseDepthFirstTraverser<T> {
@@ -447,6 +632,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns the children traverser.
+    ///
+    /// See [`Node::children`] for usage examples.
     #[inline]
     #[must_use]
     pub fn children(&self) -> traverse::SiblingsTraverser<T> {
@@ -454,6 +641,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns the reverse children traverser.
+    ///
+    /// See [`Node::children_reverse`] for usage examples.
     #[inline]
     #[must_use]
     pub fn children_reverse(&self) -> traverse::ReverseSiblingsTraverser<T> {
@@ -461,6 +650,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns the ancestors traverser.
+    ///
+    /// See [`Node::ancestors`] for usage examples.
     #[inline]
     #[must_use]
     pub fn ancestors(&self) -> traverse::AncestorsTraverser<T> {
@@ -468,6 +659,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns the ancestors traverser.
+    ///
+    /// See [`Node::ancestors_or_self`] for usage examples.
     #[inline]
     #[must_use]
     pub fn ancestors_or_self(&self) -> traverse::AncestorsTraverser<T> {
@@ -475,6 +668,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns the siblings traverser.
+    ///
+    /// See [`Node::siblings`] for usage examples.
     #[inline]
     #[must_use]
     pub fn siblings(&self) -> traverse::SiblingsTraverser<T> {
@@ -482,6 +677,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns the reverse siblings traverser.
+    ///
+    /// See [`Node::siblings_reverse`] for usage examples.
     #[inline]
     #[must_use]
     pub fn siblings_reverse(&self) -> traverse::ReverseSiblingsTraverser<T> {
@@ -489,6 +686,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns the preceding siblings traverser.
+    ///
+    /// See [`Node::preceding_siblings_or_self_reverse`] for usage examples.
     #[inline]
     #[must_use]
     pub fn preceding_siblings_or_self_reverse(&self) -> traverse::ReverseSiblingsTraverser<T> {
@@ -496,6 +695,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns the preceding siblings traverser.
+    ///
+    /// See [`Node::preceding_siblings_reverse`] for usage examples.
     #[inline]
     #[must_use]
     pub fn preceding_siblings_reverse(&self) -> traverse::ReverseSiblingsTraverser<T> {
@@ -503,6 +704,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns the following siblings traverser.
+    ///
+    /// See [`Node::following_siblings_or_self`] for usage examples.
     #[inline]
     #[must_use]
     pub fn following_siblings_or_self(&self) -> traverse::SiblingsTraverser<T> {
@@ -510,6 +713,8 @@ impl<T> HotNode<T> {
     }
 
     /// Returns the following siblings traverser.
+    ///
+    /// See [`Node::following_siblings`] for usage examples.
     #[inline]
     #[must_use]
     pub fn following_siblings(&self) -> traverse::SiblingsTraverser<T> {
@@ -520,18 +725,30 @@ impl<T> HotNode<T> {
 /// Node creation and structure modification.
 impl<T> HotNode<T> {
     /// Creates and returns a new hot node as the root of a new tree.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::HotNode;
+    ///
+    /// let root = HotNode::new_tree("root");
+    /// ```
     #[must_use]
     pub fn new_tree(root_data: T) -> Self {
         Self::from_node(Node::new_tree(root_data)).expect("[validity] a new node can be locked")
     }
 
     /// Detaches the node and its descendant from the current tree, and let it be another tree.
+    ///
+    /// See [`Node::detach_subtree`] for usage examples.
     #[inline]
     pub fn detach_subtree(&self) {
         edit::detach_subtree(&self.intra_link);
     }
 
     /// Creates a node as the next sibling of `self`, and returns the new node.
+    ///
+    /// See [`Node::try_create_node_as`] for usage examples.
     #[inline]
     pub fn try_create_node_as(&self, data: T, dest: AdoptAs) -> Result<Self, StructureError> {
         edit::try_create_node_as(&self.intra_link, self.tree_core(), data, dest)
@@ -539,6 +756,8 @@ impl<T> HotNode<T> {
     }
 
     /// Creates a node as the first child of `self`.
+    ///
+    /// See [`Node::create_as_first_child`] for usage examples.
     #[inline]
     pub fn create_as_first_child(&self, data: T) -> Self {
         Self::from_node(edit::create_as_first_child(
@@ -550,6 +769,8 @@ impl<T> HotNode<T> {
     }
 
     /// Creates a node as the last child of `self`.
+    ///
+    /// See [`Node::create_as_last_child`] for usage examples.
     #[inline]
     pub fn create_as_last_child(&self, data: T) -> Self {
         Self::from_node(edit::create_as_last_child(
@@ -562,6 +783,8 @@ impl<T> HotNode<T> {
 
     /// Creates a node as the previous sibling of `self`.
     ///
+    /// See [`Node::try_create_as_prev_sibling`] for usage examples.
+    ///
     /// # Failures
     ///
     /// Returns [`StructureError::SiblingsWithoutParent`] as an error if `self`
@@ -573,6 +796,8 @@ impl<T> HotNode<T> {
     }
 
     /// Creates a node as the next sibling of `self`.
+    ///
+    /// See [`Node::try_create_as_next_sibling`] for usage examples.
     ///
     /// # Failures
     ///
@@ -613,6 +838,8 @@ impl<T> HotNode<T> {
     /// self (detached)
     /// ```
     ///
+    /// See [`Node::replace_with_children`] for usage examples.
+    ///
     /// # Failures
     ///
     /// Fails if:
@@ -627,6 +854,8 @@ impl<T> HotNode<T> {
     }
 
     /// Clones the subtree and returns it as a new independent tree.
+    ///
+    /// See [`Node::clone_subtree`] for usage examples.
     ///
     /// # Failures
     ///
@@ -644,6 +873,8 @@ impl<T> HotNode<T> {
     ///
     /// Returns the root node of the cloned new subtree.
     ///
+    /// See [`Node::clone_insert_subtree`] for usage examples.
+    ///
     /// # Failures
     ///
     /// Fails with [`BorrowNodeData`][`StructureError::BorrowNodeData`] if any
@@ -660,6 +891,8 @@ impl<T> HotNode<T> {
     /// Detaches the node with its subtree, and inserts it to the given destination.
     ///
     /// Returns the root node of the transplanted subtree.
+    ///
+    /// See [`Node::detach_insert_subtree`] for usage examples.
     #[inline]
     pub fn detach_insert_subtree(&self, dest: InsertAs<&HotNode<T>>) -> Result<(), StructureError> {
         if self
@@ -682,6 +915,8 @@ impl<T> HotNode<T> {
 /// Serialization.
 impl<T: Clone> HotNode<T> {
     /// Returns an iterator of serialized events for the subtree.
+    ///
+    /// See [`Node::to_events`] for usage examples.
     #[inline]
     #[must_use]
     pub fn to_events(&self) -> serial::TreeSerializeIter<T> {

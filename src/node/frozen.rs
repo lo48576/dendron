@@ -155,6 +155,18 @@ impl<T> FrozenNode<T> {
     }
 
     /// Creates a plain node reference for the node.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::{FrozenNode, Node};
+    ///
+    /// let frozen = Node::new_tree("root")
+    ///     .bundle_new_structure_edit_prohibition()
+    ///     .expect("no hierarchy edit grant exist");
+    ///
+    /// let plain: Node<_> = frozen.plain();
+    /// ```
     #[must_use]
     pub fn plain(&self) -> Node<T> {
         Node::with_link_and_membership(self.intra_link.clone(), self.membership.as_inner().clone())
@@ -171,6 +183,18 @@ impl<T> From<FrozenNode<T>> for Node<T> {
 /// Tree structure edit prohibitions.
 impl<T> FrozenNode<T> {
     /// Returns a copy of the tree structure edit prohibition.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::{FrozenNode, Node};
+    ///
+    /// let frozen = Node::new_tree("root")
+    ///     .bundle_new_structure_edit_prohibition()
+    ///     .expect("no hierarchy edit grant exist");
+    ///
+    /// let prohibition = frozen.extract_structure_edit_prohibition();
+    /// ```
     #[must_use]
     pub fn extract_structure_edit_prohibition(&self) -> StructureEditProhibition<T> {
         self.tree()
@@ -184,6 +208,27 @@ impl<T> FrozenNode<T> {
 /// Data access.
 impl<T> FrozenNode<T> {
     /// Returns a reference to the data associated to the node.
+    ///
+    /// # Failures
+    ///
+    /// Fails if the data is currently mutably (i.e. exclusively) borrowed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::Node;
+    ///
+    /// let frozen = Node::new_tree("root")
+    ///     .bundle_new_structure_edit_prohibition()
+    ///     .expect("no hierarchy edit grant exist");
+    ///
+    /// assert_eq!(
+    ///     *frozen
+    ///         .try_borrow_data()
+    ///         .expect("should not fail since not mutably borrowed from other place"),
+    ///     "root"
+    /// );
+    /// ```
     #[inline]
     pub fn try_borrow_data(&self) -> Result<Ref<'_, T>, BorrowError> {
         self.intra_link.try_borrow_data()
@@ -194,6 +239,18 @@ impl<T> FrozenNode<T> {
     /// # Panics
     ///
     /// Panics if the data is already mutably borrowed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::Node;
+    ///
+    /// let frozen = Node::new_tree("root")
+    ///     .bundle_new_structure_edit_prohibition()
+    ///     .expect("no hierarchy edit grant exist");
+    ///
+    /// assert_eq!(*frozen.borrow_data(), "root");
+    /// ```
     #[inline]
     #[must_use]
     pub fn borrow_data(&self) -> Ref<'_, T> {
@@ -201,6 +258,22 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns a mutable reference to the data associated to the node.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::Node;
+    ///
+    /// let frozen = Node::new_tree("root")
+    ///     .bundle_new_structure_edit_prohibition()
+    ///     .expect("no hierarchy edit grant exist");
+    ///
+    /// *frozen
+    ///     .try_borrow_data_mut()
+    ///     .expect("should not fail since not borrowed from other place")
+    ///     = "ROOT";
+    /// assert_eq!(*frozen.borrow_data(), "ROOT");
+    /// ```
     #[inline]
     pub fn try_borrow_data_mut(&self) -> Result<RefMut<'_, T>, BorrowMutError> {
         self.intra_link.try_borrow_data_mut()
@@ -211,6 +284,19 @@ impl<T> FrozenNode<T> {
     /// # Panics
     ///
     /// Panics if the data is already mutably borrowed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::Node;
+    ///
+    /// let frozen = Node::new_tree("root")
+    ///     .bundle_new_structure_edit_prohibition()
+    ///     .expect("no hierarchy edit grant exist");
+    ///
+    /// *frozen.borrow_data_mut() = "ROOT";
+    /// assert_eq!(*frozen.borrow_data(), "ROOT");
+    /// ```
     #[inline]
     #[must_use]
     pub fn borrow_data_mut(&self) -> RefMut<'_, T> {
@@ -218,6 +304,27 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns `true` if the two `FrozenNode`s point to the same allocation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::Node;
+    ///
+    /// let frozen1 = Node::new_tree("root")
+    ///     .bundle_new_structure_edit_prohibition()
+    ///     .expect("no hierarchy edit grant exist");
+    /// let frozen2 = Node::new_tree("root")
+    ///     .bundle_new_structure_edit_prohibition()
+    ///     .expect("no hierarchy edit grant exist");
+    ///
+    /// assert!(frozen1.ptr_eq(&frozen1));
+    ///
+    /// assert!(frozen1 == frozen2, "same content and hierarchy");
+    /// assert!(
+    ///     !frozen1.ptr_eq(&frozen2),
+    ///     "same content and hierarchy but different allocation"
+    /// );
+    /// ```
     #[inline]
     #[must_use]
     pub fn ptr_eq(&self, other: &Self) -> bool {
@@ -228,6 +335,19 @@ impl<T> FrozenNode<T> {
 /// Neighbor nodes accessor.
 impl<T> FrozenNode<T> {
     /// Returns the tree the node belongs to.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::Node;
+    ///
+    /// let frozen = Node::new_tree("root")
+    ///     .bundle_new_structure_edit_prohibition()
+    ///     .expect("no hierarchy edit grant exist");
+    /// let tree = frozen.tree();
+    ///
+    /// assert!(tree.root().ptr_eq(&frozen.plain()));
+    /// ```
     #[inline]
     #[must_use]
     pub fn tree(&self) -> Tree<T> {
@@ -235,6 +355,18 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns true if the node is the root.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::Node;
+    ///
+    /// let frozen = Node::new_tree("root")
+    ///     .bundle_new_structure_edit_prohibition()
+    ///     .expect("no hierarchy edit grant exist");
+    ///
+    /// assert!(frozen.is_root());
+    /// ```
     #[must_use]
     pub fn is_root(&self) -> bool {
         // The node is a root if and only if the node has no parent.
@@ -242,6 +374,21 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns true if the given node belong to the same tree.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::Node;
+    ///
+    /// let frozen1 = Node::new_tree("root")
+    ///     .bundle_new_structure_edit_prohibition()
+    ///     .expect("no hierarchy edit grant exist");
+    /// let frozen2 = Node::new_tree("root")
+    ///     .bundle_new_structure_edit_prohibition()
+    ///     .expect("no hierarchy edit grant exist");
+    ///
+    /// assert!(!frozen1.belongs_to_same_tree(&frozen2));
+    /// ```
     #[inline]
     #[must_use]
     pub fn belongs_to_same_tree(&self, other: &Self) -> bool {
@@ -249,12 +396,26 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the hot root node.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::Node;
+    ///
+    /// let frozen = Node::new_tree("root")
+    ///     .bundle_new_structure_edit_prohibition()
+    ///     .expect("no hierarchy edit grant exist");
+    ///
+    /// assert!(frozen.root().ptr_eq(&frozen));
+    /// ```
     #[must_use]
     pub fn root(&self) -> Self {
         Self::from_node_link_with_prohibition(self.tree_core().root_link())
     }
 
     /// Returns the parent node.
+    ///
+    /// See [`Node::parent`] for usage examples.
     #[must_use]
     pub fn parent(&self) -> Option<Self> {
         self.intra_link
@@ -263,6 +424,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the previous sibling.
+    ///
+    /// See [`Node::prev_sibling`] for usage examples.
     #[must_use]
     pub fn prev_sibling(&self) -> Option<Self> {
         self.intra_link
@@ -271,6 +434,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the next sibling.
+    ///
+    /// See [`Node::next_sibling`] for usage examples.
     #[must_use]
     pub fn next_sibling(&self) -> Option<Self> {
         self.intra_link
@@ -279,6 +444,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the first sibling.
+    ///
+    /// See [`Node::first_sibling`] for usage examples.
     #[must_use]
     pub fn first_sibling(&self) -> Self {
         if let Some(parent_link) = self.intra_link.parent_link() {
@@ -293,6 +460,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the last sibling.
+    ///
+    /// See [`Node::last_sibling`] for usage examples.
     #[must_use]
     pub fn last_sibling(&self) -> Self {
         if let Some(parent_link) = self.intra_link.parent_link() {
@@ -306,7 +475,9 @@ impl<T> FrozenNode<T> {
         }
     }
 
-    /// Returns the first and the last sibling.
+    /// Returns the first and the last siblings.
+    ///
+    /// See [`Node::first_last_sibling`] for usage examples.
     #[must_use]
     pub fn first_last_sibling(&self) -> (Self, Self) {
         if let Some(parent_link) = self.intra_link.parent_link() {
@@ -324,6 +495,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the first child node.
+    ///
+    /// See [`Node::first_child`] for usage examples.
     #[must_use]
     pub fn first_child(&self) -> Option<Self> {
         self.intra_link
@@ -332,6 +505,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the last child node.
+    ///
+    /// See [`Node::last_child`] for usage examples.
     #[must_use]
     pub fn last_child(&self) -> Option<Self> {
         self.intra_link
@@ -340,6 +515,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns links to the first and the last child nodes.
+    ///
+    /// See [`Node::first_last_child`] for usage examples.
     #[must_use]
     pub fn first_last_child(&self) -> Option<(Self, Self)> {
         let (first_link, last_link) = self.intra_link.first_last_child_link()?;
@@ -350,6 +527,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns true if the previous sibling exists.
+    ///
+    /// See [`Node::has_prev_sibling`] for usage examples.
     #[inline]
     #[must_use]
     pub fn has_prev_sibling(&self) -> bool {
@@ -357,6 +536,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns true if the next sibling exists.
+    ///
+    /// See [`Node::has_prev_sibling`] for usage examples.
     #[inline]
     #[must_use]
     pub fn has_next_sibling(&self) -> bool {
@@ -364,6 +545,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns true if the node has any children.
+    ///
+    /// See [`Node::has_children`] for usage examples.
     #[inline]
     #[must_use]
     pub fn has_children(&self) -> bool {
@@ -371,6 +554,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns true if the node has just one child.
+    ///
+    /// See [`Node::has_one_child`] for usage examples.
     #[inline]
     #[must_use]
     pub fn has_one_child(&self) -> bool {
@@ -378,6 +563,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns true if the node has two or more children.
+    ///
+    /// See [`Node::has_multiple_children`] for usage examples.
     #[inline]
     #[must_use]
     pub fn has_multiple_children(&self) -> bool {
@@ -387,6 +574,8 @@ impl<T> FrozenNode<T> {
     /// Returns the number of children.
     ///
     /// Note that this is O(N) operation.
+    ///
+    /// See [`Node::count_children`] for usage examples.
     #[inline]
     #[must_use]
     pub fn count_children(&self) -> usize {
@@ -396,6 +585,8 @@ impl<T> FrozenNode<T> {
     /// Returns the number of preceding siblings.
     ///
     /// Note that this is O(N) operation.
+    ///
+    /// See [`Node::count_preceding_siblings`] for usage examples.
     #[inline]
     #[must_use]
     pub fn count_preceding_siblings(&self) -> usize {
@@ -405,6 +596,8 @@ impl<T> FrozenNode<T> {
     /// Returns the number of following siblings.
     ///
     /// Note that this is O(N) operation.
+    ///
+    /// See [`Node::count_following_siblings`] for usage examples.
     #[inline]
     #[must_use]
     pub fn count_following_siblings(&self) -> usize {
@@ -414,6 +607,8 @@ impl<T> FrozenNode<T> {
     /// Returns the number of ancestors.
     ///
     /// Note that this is O(N) operation.
+    ///
+    /// See [`Node::count_ancestors`] for usage examples.
     #[inline]
     #[must_use]
     pub fn count_ancestors(&self) -> usize {
@@ -424,6 +619,8 @@ impl<T> FrozenNode<T> {
 /// Tree traverser.
 impl<T> FrozenNode<T> {
     /// Returns the depth-first traverser.
+    ///
+    /// See [`Node::depth_first_traverse`] for usage examples.
     #[inline]
     #[must_use]
     pub fn depth_first_traverse(&self) -> traverse::DepthFirstTraverser<T> {
@@ -431,6 +628,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the reverse depth-first traverser.
+    ///
+    /// See [`Node::depth_first_reverse_traverse`] for usage examples.
     #[inline]
     #[must_use]
     pub fn depth_first_reverse_traverse(&self) -> traverse::ReverseDepthFirstTraverser<T> {
@@ -438,6 +637,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the children traverser.
+    ///
+    /// See [`Node::children`] for usage examples.
     #[inline]
     #[must_use]
     pub fn children(&self) -> traverse::SiblingsTraverser<T> {
@@ -445,6 +646,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the reverse children traverser.
+    ///
+    /// See [`Node::children_reverse`] for usage examples.
     #[inline]
     #[must_use]
     pub fn children_reverse(&self) -> traverse::ReverseSiblingsTraverser<T> {
@@ -452,6 +655,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the ancestors traverser.
+    ///
+    /// See [`Node::ancestors`] for usage examples.
     #[inline]
     #[must_use]
     pub fn ancestors(&self) -> traverse::AncestorsTraverser<T> {
@@ -459,6 +664,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the ancestors traverser.
+    ///
+    /// See [`Node::ancestors_or_self`] for usage examples.
     #[inline]
     #[must_use]
     pub fn ancestors_or_self(&self) -> traverse::AncestorsTraverser<T> {
@@ -466,6 +673,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the siblings traverser.
+    ///
+    /// See [`Node::siblings`] for usage examples.
     #[inline]
     #[must_use]
     pub fn siblings(&self) -> traverse::SiblingsTraverser<T> {
@@ -473,6 +682,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the reverse siblings traverser.
+    ///
+    /// See [`Node::siblings_reverse`] for usage examples.
     #[inline]
     #[must_use]
     pub fn siblings_reverse(&self) -> traverse::ReverseSiblingsTraverser<T> {
@@ -480,6 +691,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the preceding siblings traverser.
+    ///
+    /// See [`Node::preceding_siblings_or_self_reverse`] for usage examples.
     #[inline]
     #[must_use]
     pub fn preceding_siblings_or_self_reverse(&self) -> traverse::ReverseSiblingsTraverser<T> {
@@ -487,6 +700,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the preceding siblings traverser.
+    ///
+    /// See [`Node::preceding_siblings_reverse`] for usage examples.
     #[inline]
     #[must_use]
     pub fn preceding_siblings_reverse(&self) -> traverse::ReverseSiblingsTraverser<T> {
@@ -494,6 +709,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the following siblings traverser.
+    ///
+    /// See [`Node::following_siblings_or_self`] for usage examples.
     #[inline]
     #[must_use]
     pub fn following_siblings_or_self(&self) -> traverse::SiblingsTraverser<T> {
@@ -501,6 +718,8 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the following siblings traverser.
+    ///
+    /// See [`Node::following_siblings`] for usage examples.
     #[inline]
     #[must_use]
     pub fn following_siblings(&self) -> traverse::SiblingsTraverser<T> {
@@ -508,6 +727,13 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the stable double-ended depth-first traverser.
+    ///
+    /// "Stable" here means that the hierarchy of the tree is currently frozen.
+    /// Stable traverser implements
+    /// [`DoubleEndedIterator`][`core::iter::DoubleEndedIterator`] and can be
+    /// iterated backward.
+    ///
+    /// See [`Node::depth_first_traverse`] for usage examples.
     #[inline]
     #[must_use]
     pub fn depth_first_traverse_stable(&self) -> traverse::StableDepthFirstTraverser<T> {
@@ -515,6 +741,13 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the stable double-ended children traverser.
+    ///
+    /// "Stable" here means that the hierarchy of the tree is currently frozen.
+    /// Stable traverser implements
+    /// [`DoubleEndedIterator`][`core::iter::DoubleEndedIterator`] and can be
+    /// iterated backward.
+    ///
+    /// See [`Node::children`] for usage examples.
     #[inline]
     #[must_use]
     pub fn children_stable(&self) -> traverse::StableSiblingsTraverser<T> {
@@ -522,6 +755,13 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the stable siblings traverser.
+    ///
+    /// "Stable" here means that the hierarchy of the tree is currently frozen.
+    /// Stable traverser implements
+    /// [`DoubleEndedIterator`][`core::iter::DoubleEndedIterator`] and can be
+    /// iterated backward.
+    ///
+    /// See [`Node::siblings`] for usage examples.
     #[inline]
     #[must_use]
     pub fn siblings_stable(&self) -> traverse::StableSiblingsTraverser<T> {
@@ -532,6 +772,11 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the stable preceding siblings traverser.
+    ///
+    /// "Stable" here means that the hierarchy of the tree is currently frozen.
+    /// Stable traverser implements
+    /// [`DoubleEndedIterator`][`core::iter::DoubleEndedIterator`] and can be
+    /// iterated backward.
     #[inline]
     #[must_use]
     pub fn preceding_siblings_or_self_stable(&self) -> traverse::StableSiblingsTraverser<T> {
@@ -542,6 +787,11 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the stable preceding siblings traverser.
+    ///
+    /// "Stable" here means that the hierarchy of the tree is currently frozen.
+    /// Stable traverser implements
+    /// [`DoubleEndedIterator`][`core::iter::DoubleEndedIterator`] and can be
+    /// iterated backward.
     #[inline]
     #[must_use]
     pub fn preceding_siblings_stable(&self) -> traverse::StableSiblingsTraverser<T> {
@@ -551,6 +801,11 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the stable following siblings traverser.
+    ///
+    /// "Stable" here means that the hierarchy of the tree is currently frozen.
+    /// Stable traverser implements
+    /// [`DoubleEndedIterator`][`core::iter::DoubleEndedIterator`] and can be
+    /// iterated backward.
     #[inline]
     #[must_use]
     pub fn following_siblings_or_self_stable(&self) -> traverse::StableSiblingsTraverser<T> {
@@ -561,6 +816,11 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the stable following siblings traverser.
+    ///
+    /// "Stable" here means that the hierarchy of the tree is currently frozen.
+    /// Stable traverser implements
+    /// [`DoubleEndedIterator`][`core::iter::DoubleEndedIterator`] and can be
+    /// iterated backward.
     #[inline]
     #[must_use]
     pub fn following_siblings_stable(&self) -> traverse::StableSiblingsTraverser<T> {
@@ -570,6 +830,92 @@ impl<T> FrozenNode<T> {
     }
 
     /// Returns the stable depth-first traverser that can limit the depth to iterate.
+    ///
+    /// If `None` is passed as `max_depth`, then the iterator traverses nodes
+    /// in unlimited depth.
+    ///
+    /// "Stable" here means that the hierarchy of the tree is currently frozen.
+    /// Stable traverser implements
+    /// [`DoubleEndedIterator`][`core::iter::DoubleEndedIterator`] and can be
+    /// iterated backward.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::tree_node;
+    /// use dendron::traverse::DftEvent;
+    ///
+    /// let frozen = tree_node! {
+    ///     "root", [
+    ///         /("0", [
+    ///             /("0-0", ["0-0-0", "0-0-1"]),
+    ///             "0-1",
+    ///             /("0-2", ["0-2-0"]),
+    ///         ]),
+    ///         /("1", [
+    ///             "1-0",
+    ///         ]),
+    ///         "2",
+    ///     ]
+    /// }
+    ///     .bundle_new_structure_edit_prohibition()
+    ///     .expect("no hierarchy edit grant exist");
+    /// //  root
+    /// //  |-- 0
+    /// //  |   |-- 0-0
+    /// //  |   |   |-- 0-0-0
+    /// //  |   |   `-- 0-0-1
+    /// //  |   |-- 0-1
+    /// //  |   `-- 0-2
+    /// //  |       `-- 0-2-0
+    /// //  |-- 1
+    /// //  |   `-- 1-0
+    /// //  `-- 2
+    ///
+    /// let max0 = frozen.shallow_depth_first_traverse_stable(Some(0))
+    ///     .map(|ev| ev.map(|(node, depth)| (*node.borrow_data(), depth)))
+    ///     .collect::<Vec<_>>();
+    /// assert_eq!(
+    ///     max0,
+    ///     &[
+    ///         DftEvent::Open(("root", 0)),
+    ///         DftEvent::Close(("root", 0)),
+    ///     ]
+    /// );
+    ///
+    /// let max2 = frozen.shallow_depth_first_traverse_stable(Some(2))
+    ///     .map(|ev| ev.map(|(node, depth)| (*node.borrow_data(), depth)))
+    ///     .collect::<Vec<_>>();
+    /// assert_eq!(
+    ///     max2,
+    ///     &[
+    ///         DftEvent::Open(("root", 0)),
+    ///         DftEvent::Open(("0", 1)),
+    ///         DftEvent::Open(("0-0", 2)),
+    ///         DftEvent::Close(("0-0", 2)),
+    ///         DftEvent::Open(("0-1", 2)),
+    ///         DftEvent::Close(("0-1", 2)),
+    ///         DftEvent::Open(("0-2", 2)),
+    ///         DftEvent::Close(("0-2", 2)),
+    ///         DftEvent::Close(("0", 1)),
+    ///         DftEvent::Open(("1", 1)),
+    ///         DftEvent::Open(("1-0", 2)),
+    ///         DftEvent::Close(("1-0", 2)),
+    ///         DftEvent::Close(("1", 1)),
+    ///         DftEvent::Open(("2", 1)),
+    ///         DftEvent::Close(("2", 1)),
+    ///         DftEvent::Close(("root", 0)),
+    ///     ]
+    /// );
+    ///
+    /// let max_unlimited = frozen.shallow_depth_first_traverse_stable(None)
+    ///     .map(|ev| ev.map(|(node, _depth)| *node.borrow_data()))
+    ///     .collect::<Vec<_>>();
+    /// let all = frozen.depth_first_traverse()
+    ///     .map(|ev| ev.map(|node| *node.borrow_data()))
+    ///     .collect::<Vec<_>>();
+    /// assert_eq!(max_unlimited, all);
+    /// ```
     #[inline]
     #[must_use]
     pub fn shallow_depth_first_traverse_stable(
@@ -583,6 +929,71 @@ impl<T> FrozenNode<T> {
     ///
     /// Note that traversing all nodes will be `O(n^2)` operation in worst case,
     /// not `O(n)`.
+    ///
+    /// "Stable" here means that the hierarchy of the tree is currently frozen.
+    /// Stable traverser implements
+    /// [`DoubleEndedIterator`][`core::iter::DoubleEndedIterator`] and can be
+    /// iterated backward.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::tree_node;
+    /// use dendron::traverse::DftEvent;
+    ///
+    /// let frozen = tree_node! {
+    ///     "root", [
+    ///         /("0", [
+    ///             /("0-0", ["0-0-0", "0-0-1"]),
+    ///             "0-1",
+    ///             /("0-2", ["0-2-0"]),
+    ///         ]),
+    ///         /("1", [
+    ///             "1-0",
+    ///         ]),
+    ///         "2",
+    ///     ]
+    /// }
+    ///     .bundle_new_structure_edit_prohibition()
+    ///     .expect("no hierarchy edit grant exist");
+    /// //  root
+    /// //  |-- 0
+    /// //  |   |-- 0-0
+    /// //  |   |   |-- 0-0-0
+    /// //  |   |   `-- 0-0-1
+    /// //  |   |-- 0-1
+    /// //  |   `-- 0-2
+    /// //  |       `-- 0-2-0
+    /// //  |-- 1
+    /// //  |   `-- 1-0
+    /// //  `-- 2
+    ///
+    /// let depth2 = frozen
+    ///     .non_allocating_breadth_first_traverse_stable(2)
+    ///     .map(|(node, depth)| (*node.borrow_data(), depth))
+    ///     .collect::<Vec<_>>();
+    /// assert_eq!(
+    ///     depth2,
+    ///     &[
+    ///         ("0-0", 2), ("0-1", 2), ("0-2", 2), ("1-0", 2),
+    ///         ("0-0-0", 3), ("0-0-1", 3), ("0-2-0", 3)
+    ///     ]
+    /// );
+    ///
+    /// let all = frozen
+    ///     .non_allocating_breadth_first_traverse_stable(0)
+    ///     .map(|(node, depth)| (*node.borrow_data(), depth))
+    ///     .collect::<Vec<_>>();
+    /// assert_eq!(
+    ///     all,
+    ///     &[
+    ///         ("root", 0),
+    ///         ("0", 1), ("1", 1), ("2", 1),
+    ///         ("0-0", 2), ("0-1", 2), ("0-2", 2), ("1-0", 2),
+    ///         ("0-0-0", 3), ("0-0-1", 3), ("0-2-0", 3)
+    ///     ]
+    /// );
+    /// ```
     #[inline]
     #[must_use]
     pub fn non_allocating_breadth_first_traverse_stable(
@@ -596,6 +1007,71 @@ impl<T> FrozenNode<T> {
     ///
     /// The returned traverser will heap-allocate, and iterating all nodes is
     /// `O(n)` operation.
+    ///
+    /// "Stable" here means that the hierarchy of the tree is currently frozen.
+    /// Stable traverser implements
+    /// [`DoubleEndedIterator`][`core::iter::DoubleEndedIterator`] and can be
+    /// iterated backward.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::tree_node;
+    /// use dendron::traverse::DftEvent;
+    ///
+    /// let frozen = tree_node! {
+    ///     "root", [
+    ///         /("0", [
+    ///             /("0-0", ["0-0-0", "0-0-1"]),
+    ///             "0-1",
+    ///             /("0-2", ["0-2-0"]),
+    ///         ]),
+    ///         /("1", [
+    ///             "1-0",
+    ///         ]),
+    ///         "2",
+    ///     ]
+    /// }
+    ///     .bundle_new_structure_edit_prohibition()
+    ///     .expect("no hierarchy edit grant exist");
+    /// //  root
+    /// //  |-- 0
+    /// //  |   |-- 0-0
+    /// //  |   |   |-- 0-0-0
+    /// //  |   |   `-- 0-0-1
+    /// //  |   |-- 0-1
+    /// //  |   `-- 0-2
+    /// //  |       `-- 0-2-0
+    /// //  |-- 1
+    /// //  |   `-- 1-0
+    /// //  `-- 2
+    ///
+    /// let depth2 = frozen
+    ///     .allocating_breadth_first_traverse_stable(2)
+    ///     .map(|(node, depth)| (*node.borrow_data(), depth))
+    ///     .collect::<Vec<_>>();
+    /// assert_eq!(
+    ///     depth2,
+    ///     &[
+    ///         ("0-0", 2), ("0-1", 2), ("0-2", 2), ("1-0", 2),
+    ///         ("0-0-0", 3), ("0-0-1", 3), ("0-2-0", 3)
+    ///     ]
+    /// );
+    ///
+    /// let all = frozen
+    ///     .allocating_breadth_first_traverse_stable(0)
+    ///     .map(|(node, depth)| (*node.borrow_data(), depth))
+    ///     .collect::<Vec<_>>();
+    /// assert_eq!(
+    ///     all,
+    ///     &[
+    ///         ("root", 0),
+    ///         ("0", 1), ("1", 1), ("2", 1),
+    ///         ("0-0", 2), ("0-1", 2), ("0-2", 2), ("1-0", 2),
+    ///         ("0-0-0", 3), ("0-0-1", 3), ("0-2-0", 3)
+    ///     ]
+    /// );
+    /// ```
     #[inline]
     #[must_use]
     pub fn allocating_breadth_first_traverse_stable(
@@ -614,6 +1090,8 @@ impl<T> FrozenNode<T> {
     ///
     /// Fails if any data associated to the node in the subtree is mutably
     /// (i.e. exclusively) borrowed.
+    ///
+    /// See [`Node::clone_subtree`] for usage examples.
     #[inline]
     pub fn clone_subtree(&self) -> Result<Node<T>, BorrowError>
     where
@@ -631,6 +1109,8 @@ impl<T> FrozenNode<T> {
     /// Fails with [`BorrowNodeData`][`StructureError::BorrowNodeData`] if any
     /// data associated to the node in the subtree is mutably (i.e. exclusively)
     /// borrowed.
+    ///
+    /// See [`Node::clone_insert_subtree`] for usage examples.
     #[inline]
     pub fn clone_insert_subtree(
         &self,
@@ -646,6 +1126,8 @@ impl<T> FrozenNode<T> {
 /// Serialization.
 impl<T: Clone> FrozenNode<T> {
     /// Returns an iterator of serialized events for the subtree.
+    ///
+    /// See [`Node::to_events`] for usage examples.
     #[inline]
     #[must_use]
     pub fn to_events(&self) -> serial::TreeSerializeIter<T> {
