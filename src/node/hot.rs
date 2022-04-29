@@ -929,6 +929,24 @@ impl<T> HotNode<T> {
         self.plain().try_clone_subtree()
     }
 
+    /// Clones the subtree and returns it as a new independent tree.
+    ///
+    /// See [`Node::try_clone_subtree`] for usage examples.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any data associated to the node in the subtree is mutably
+    /// (i.e. exclusively) borrowed.
+    #[inline]
+    #[must_use]
+    pub fn clone_subtree(&self) -> Node<T>
+    where
+        T: Clone,
+    {
+        self.try_clone_subtree()
+            .expect("[precondition] data associated to nodes should be borrowable")
+    }
+
     /// Clones the node with its subtree, and inserts it to the given destination.
     ///
     /// Returns the root node of the cloned new subtree.

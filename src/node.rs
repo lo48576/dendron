@@ -2158,6 +2158,22 @@ impl<T> Node<T> {
             })
     }
 
+    /// Clones the subtree and returns it as a new independent tree.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any data associated to the node in the subtree is mutably
+    /// (i.e. exclusively) borrowed.
+    #[inline]
+    #[must_use]
+    pub fn clone_subtree(&self) -> Self
+    where
+        T: Clone,
+    {
+        self.try_clone_subtree()
+            .expect("[precondition] data associated to nodes should be borrowable")
+    }
+
     /// Clones the node with its subtree, and inserts it to the given destination.
     ///
     /// Returns the root node of the cloned new subtree.
