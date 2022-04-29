@@ -181,7 +181,10 @@ impl<T> Iterator for DepthFirstTraverser<T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let (next_ev, start) = self.next.take()?;
-        self.next = next_ev.next().map(|next_of_next| (next_of_next, start));
+        self.next = match &next_ev {
+            DftEvent::Close(next_close) if next_close.ptr_eq(&start) => None,
+            _ => next_ev.next().map(|next_of_next| (next_of_next, start)),
+        };
         Some(next_ev)
     }
 
@@ -225,7 +228,7 @@ impl<T> ReverseDepthFirstTraverser<T> {
     #[must_use]
     pub fn with_start(next: Option<Node<T>>) -> Self {
         Self {
-            next: next.map(|node| (DftEvent::Open(node.clone()), node)),
+            next: next.map(|node| (DftEvent::Close(node.clone()), node)),
         }
     }
 
@@ -251,7 +254,10 @@ impl<T> Iterator for ReverseDepthFirstTraverser<T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let (next_ev, start) = self.next.take()?;
-        self.next = next_ev.prev().map(|next_of_next| (next_of_next, start));
+        self.next = match &next_ev {
+            DftEvent::Open(next_open) if next_open.ptr_eq(&start) => None,
+            _ => next_ev.prev().map(|next_of_next| (next_of_next, start)),
+        };
         Some(next_ev)
     }
 
@@ -565,11 +571,11 @@ impl<T> Iterator for StableShallowDepthFirstTraverser<T> {
                 }
                 let min = match depth.cmp(depth_back) {
                     // `Close` for `depth..=depth_back`.
-                    Ordering::Greater => depth_back - depth + 1,
+                    Ordering::Greater => depth - depth_back + 1,
                     // `Close`, `Open`, and `Close` again for `depth`.
                     Ordering::Equal => 3,
                     // `Close` for `depth`, `Open` for `depth..=depth_back`, and `Close` for `depth_back`.
-                    Ordering::Less => depth - depth_back + 3,
+                    Ordering::Less => depth_back - depth + 3,
                 };
                 (min, None)
             }

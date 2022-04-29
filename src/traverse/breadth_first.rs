@@ -165,7 +165,7 @@ impl<T> AllocatingBreadthFirstTraverser<T> {
             let nodes =
                 StableShallowDepthFirstTraverser::with_toplevel(Some(toplevel), Some(start_depth))
                     .filter_map(DftEvent::into_open)
-                    .find_map(|(node, depth)| {
+                    .filter_map(|(node, depth)| {
                         if depth == start_depth {
                             Some(node)
                         } else {
