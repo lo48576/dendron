@@ -634,7 +634,7 @@ impl<T> FrozenNode<T> {
     #[inline]
     pub fn clone_insert_subtree(
         &self,
-        dest: InsertAs<HotNode<T>>,
+        dest: InsertAs<&HotNode<T>>,
     ) -> Result<HotNode<T>, StructureError>
     where
         T: Clone,
