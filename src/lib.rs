@@ -119,6 +119,56 @@
 //! some extra methods to edit tree hierarchy without passing grants as
 //! arguments, for example [`HotNode::detach_subtree`] and
 //! [`HotNode::try_create_node_as`].
+//!
+//! # Usage
+//!
+//! To create tree directly, use [`tree_node!`] or [`tree!`].
+//!
+//! ```
+//! use dendron::{tree, tree_node};
+//!
+//! let root1 = tree_node! {
+//!     "root", [
+//!         "0",
+//!         /("1", [
+//!             /("1-0", [
+//!                 "1-0-0"
+//!             ]),
+//!             "1-1",
+//!         ]),
+//!     ]
+//! };
+//! let tree1 = root1.tree();
+//!
+//! let tree2 = tree! {
+//!     "root", [
+//!         "0",
+//!         /("1", [
+//!             /("1-0", [
+//!                 "1-0-0"
+//!             ]),
+//!             "1-1",
+//!         ]),
+//!     ]
+//! };
+//! let root2 = tree2.root();
+//!
+//! assert_eq!(root1, root2);
+//! assert_eq!(tree1, tree2);
+//! ```
+//!
+//! To create a new orphan (root) node, use [`Node::new_tree`] or
+//! [`HotNode::new_tree`].
+//!
+//! ```
+//! use dendron::Node;
+//!
+//! let root = Node::new_tree("root");
+//! ```
+//!
+//! For other operations (creating a node that is connected to other nodes,
+//! moving nodes to other places, iterating nodes, getting and setting data,
+//! etc.), see methods of node types ([`Node`], [`FrozenNode`], and [`HotNode`]).
 #![forbid(unsafe_code)]
 //#![forbid(unsafe_op_in_unsafe_fn)]
 //#![forbid(clippy::undocumented_unsafe_blocks)]
