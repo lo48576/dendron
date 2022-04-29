@@ -866,7 +866,7 @@ impl<T> HotNode<T> {
     /// `-- next
     /// ```
     ///
-    /// After `self.replace_with_children()`:
+    /// After `self.try_replace_with_children()`:
     ///
     /// ```text
     /// parent
@@ -879,7 +879,7 @@ impl<T> HotNode<T> {
     /// self (detached)
     /// ```
     ///
-    /// See [`Node::replace_with_children`] for usage examples.
+    /// See [`Node::try_replace_with_children`] for usage examples.
     ///
     /// # Failures
     ///
@@ -890,8 +890,8 @@ impl<T> HotNode<T> {
     /// * the node is the root and has no children.
     ///     + In this case, [`HierarchyError::EmptyTree`] error is returned.
     #[inline]
-    pub fn replace_with_children(&self) -> Result<(), HierarchyError> {
-        edit::replace_with_children(&self.intra_link)
+    pub fn try_replace_with_children(&self) -> Result<(), HierarchyError> {
+        edit::try_replace_with_children(&self.intra_link)
     }
 
     /// Clones the subtree and returns it as a new independent tree.

@@ -2035,7 +2035,7 @@ impl<T> Node<T> {
     /// `-- next
     /// ```
     ///
-    /// After `self.replace_with_children()`:
+    /// After `self.try_replace_with_children()`:
     ///
     /// ```text
     /// parent
@@ -2061,13 +2061,13 @@ impl<T> Node<T> {
     ///
     /// Panics if the hierarchy edit grant is not valid for the given node.
     #[inline]
-    pub fn replace_with_children(
+    pub fn try_replace_with_children(
         &self,
         grant: &HierarchyEditGrant<T>,
     ) -> Result<(), HierarchyError> {
         grant.panic_if_invalid_for_node(self);
 
-        edit::replace_with_children(&self.intra_link)
+        edit::try_replace_with_children(&self.intra_link)
     }
 
     /// Clones the subtree and returns it as a new independent tree.
