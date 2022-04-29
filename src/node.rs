@@ -16,8 +16,8 @@ use crate::membership::{Membership, WeakMembership};
 use crate::serial::{self, TreeBuildError};
 use crate::traverse;
 use crate::tree::{
-    StructureEditGrant, StructureEditGrantError, StructureEditProhibition,
-    StructureEditProhibitionError, Tree, TreeCore,
+    HierarchyEditGrant, HierarchyEditGrantError, HierarchyEditProhibition,
+    HierarchyEditProhibitionError, Tree, TreeCore,
 };
 
 pub use self::debug_print::DebugPrettyPrint;
@@ -26,13 +26,13 @@ pub use self::hot::HotNode;
 pub(crate) use self::internal::IntraTreeLink;
 use self::internal::{IntraTreeLinkWeak, NodeBuilder, NumChildren};
 
-/// Structure modification error.
+/// Hierarchy modification error.
 // `From<BorrowError> for Self` is not implemented because the crate should not
 // allow users to convert any `BorrowError` into this error, especially when
-// user-provided `BorrowError` is unrelated to the structure modification.
+// user-provided `BorrowError` is unrelated to the hierarchy modification.
 #[derive(Debug)]
 #[non_exhaustive]
-pub enum StructureError {
+pub enum HierarchyError {
     /// Attempt to make a node its own descendant or ancestor.
     AncestorDescendantLoop,
     /// Attempt to make a tree empty.
@@ -45,7 +45,7 @@ pub enum StructureError {
     BorrowNodeData(BorrowError),
 }
 
-impl fmt::Display for StructureError {
+impl fmt::Display for HierarchyError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let msg = match *self {
             Self::AncestorDescendantLoop => "attempt to make a node its own descendant or ancestor",
@@ -58,7 +58,7 @@ impl fmt::Display for StructureError {
 }
 
 #[cfg(feature = "std")]
-impl std::error::Error for StructureError {
+impl std::error::Error for HierarchyError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::BorrowNodeData(e) => Some(e),
@@ -241,13 +241,13 @@ impl<T> Node<T> {
     }
 }
 
-/// Tree structure edit grants and prohibitions.
+/// Tree hierarchy edit grants and prohibitions.
 impl<T> Node<T> {
-    /// Returns the [`FrozenNode`], a node with tree structure edit prohibition bundled.
+    /// Returns the [`FrozenNode`], a node with tree hierarchy edit prohibition bundled.
     ///
     /// # Failures
     ///
-    /// Fails if the structure is already granted to be edited.
+    /// Fails if the hierarchy is already granted to be edited.
     ///
     /// # Examples
     ///
@@ -255,21 +255,21 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let node = Node::new_tree("root");
-    /// let frozen = node.bundle_new_structure_edit_prohibition()?;
-    /// # Ok::<_, dendron::StructureEditProhibitionError>(())
+    /// let frozen = node.bundle_new_hierarchy_edit_prohibition()?;
+    /// # Ok::<_, dendron::HierarchyEditProhibitionError>(())
     /// ```
     #[inline]
-    pub fn bundle_new_structure_edit_prohibition(
+    pub fn bundle_new_hierarchy_edit_prohibition(
         self,
-    ) -> Result<FrozenNode<T>, StructureEditProhibitionError> {
+    ) -> Result<FrozenNode<T>, HierarchyEditProhibitionError> {
         FrozenNode::from_node(self)
     }
 
-    /// Returns the [`HotNode`], a node with tree structure edit grant bundled.
+    /// Returns the [`HotNode`], a node with tree hierarchy edit grant bundled.
     ///
     /// # Failures
     ///
-    /// Fails if the structure is already granted to be edited.
+    /// Fails if the hierarchy is already granted to be edited.
     ///
     /// # Examples
     ///
@@ -277,23 +277,23 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let node = Node::new_tree("root");
-    /// let hot_node = node.bundle_new_structure_edit_grant()?;
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// let hot_node = node.bundle_new_hierarchy_edit_grant()?;
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
-    pub fn bundle_new_structure_edit_grant(self) -> Result<HotNode<T>, StructureEditGrantError> {
+    pub fn bundle_new_hierarchy_edit_grant(self) -> Result<HotNode<T>, HierarchyEditGrantError> {
         HotNode::from_node(self)
     }
 
-    /// Returns the [`FrozenNode`], a node with tree structure edit prohibition bundled.
+    /// Returns the [`FrozenNode`], a node with tree hierarchy edit prohibition bundled.
     ///
     /// # Panics
     ///
-    /// Panics if the structure prohibition grant is not valid for the given node.
+    /// Panics if the hierarchy prohibition grant is not valid for the given node.
     ///
     /// # Failures
     ///
-    /// Fails if the structure is already prohibited to be edited.
+    /// Fails if the hierarchy is already prohibited to be edited.
     ///
     /// # Examples
     ///
@@ -301,29 +301,29 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let node = Node::new_tree("root");
-    /// let prohibition = node.tree().prohibit_structure_edit()?;
+    /// let prohibition = node.tree().prohibit_hierarchy_edit()?;
     ///
-    /// let frozen_node = node.bundle_structure_edit_prohibition(&prohibition);
-    /// # Ok::<_, dendron::StructureEditProhibitionError>(())
+    /// let frozen_node = node.bundle_hierarchy_edit_prohibition(&prohibition);
+    /// # Ok::<_, dendron::HierarchyEditProhibitionError>(())
     /// ```
     #[inline]
     #[must_use]
-    pub fn bundle_structure_edit_prohibition(
+    pub fn bundle_hierarchy_edit_prohibition(
         self,
-        prohibition: &StructureEditProhibition<T>,
+        prohibition: &HierarchyEditProhibition<T>,
     ) -> FrozenNode<T> {
         FrozenNode::from_node_and_prohibition(self, prohibition)
     }
 
-    /// Returns the [`HotNode`], a node with tree structure edit grant bundled.
+    /// Returns the [`HotNode`], a node with tree hierarchy edit grant bundled.
     ///
     /// # Panics
     ///
-    /// Panics if the structure edit grant is not valid for the given node.
+    /// Panics if the hierarchy edit grant is not valid for the given node.
     ///
     /// # Failures
     ///
-    /// Fails if the structure is already granted to be edited.
+    /// Fails if the hierarchy is already granted to be edited.
     ///
     /// # Examples
     ///
@@ -331,14 +331,14 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let node = Node::new_tree("root");
-    /// let grant = node.tree().grant_structure_edit()?;
+    /// let grant = node.tree().grant_hierarchy_edit()?;
     ///
-    /// let hot_node = node.bundle_structure_edit_grant(&grant);
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// let hot_node = node.bundle_hierarchy_edit_grant(&grant);
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
-    pub fn bundle_structure_edit_grant(self, grant: &StructureEditGrant<T>) -> HotNode<T> {
+    pub fn bundle_hierarchy_edit_grant(self, grant: &HierarchyEditGrant<T>) -> HotNode<T> {
         HotNode::from_node_and_grant(self, grant)
     }
 }
@@ -495,7 +495,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child = root.create_as_last_child(&grant, "child");
     /// //  root
     /// //  `-- child
@@ -506,7 +506,7 @@ impl<T> Node<T> {
     /// assert!(child.belongs_to_same_tree(&root));
     ///
     /// assert!(!root.belongs_to_same_tree(&other_node));
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -522,14 +522,14 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child = root.create_as_last_child(&grant, "child");
     /// //  root
     /// //  `-- child
     ///
     /// assert!(root.is_root());
     /// assert!(!child.is_root());
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -564,14 +564,14 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child = root.create_as_last_child(&grant, "child");
     /// //  root
     /// //  `-- child
     ///
     /// assert!(child.parent().expect("has parent").ptr_eq(&root));
     /// assert!(root.parent().is_none());
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -587,7 +587,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "child0");
     /// let child1 = root.create_as_last_child(&grant, "child1");
     /// //  root
@@ -597,7 +597,7 @@ impl<T> Node<T> {
     /// assert!(child0.prev_sibling().is_none());
     /// assert!(child1.prev_sibling().expect("has prev sibling").ptr_eq(&child0));
     /// assert!(root.prev_sibling().is_none());
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -613,7 +613,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "child0");
     /// let child1 = root.create_as_last_child(&grant, "child1");
     /// //  root
@@ -623,7 +623,7 @@ impl<T> Node<T> {
     /// assert!(child0.next_sibling().expect("has next sibling").ptr_eq(&child1));
     /// assert!(child1.next_sibling().is_none());
     /// assert!(root.prev_sibling().is_none());
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -639,7 +639,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "child0");
     /// let child1 = root.create_as_last_child(&grant, "child1");
     /// let child2 = root.create_as_last_child(&grant, "child2");
@@ -653,7 +653,7 @@ impl<T> Node<T> {
     /// assert!(child2.first_sibling().ptr_eq(&child0));
     ///
     /// assert!(root.first_sibling().ptr_eq(&root));
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[must_use]
     pub fn first_sibling(&self) -> Self {
@@ -676,7 +676,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "child0");
     /// let child1 = root.create_as_last_child(&grant, "child1");
     /// let child2 = root.create_as_last_child(&grant, "child2");
@@ -690,7 +690,7 @@ impl<T> Node<T> {
     /// assert!(child2.last_sibling().ptr_eq(&child2));
     ///
     /// assert!(root.first_sibling().ptr_eq(&root));
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[must_use]
     pub fn last_sibling(&self) -> Self {
@@ -713,7 +713,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "child0");
     /// let child1 = root.create_as_last_child(&grant, "child1");
     /// let child2 = root.create_as_last_child(&grant, "child2");
@@ -729,7 +729,7 @@ impl<T> Node<T> {
     /// let (root_first_sib, root_last_sib) = root.first_last_sibling();
     /// assert!(root_first_sib.ptr_eq(&root));
     /// assert!(root_last_sib.ptr_eq(&root));
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[must_use]
     pub fn first_last_sibling(&self) -> (Self, Self) {
@@ -755,7 +755,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "child0");
     /// let child1 = root.create_as_last_child(&grant, "child1");
     /// //  root
@@ -764,7 +764,7 @@ impl<T> Node<T> {
     ///
     /// assert!(root.first_child().expect("has children").ptr_eq(&child0));
     /// assert!(child0.first_child().is_none());
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -780,7 +780,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "child0");
     /// let child1 = root.create_as_last_child(&grant, "child1");
     /// //  root
@@ -789,7 +789,7 @@ impl<T> Node<T> {
     ///
     /// assert!(root.last_child().expect("has children").ptr_eq(&child1));
     /// assert!(child0.last_child().is_none());
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -805,7 +805,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "child0");
     /// let child1 = root.create_as_last_child(&grant, "child1");
     /// let child2 = root.create_as_last_child(&grant, "child2");
@@ -820,7 +820,7 @@ impl<T> Node<T> {
     /// assert!(last_child.ptr_eq(&child2));
     ///
     /// assert!(child1.first_last_child().is_none());
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[must_use]
     pub fn first_last_child(&self) -> Option<(Self, Self)> {
@@ -836,7 +836,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "child0");
     /// let child1 = root.create_as_last_child(&grant, "child1");
     /// //  root
@@ -846,7 +846,7 @@ impl<T> Node<T> {
     /// assert!(!child0.has_prev_sibling());
     /// assert!(child1.has_prev_sibling());
     /// assert!(!root.has_prev_sibling());
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -862,7 +862,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "child0");
     /// let child1 = root.create_as_last_child(&grant, "child1");
     /// //  root
@@ -872,7 +872,7 @@ impl<T> Node<T> {
     /// assert!(child0.has_next_sibling());
     /// assert!(!child1.has_next_sibling());
     /// assert!(!root.has_next_sibling());
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -888,7 +888,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "child0");
     /// let child1 = root.create_as_last_child(&grant, "child1");
     /// let child1_0 = child1.create_as_last_child(&grant, "child1_0");
@@ -902,7 +902,7 @@ impl<T> Node<T> {
     ///
     /// assert!(!child0.has_children());
     /// assert!(!child1_0.has_children());
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -918,7 +918,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "child0");
     /// let child1 = root.create_as_last_child(&grant, "child1");
     /// let child1_0 = child1.create_as_last_child(&grant, "child1_0");
@@ -932,7 +932,7 @@ impl<T> Node<T> {
     /// assert!(!root.has_one_child());
     /// assert!(!child0.has_one_child());
     /// assert!(!child1_0.has_one_child());
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -948,7 +948,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "child0");
     /// let child1 = root.create_as_last_child(&grant, "child1");
     /// let child1_0 = child1.create_as_last_child(&grant, "child1_0");
@@ -962,7 +962,7 @@ impl<T> Node<T> {
     /// assert!(!child0.has_multiple_children());
     /// assert!(!child1.has_multiple_children());
     /// assert!(!child1_0.has_multiple_children());
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -980,7 +980,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "child0");
     /// let child1 = root.create_as_last_child(&grant, "child1");
     /// let child2 = root.create_as_last_child(&grant, "child2");
@@ -996,7 +996,7 @@ impl<T> Node<T> {
     /// assert_eq!(child1.count_children(), 0);
     /// assert_eq!(child2.count_children(), 1);
     /// assert_eq!(child2_0.count_children(), 0);
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -1014,7 +1014,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "child0");
     /// let child1 = root.create_as_last_child(&grant, "child1");
     /// let child2 = root.create_as_last_child(&grant, "child2");
@@ -1030,7 +1030,7 @@ impl<T> Node<T> {
     /// assert_eq!(child1.count_preceding_siblings(), 1);
     /// assert_eq!(child2.count_preceding_siblings(), 2);
     /// assert_eq!(child2_0.count_preceding_siblings(), 0);
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -1048,7 +1048,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "child0");
     /// let child1 = root.create_as_last_child(&grant, "child1");
     /// let child2 = root.create_as_last_child(&grant, "child2");
@@ -1064,7 +1064,7 @@ impl<T> Node<T> {
     /// assert_eq!(child1.count_following_siblings(), 1);
     /// assert_eq!(child2.count_following_siblings(), 0);
     /// assert_eq!(child2_0.count_following_siblings(), 0);
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -1082,7 +1082,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "child0");
     /// let child1 = root.create_as_last_child(&grant, "child1");
     /// let child1_0 = child1.create_as_last_child(&grant, "child1_0");
@@ -1095,7 +1095,7 @@ impl<T> Node<T> {
     /// assert_eq!(child0.count_ancestors(), 1);
     /// assert_eq!(child1.count_ancestors(), 1);
     /// assert_eq!(child1_0.count_ancestors(), 2);
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -1292,7 +1292,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "0");
     /// let child1 = root.create_as_last_child(&grant, "1");
     /// let child1_0 = child1.create_as_last_child(&grant, "1-0");
@@ -1305,7 +1305,7 @@ impl<T> Node<T> {
     ///     .map(|node| *node.borrow_data())
     ///     .collect::<Vec<_>>();
     /// assert_eq!(ancestors, &["1", "root"]);
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -1323,7 +1323,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "0");
     /// let child1 = root.create_as_last_child(&grant, "1");
     /// let child1_0 = child1.create_as_last_child(&grant, "1-0");
@@ -1336,7 +1336,7 @@ impl<T> Node<T> {
     ///     .map(|node| *node.borrow_data())
     ///     .collect::<Vec<_>>();
     /// assert_eq!(ancestors_or_self, &["1-0", "1", "root"]);
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -1352,7 +1352,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "0");
     /// let child1 = root.create_as_last_child(&grant, "1");
     /// let child2 = root.create_as_last_child(&grant, "2");
@@ -1367,7 +1367,7 @@ impl<T> Node<T> {
     ///     .map(|node| *node.borrow_data())
     ///     .collect::<Vec<_>>();
     /// assert_eq!(siblings, &["0", "1", "2"]);
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[must_use]
     pub fn siblings(&self) -> traverse::SiblingsTraverser<T> {
@@ -1385,7 +1385,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "0");
     /// let child1 = root.create_as_last_child(&grant, "1");
     /// let child2 = root.create_as_last_child(&grant, "2");
@@ -1400,7 +1400,7 @@ impl<T> Node<T> {
     ///     .map(|node| *node.borrow_data())
     ///     .collect::<Vec<_>>();
     /// assert_eq!(siblings, &["2", "1", "0"]);
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[must_use]
     pub fn siblings_reverse(&self) -> traverse::ReverseSiblingsTraverser<T> {
@@ -1418,7 +1418,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "0");
     /// let child1 = root.create_as_last_child(&grant, "1");
     /// let child2 = root.create_as_last_child(&grant, "2");
@@ -1433,7 +1433,7 @@ impl<T> Node<T> {
     ///     .map(|node| *node.borrow_data())
     ///     .collect::<Vec<_>>();
     /// assert_eq!(siblings, &["1", "0"]);
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -1449,7 +1449,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "0");
     /// let child1 = root.create_as_last_child(&grant, "1");
     /// let child2 = root.create_as_last_child(&grant, "2");
@@ -1464,7 +1464,7 @@ impl<T> Node<T> {
     ///     .map(|node| *node.borrow_data())
     ///     .collect::<Vec<_>>();
     /// assert_eq!(siblings, &["0"]);
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -1482,7 +1482,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "0");
     /// let child1 = root.create_as_last_child(&grant, "1");
     /// let child2 = root.create_as_last_child(&grant, "2");
@@ -1497,7 +1497,7 @@ impl<T> Node<T> {
     ///     .map(|node| *node.borrow_data())
     ///     .collect::<Vec<_>>();
     /// assert_eq!(siblings, &["1", "2"]);
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -1513,7 +1513,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "0");
     /// let child1 = root.create_as_last_child(&grant, "1");
     /// let child2 = root.create_as_last_child(&grant, "2");
@@ -1528,7 +1528,7 @@ impl<T> Node<T> {
     ///     .map(|node| *node.borrow_data())
     ///     .collect::<Vec<_>>();
     /// assert_eq!(siblings, &["2"]);
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -1539,7 +1539,7 @@ impl<T> Node<T> {
     }
 }
 
-/// Node creation and structure modification.
+/// Node creation and hierarchy modification.
 impl<T> Node<T> {
     /// Creates and returns a new node as the root of a new tree.
     ///
@@ -1581,7 +1581,7 @@ impl<T> Node<T> {
     ///
     /// # Panics
     ///
-    /// Panics if the structure edit grant is not valid for the given node.
+    /// Panics if the hierarchy edit grant is not valid for the given node.
     ///
     /// # Failures
     ///
@@ -1593,7 +1593,7 @@ impl<T> Node<T> {
     /// use dendron::{Node, tree_node};
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "0");
     /// let child1 = root.create_as_last_child(&grant, "1");
     /// let child1_0 = child1.create_as_last_child(&grant, "1-0");
@@ -1644,10 +1644,10 @@ impl<T> Node<T> {
     ///         ]
     ///     }
     /// );
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
-    pub fn detach_subtree(&self, grant: &StructureEditGrant<T>) {
+    pub fn detach_subtree(&self, grant: &HierarchyEditGrant<T>) {
         grant.panic_if_invalid_for_node(self);
 
         edit::detach_subtree(&self.intra_link);
@@ -1662,7 +1662,7 @@ impl<T> Node<T> {
     ///
     /// # Panics
     ///
-    /// Panics if the structure edit grant is not valid for the given node.
+    /// Panics if the hierarchy edit grant is not valid for the given node.
     ///
     /// # Examples
     ///
@@ -1672,7 +1672,7 @@ impl<T> Node<T> {
     /// use dendron::{AdoptAs, Node};
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "0");
     /// let child1 = root.create_as_last_child(&grant, "1");
     /// let child1_0 = child1.create_as_last_child(&grant, "1-0");
@@ -1692,7 +1692,7 @@ impl<T> Node<T> {
     ///
     /// assert!(child1.first_child().expect("has children").ptr_eq(&new));
     /// assert!(child1_0.prev_sibling().expect("has a sibling").ptr_eq(&new));
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     ///
     /// ## `AdoptAs::LastChild`
@@ -1701,7 +1701,7 @@ impl<T> Node<T> {
     /// use dendron::{AdoptAs, Node};
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "0");
     /// let child1 = root.create_as_last_child(&grant, "1");
     /// let child1_0 = child1.create_as_last_child(&grant, "1-0");
@@ -1721,7 +1721,7 @@ impl<T> Node<T> {
     ///
     /// assert!(child1.last_child().expect("has children").ptr_eq(&new));
     /// assert!(child1_0.next_sibling().expect("has a sibling").ptr_eq(&new));
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     ///
     /// ## `AdoptAs::PreviousSibling`
@@ -1730,7 +1730,7 @@ impl<T> Node<T> {
     /// use dendron::{AdoptAs, Node};
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "0");
     /// let child1 = root.create_as_last_child(&grant, "1");
     /// let child1_0 = child1.create_as_last_child(&grant, "1-0");
@@ -1750,7 +1750,7 @@ impl<T> Node<T> {
     ///
     /// assert!(child0.next_sibling().expect("has siblings").ptr_eq(&new));
     /// assert!(child1.prev_sibling().expect("has siblings").ptr_eq(&new));
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     ///
     /// ## `AdoptAs::NextSibling`
@@ -1759,7 +1759,7 @@ impl<T> Node<T> {
     /// use dendron::{AdoptAs, Node};
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "0");
     /// let child1 = root.create_as_last_child(&grant, "1");
     /// let child1_0 = child1.create_as_last_child(&grant, "1-0");
@@ -1779,15 +1779,15 @@ impl<T> Node<T> {
     ///
     /// assert!(root.last_child().expect("has children").ptr_eq(&new));
     /// assert!(child1.next_sibling().expect("has siblings").ptr_eq(&new));
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     pub fn try_create_node_as(
         &self,
-        grant: &StructureEditGrant<T>,
+        grant: &HierarchyEditGrant<T>,
         data: T,
         dest: AdoptAs,
-    ) -> Result<Self, StructureError> {
+    ) -> Result<Self, HierarchyError> {
         grant.panic_if_invalid_for_node(self);
 
         edit::try_create_node_as(&self.intra_link, self.membership.tree_core(), data, dest)
@@ -1797,7 +1797,7 @@ impl<T> Node<T> {
     ///
     /// # Panics
     ///
-    /// Panics if the structure edit grant is not valid for the given node.
+    /// Panics if the hierarchy edit grant is not valid for the given node.
     ///
     /// # Examples
     ///
@@ -1805,7 +1805,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "0");
     /// let child1 = root.create_as_last_child(&grant, "1");
     /// let child1_0 = child1.create_as_last_child(&grant, "1-0");
@@ -1823,10 +1823,10 @@ impl<T> Node<T> {
     ///
     /// assert!(child1.first_child().expect("has children").ptr_eq(&new));
     /// assert!(child1_0.prev_sibling().expect("has a sibling").ptr_eq(&new));
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
-    pub fn create_as_first_child(&self, grant: &StructureEditGrant<T>, data: T) -> Self {
+    pub fn create_as_first_child(&self, grant: &HierarchyEditGrant<T>, data: T) -> Self {
         grant.panic_if_invalid_for_node(self);
 
         edit::create_as_first_child(&self.intra_link, self.membership.tree_core(), data)
@@ -1836,7 +1836,7 @@ impl<T> Node<T> {
     ///
     /// # Panics
     ///
-    /// Panics if the structure edit grant is not valid for the given node.
+    /// Panics if the hierarchy edit grant is not valid for the given node.
     ///
     /// # Examples
     ///
@@ -1844,7 +1844,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "0");
     /// let child1 = root.create_as_last_child(&grant, "1");
     /// let child1_0 = child1.create_as_last_child(&grant, "1-0");
@@ -1862,10 +1862,10 @@ impl<T> Node<T> {
     ///
     /// assert!(child1.last_child().expect("has children").ptr_eq(&new));
     /// assert!(child1_0.next_sibling().expect("has a sibling").ptr_eq(&new));
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
-    pub fn create_as_last_child(&self, grant: &StructureEditGrant<T>, data: T) -> Self {
+    pub fn create_as_last_child(&self, grant: &HierarchyEditGrant<T>, data: T) -> Self {
         grant.panic_if_invalid_for_node(self);
 
         edit::create_as_last_child(&self.intra_link, self.membership.tree_core(), data)
@@ -1875,12 +1875,12 @@ impl<T> Node<T> {
     ///
     /// # Failures
     ///
-    /// Returns [`StructureError::SiblingsWithoutParent`] as an error if `self`
+    /// Returns [`HierarchyError::SiblingsWithoutParent`] as an error if `self`
     /// is a root node.
     ///
     /// # Panics
     ///
-    /// Panics if the structure edit grant is not valid for the given node.
+    /// Panics if the hierarchy edit grant is not valid for the given node.
     ///
     /// # Examples
     ///
@@ -1888,7 +1888,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "0");
     /// let child1 = root.create_as_last_child(&grant, "1");
     /// let child1_0 = child1.create_as_last_child(&grant, "1-0");
@@ -1907,14 +1907,14 @@ impl<T> Node<T> {
     ///
     /// assert!(child0.next_sibling().expect("has siblings").ptr_eq(&new));
     /// assert!(child1.prev_sibling().expect("has siblings").ptr_eq(&new));
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     pub fn try_create_as_prev_sibling(
         &self,
-        grant: &StructureEditGrant<T>,
+        grant: &HierarchyEditGrant<T>,
         data: T,
-    ) -> Result<Self, StructureError> {
+    ) -> Result<Self, HierarchyError> {
         grant.panic_if_invalid_for_node(self);
 
         edit::try_create_as_prev_sibling(&self.intra_link, self.membership.tree_core(), data)
@@ -1924,18 +1924,18 @@ impl<T> Node<T> {
     ///
     /// # Failures
     ///
-    /// Returns [`StructureError::SiblingsWithoutParent`] as an error if `self`
+    /// Returns [`HierarchyError::SiblingsWithoutParent`] as an error if `self`
     /// is a root node.
     ///
     /// # Panics
     ///
-    /// Panics if the structure edit grant is not valid for the given node.
+    /// Panics if the hierarchy edit grant is not valid for the given node.
     ///
     /// ```
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "0");
     /// let child1 = root.create_as_last_child(&grant, "1");
     /// let child1_0 = child1.create_as_last_child(&grant, "1-0");
@@ -1954,14 +1954,14 @@ impl<T> Node<T> {
     ///
     /// assert!(root.last_child().expect("has children").ptr_eq(&new));
     /// assert!(child1.next_sibling().expect("has siblings").ptr_eq(&new));
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     pub fn try_create_as_next_sibling(
         &self,
-        grant: &StructureEditGrant<T>,
+        grant: &HierarchyEditGrant<T>,
         data: T,
-    ) -> Result<Self, StructureError> {
+    ) -> Result<Self, HierarchyError> {
         grant.panic_if_invalid_for_node(self);
 
         edit::try_create_as_next_sibling(&self.intra_link, self.membership.tree_core(), data)
@@ -2001,18 +2001,18 @@ impl<T> Node<T> {
     /// Fails if:
     ///
     /// * the node is the root and has multiple children, or
-    ///     + In this case, [`StructureError::SiblingsWithoutParent`] error is returned.
+    ///     + In this case, [`HierarchyError::SiblingsWithoutParent`] error is returned.
     /// * the node is the root and has no children.
-    ///     + In this case, [`StructureError::EmptyTree`] error is returned.
+    ///     + In this case, [`HierarchyError::EmptyTree`] error is returned.
     ///
     /// # Panics
     ///
-    /// Panics if the structure edit grant is not valid for the given node.
+    /// Panics if the hierarchy edit grant is not valid for the given node.
     #[inline]
     pub fn replace_with_children(
         &self,
-        grant: &StructureEditGrant<T>,
-    ) -> Result<(), StructureError> {
+        grant: &HierarchyEditGrant<T>,
+    ) -> Result<(), HierarchyError> {
         grant.panic_if_invalid_for_node(self);
 
         edit::replace_with_children(&self.intra_link)
@@ -2032,7 +2032,7 @@ impl<T> Node<T> {
     /// use dendron::Node;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "0");
     /// let child1 = root.create_as_last_child(&grant, "1");
     /// let child1_0 = child1.create_as_last_child(&grant, "1-0");
@@ -2054,7 +2054,7 @@ impl<T> Node<T> {
     /// assert!(!cloned.belongs_to_same_tree(&root));
     /// // Descendants are also cloned.
     /// assert_eq!(cloned, child1);
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     pub fn clone_subtree(&self) -> Result<Self, BorrowError>
     where
@@ -2092,7 +2092,7 @@ impl<T> Node<T> {
     ///
     /// # Failures
     ///
-    /// Fails with [`BorrowNodeData`][`StructureError::BorrowNodeData`] if any
+    /// Fails with [`BorrowNodeData`][`HierarchyError::BorrowNodeData`] if any
     /// data associated to the node in the subtree is mutably (i.e. exclusively)
     /// borrowed.
     ///
@@ -2102,7 +2102,7 @@ impl<T> Node<T> {
     /// use dendron::{InsertAs, Node, tree_node};
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let node0 = root.create_as_last_child(&grant, "0");
     /// let node1 = root.create_as_last_child(&grant, "1");
     /// let node1_0 = node1.create_as_last_child(&grant, "1-0");
@@ -2119,7 +2119,7 @@ impl<T> Node<T> {
     /// //  `-- 2
     /// //      `-- 2-0
     ///
-    /// let node2_0_hot = node2_0.bundle_structure_edit_grant(&grant);
+    /// let node2_0_hot = node2_0.bundle_hierarchy_edit_grant(&grant);
     /// let cloned = node1
     ///     .clone_insert_subtree(InsertAs::PreviousSiblingOf(&node2_0_hot))
     ///     .expect("creating valid hierarchy");
@@ -2159,13 +2159,13 @@ impl<T> Node<T> {
     ///         ]
     ///     }
     /// );
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     pub fn clone_insert_subtree(
         &self,
         dest: InsertAs<&HotNode<T>>,
-    ) -> Result<HotNode<T>, StructureError>
+    ) -> Result<HotNode<T>, HierarchyError>
     where
         T: Clone,
     {
@@ -2180,7 +2180,7 @@ impl<T> Node<T> {
     ///
     /// # Panics
     ///
-    /// Panics if the structure edit grant is not valid for the given node.
+    /// Panics if the hierarchy edit grant is not valid for the given node.
     ///
     /// # Examples
     ///
@@ -2188,7 +2188,7 @@ impl<T> Node<T> {
     /// use dendron::{InsertAs, Node, tree_node};
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let node0 = root.create_as_last_child(&grant, "0");
     /// let node1 = root.create_as_last_child(&grant, "1");
     /// let node1_0 = node1.create_as_last_child(&grant, "1-0");
@@ -2205,7 +2205,7 @@ impl<T> Node<T> {
     /// //  `-- 2
     /// //      `-- 2-0
     ///
-    /// let node2_0_hot = node2_0.bundle_structure_edit_grant(&grant);
+    /// let node2_0_hot = node2_0.bundle_hierarchy_edit_grant(&grant);
     /// node1
     ///     .detach_insert_subtree(&grant, InsertAs::PreviousSiblingOf(&node2_0_hot))
     ///     .expect("creating valid hierarchy");
@@ -2237,14 +2237,14 @@ impl<T> Node<T> {
     ///         ]
     ///     }
     /// );
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     pub fn detach_insert_subtree(
         &self,
-        grant: &StructureEditGrant<T>,
+        grant: &HierarchyEditGrant<T>,
         dest: InsertAs<&HotNode<T>>,
-    ) -> Result<(), StructureError> {
+    ) -> Result<(), HierarchyError> {
         grant.panic_if_invalid_for_node(self);
 
         if self
@@ -2343,7 +2343,7 @@ impl<T: Clone> Node<T> {
     /// use dendron::serial::Event;
     ///
     /// let root = Node::new_tree("root");
-    /// let grant = root.tree().grant_structure_edit()?;
+    /// let grant = root.tree().grant_hierarchy_edit()?;
     /// let child0 = root.create_as_last_child(&grant, "0");
     /// let child1 = root.create_as_last_child(&grant, "1");
     /// let child1_0 = child1.create_as_last_child(&grant, "1-0");
@@ -2381,7 +2381,7 @@ impl<T: Clone> Node<T> {
     ///         Event::Close(3),
     ///     ]
     /// );
-    /// # Ok::<_, dendron::StructureEditGrantError>(())
+    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]

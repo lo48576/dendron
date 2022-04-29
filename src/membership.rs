@@ -7,7 +7,7 @@ use core::num::NonZeroUsize;
 use alloc::rc::{Rc, Weak};
 
 use crate::tree::{
-    LockAggregatorForNode, StructureEditGrantError, StructureEditProhibitionError, TreeCore,
+    HierarchyEditGrantError, HierarchyEditProhibitionError, LockAggregatorForNode, TreeCore,
 };
 
 /// A membership of a node to a tree.
@@ -198,7 +198,7 @@ impl<T> Membership<T> {
         }
     }
 
-    /// Increments structure edit lock count, assuming the count is nonzero.
+    /// Increments hierarchy edit lock count, assuming the count is nonzero.
     ///
     /// # Panics
     ///
@@ -216,8 +216,8 @@ impl<T> Membership<T> {
         }
     }
 
-    /// Acquires structure edit prohibition.
-    pub(crate) fn acquire_edit_prohibition(&self) -> Result<(), StructureEditProhibitionError> {
+    /// Acquires hierarchy edit prohibition.
+    pub(crate) fn acquire_edit_prohibition(&self) -> Result<(), HierarchyEditProhibitionError> {
         let mut membership_core = self
             .inner
             .try_borrow_mut()
@@ -232,8 +232,8 @@ impl<T> Membership<T> {
         }
     }
 
-    /// Acquires structure edit grant.
-    pub(crate) fn acquire_edit_grant(&self) -> Result<(), StructureEditGrantError> {
+    /// Acquires hierarchy edit grant.
+    pub(crate) fn acquire_edit_grant(&self) -> Result<(), HierarchyEditGrantError> {
         let mut membership_core = self
             .inner
             .try_borrow_mut()
@@ -366,7 +366,7 @@ impl<T> WeakMembership<T> {
     /// # Failures
     ///
     /// Fails if the new tree cannot be locked with the currently active tree
-    /// structure edit lock.
+    /// hierarchy edit lock.
     pub(crate) fn set_tree_core(&self, new_tree_core: &Rc<TreeCore<T>>) -> Result<(), ()> {
         let mut inner = self
             .inner
@@ -389,7 +389,7 @@ impl<T> WeakMembership<T> {
     }
 }
 
-/// Membership with tree structure edit prohibition.
+/// Membership with tree hierarchy edit prohibition.
 #[derive(Debug)]
 pub(crate) struct MembershipWithEditProhibition<T> {
     /// Plain membership.
@@ -417,8 +417,8 @@ impl<T> Clone for MembershipWithEditProhibition<T> {
 }
 
 impl<T> MembershipWithEditProhibition<T> {
-    /// Clones a membership and bundles a structure edit prohibition.
-    pub(crate) fn new(inner: Membership<T>) -> Result<Self, StructureEditProhibitionError> {
+    /// Clones a membership and bundles a hierarchy edit prohibition.
+    pub(crate) fn new(inner: Membership<T>) -> Result<Self, HierarchyEditProhibitionError> {
         inner.acquire_edit_prohibition()?;
         Ok(Self { inner })
     }
@@ -445,7 +445,7 @@ impl<T> AsRef<Membership<T>> for MembershipWithEditProhibition<T> {
     }
 }
 
-/// Membership with tree structure edit grant.
+/// Membership with tree hierarchy edit grant.
 #[derive(Debug)]
 pub(crate) struct MembershipWithEditGrant<T> {
     /// Plain membership.
@@ -469,8 +469,8 @@ impl<T> Clone for MembershipWithEditGrant<T> {
 }
 
 impl<T> MembershipWithEditGrant<T> {
-    /// Clones a membership and bundles a structure edit grant.
-    pub(crate) fn new(inner: Membership<T>) -> Result<Self, StructureEditGrantError> {
+    /// Clones a membership and bundles a hierarchy edit grant.
+    pub(crate) fn new(inner: Membership<T>) -> Result<Self, HierarchyEditGrantError> {
         inner.acquire_edit_grant()?;
         Ok(Self { inner })
     }

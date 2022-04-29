@@ -9,11 +9,11 @@ use alloc::rc::Rc;
 use crate::node::{IntraTreeLink, Node};
 use crate::traverse::DftEvent;
 
+use self::lock::HierarchyLockManager;
 pub(crate) use self::lock::LockAggregatorForNode;
-use self::lock::StructureLockManager;
 pub use self::lock::{
-    StructureEditGrant, StructureEditGrantError, StructureEditProhibition,
-    StructureEditProhibitionError,
+    HierarchyEditGrant, HierarchyEditGrantError, HierarchyEditProhibition,
+    HierarchyEditProhibitionError,
 };
 
 /// A core data of a tree.
@@ -27,8 +27,8 @@ pub use self::lock::{
 pub(crate) struct TreeCore<T> {
     /// Root node.
     root: RefCell<IntraTreeLink<T>>,
-    /// Structure lock manager.
-    lock_manager: StructureLockManager,
+    /// Hierarchy lock manager.
+    lock_manager: HierarchyLockManager,
 }
 
 impl<T> TreeCore<T> {
@@ -55,7 +55,7 @@ impl<T> TreeCore<T> {
     /// # Failures
     ///
     /// Fails if the tree `dest` cannot be locked with the currently active
-    /// tree structure edit lock for `self`.
+    /// tree hierarchy edit lock for `self`.
     // Intended only for use by `membership` module.
     pub(crate) fn transfer_single_lock_to(
         self: &Rc<TreeCore<T>>,
@@ -144,7 +144,7 @@ impl<T> Tree<T> {
         Node::with_link_and_membership(root_link, membership)
     }
 
-    /// Prohibits the tree structure edit.
+    /// Prohibits the tree hierarchy edit.
     ///
     /// # Examples
     ///
@@ -158,19 +158,19 @@ impl<T> Tree<T> {
     /// //  `-- 0
     ///
     /// let prohibition = tree
-    ///     .prohibit_structure_edit()
+    ///     .prohibit_hierarchy_edit()
     ///     .expect("hierarchy edit should not yet be granted");
     ///
     /// assert!(prohibition.is_valid_for_node(&tree.root()));
     /// ```
     #[inline]
-    pub fn prohibit_structure_edit(
+    pub fn prohibit_hierarchy_edit(
         &self,
-    ) -> Result<StructureEditProhibition<T>, StructureEditProhibitionError> {
-        StructureEditProhibition::new(&self.core)
+    ) -> Result<HierarchyEditProhibition<T>, HierarchyEditProhibitionError> {
+        HierarchyEditProhibition::new(&self.core)
     }
 
-    /// Grants the tree structure edit.
+    /// Grants the tree hierarchy edit.
     ///
     /// # Examples
     ///
@@ -184,13 +184,13 @@ impl<T> Tree<T> {
     /// //  `-- 0
     ///
     /// let grant = tree
-    ///     .grant_structure_edit()
+    ///     .grant_hierarchy_edit()
     ///     .expect("hierarchy edit should not yet be prohibition");
     ///
     /// assert!(grant.is_valid_for_node(&tree.root()));
     /// ```
     #[inline]
-    pub fn grant_structure_edit(&self) -> Result<StructureEditGrant<T>, StructureEditGrantError> {
-        StructureEditGrant::new(&self.core)
+    pub fn grant_hierarchy_edit(&self) -> Result<HierarchyEditGrant<T>, HierarchyEditGrantError> {
+        HierarchyEditGrant::new(&self.core)
     }
 }

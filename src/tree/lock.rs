@@ -1,4 +1,4 @@
-//! Tree structure locking.
+//! Tree hierarchy locking.
 
 use core::cell::Cell;
 use core::fmt;
@@ -8,43 +8,43 @@ use alloc::rc::{Rc, Weak};
 use crate::node::Node;
 use crate::tree::TreeCore;
 
-/// An error indicating that an attempt to prohibit edit of the tree structure failed.
+/// An error indicating that an attempt to prohibit edit of the tree hierarchy failed.
 ///
 /// Already existing edit grant is the only cause of this error.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct StructureEditProhibitionError;
+pub struct HierarchyEditProhibitionError;
 
-impl fmt::Display for StructureEditProhibitionError {
+impl fmt::Display for HierarchyEditProhibitionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("edif of the tree structure is already granted")
+        f.write_str("edif of the tree hierarchy is already granted")
     }
 }
 
 #[cfg(feature = "std")]
-impl std::error::Error for StructureEditProhibitionError {}
+impl std::error::Error for HierarchyEditProhibitionError {}
 
-/// An error indicating that an attempt to grant edit of the tree structure failed.
+/// An error indicating that an attempt to grant edit of the tree hierarchy failed.
 ///
 /// Already existing edit prohibition is the only cause of this error.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct StructureEditGrantError;
+pub struct HierarchyEditGrantError;
 
-impl fmt::Display for StructureEditGrantError {
+impl fmt::Display for HierarchyEditGrantError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("edit of the tree structure is already prohibited")
+        f.write_str("edit of the tree hierarchy is already prohibited")
     }
 }
 
 #[cfg(feature = "std")]
-impl std::error::Error for StructureEditGrantError {}
+impl std::error::Error for HierarchyEditGrantError {}
 
-/// Manager for tree structure edit grant and prohibition.
+/// Manager for tree hierarchy edit grant and prohibition.
 ///
-/// Each tree has just one `StructureLockManager`.
+/// Each tree has just one `HierarchyLockManager`.
 ///
 /// If no locks are active, such state is called "neutral".
 #[derive(Default, Debug)]
-pub struct StructureLockManager {
+pub struct HierarchyLockManager {
     /// Lock count for the tree.
     ///
     /// Positive count represents the number of edit grants, and the negative
@@ -52,7 +52,7 @@ pub struct StructureLockManager {
     num_grants: Cell<isize>,
 }
 
-impl StructureLockManager {
+impl HierarchyLockManager {
     /// Returns true if there is any active prohibitions or there are no active locks.
     ///
     /// Note that this does not mean more prohibitions can be acquirable; the
@@ -60,11 +60,11 @@ impl StructureLockManager {
     #[inline]
     pub(crate) fn ensure_prohibition_acquirable(
         &self,
-    ) -> Result<(), StructureEditProhibitionError> {
+    ) -> Result<(), HierarchyEditProhibitionError> {
         if self.num_grants.get() <= 0 {
             Ok(())
         } else {
-            Err(StructureEditProhibitionError)
+            Err(HierarchyEditProhibitionError)
         }
     }
 
@@ -73,11 +73,11 @@ impl StructureLockManager {
     /// Note that this does not mean more grants can be acquirable; the
     /// lock number limit is not considered by this method.
     #[inline]
-    pub(crate) fn ensure_grant_acquirable(&self) -> Result<(), StructureEditGrantError> {
+    pub(crate) fn ensure_grant_acquirable(&self) -> Result<(), HierarchyEditGrantError> {
         if self.num_grants.get() >= 0 {
             Ok(())
         } else {
-            Err(StructureEditGrantError)
+            Err(HierarchyEditGrantError)
         }
     }
 
@@ -91,14 +91,14 @@ impl StructureLockManager {
     ///
     /// Panics if the number of active edit prohibitions for the tree exceeds
     /// `isize::MAX`. This is very unlikely to happen without leaking prohibitions.
-    fn acquire_prohibition(&self) -> Result<(), StructureEditProhibitionError> {
+    fn acquire_prohibition(&self) -> Result<(), HierarchyEditProhibitionError> {
         let old_count = self.num_grants.get();
         if old_count > 0 {
-            return Err(StructureEditProhibitionError);
+            return Err(HierarchyEditProhibitionError);
         }
         let new_count = old_count
             .checked_sub(1)
-            .unwrap_or_else(|| panic!("[precondition] too many structure edit prohibitions"));
+            .unwrap_or_else(|| panic!("[precondition] too many hierarchy edit prohibitions"));
         self.num_grants.set(new_count);
 
         Ok(())
@@ -128,14 +128,14 @@ impl StructureLockManager {
     /// Panics if the number of active edit grants for the tree exceeds
     /// `isize::MAX as usize + 1`. This is very unlikely to happen without
     /// leaking grants.
-    fn acquire_grant(&self) -> Result<(), StructureEditGrantError> {
+    fn acquire_grant(&self) -> Result<(), HierarchyEditGrantError> {
         let old_count = self.num_grants.get();
         if old_count < 0 {
-            return Err(StructureEditGrantError);
+            return Err(HierarchyEditGrantError);
         }
         let new_count = old_count
             .checked_add(1)
-            .unwrap_or_else(|| panic!("[precondition] too many structure edit grants"));
+            .unwrap_or_else(|| panic!("[precondition] too many hierarchy edit grants"));
         self.num_grants.set(new_count);
 
         Ok(())
@@ -182,7 +182,7 @@ impl StructureLockManager {
     /// # Failures
     ///
     /// Fails if `other` cannot be locked with the currently active tree
-    /// structure edit lock for `self`.
+    /// hierarchy edit lock for `self`.
     pub(super) fn transfer_single_lock_to(&self, other: &Self) -> Result<(), ()> {
         use core::cmp::Ordering;
 
@@ -205,10 +205,10 @@ impl StructureLockManager {
     }
 }
 
-/// A token to keep the tree structure prohibited to be edited.
-pub struct StructureEditProhibition<T>(Weak<TreeCore<T>>);
+/// A token to keep the tree hierarchy prohibited to be edited.
+pub struct HierarchyEditProhibition<T>(Weak<TreeCore<T>>);
 
-impl<T> Drop for StructureEditProhibition<T> {
+impl<T> Drop for HierarchyEditProhibition<T> {
     fn drop(&mut self) {
         if let Some(tree_core) = Weak::upgrade(&self.0) {
             tree_core.lock_manager.release_prohibition();
@@ -216,20 +216,20 @@ impl<T> Drop for StructureEditProhibition<T> {
     }
 }
 
-impl<T> StructureEditProhibition<T> {
-    /// Creates a structure edit prohibition for the given tree.
-    pub(super) fn new(tree_core: &Rc<TreeCore<T>>) -> Result<Self, StructureEditProhibitionError> {
+impl<T> HierarchyEditProhibition<T> {
+    /// Creates a hierarchy edit prohibition for the given tree.
+    pub(super) fn new(tree_core: &Rc<TreeCore<T>>) -> Result<Self, HierarchyEditProhibitionError> {
         tree_core.lock_manager.acquire_prohibition()?;
-        Ok(StructureEditProhibition(Rc::downgrade(tree_core)))
+        Ok(HierarchyEditProhibition(Rc::downgrade(tree_core)))
     }
 
-    /// Clones the tree structure edit prohibition.
+    /// Clones the tree hierarchy edit prohibition.
     ///
     /// # Failures
     ///
     /// Fails if the number of active edit prohibitions for the tree exceeds
     /// `isize::MAX`.
-    pub fn try_clone(&self) -> Result<Self, StructureEditProhibitionError> {
+    pub fn try_clone(&self) -> Result<Self, HierarchyEditProhibitionError> {
         if let Some(tree_core) = Weak::upgrade(&self.0) {
             tree_core.lock_manager.acquire_prohibition()?;
         }
@@ -238,8 +238,8 @@ impl<T> StructureEditProhibition<T> {
 
     /// Returns true if the prohibition is valid for the tree the given node belongs to.
     ///
-    /// A prohibition can be created by [`Tree::prohibit_structure_edit`] or
-    /// [`FrozenNode::extract_structure_edit_prohibition`].
+    /// A prohibition can be created by [`Tree::prohibit_hierarchy_edit`] or
+    /// [`FrozenNode::extract_hierarchy_edit_prohibition`].
     ///
     /// # Examples
     ///
@@ -250,17 +250,17 @@ impl<T> StructureEditProhibition<T> {
     /// let node2 = Node::new_tree("bar");
     ///
     /// let prohibition1 = node1.tree()
-    ///     .prohibit_structure_edit()
+    ///     .prohibit_hierarchy_edit()
     ///     .expect("hierarchy edit should not yet be granted");
     ///
     /// assert!(prohibition1.is_valid_for_node(&node1));
     /// assert!(!prohibition1.is_valid_for_node(&node2));
     /// ```
     ///
-    /// [`Tree::prohibit_structure_edit`]:
-    ///     `crate::Tree::prohibit_structure_edit`
-    /// [`FrozenNode::extract_structure_edit_prohibition`]:
-    ///     `crate::FrozenNode::extract_structure_edit_prohibition`
+    /// [`Tree::prohibit_hierarchy_edit`]:
+    ///     `crate::Tree::prohibit_hierarchy_edit`
+    /// [`FrozenNode::extract_hierarchy_edit_prohibition`]:
+    ///     `crate::FrozenNode::extract_hierarchy_edit_prohibition`
     #[inline]
     #[must_use]
     pub fn is_valid_for_node(&self, node: &Node<T>) -> bool {
@@ -276,10 +276,10 @@ impl<T> StructureEditProhibition<T> {
     }
 }
 
-/// A token to keep the tree structure granted to be edited.
-pub struct StructureEditGrant<T>(Weak<TreeCore<T>>);
+/// A token to keep the tree hierarchy granted to be edited.
+pub struct HierarchyEditGrant<T>(Weak<TreeCore<T>>);
 
-impl<T> Drop for StructureEditGrant<T> {
+impl<T> Drop for HierarchyEditGrant<T> {
     fn drop(&mut self) {
         if let Some(tree_core) = Weak::upgrade(&self.0) {
             tree_core.lock_manager.release_grant();
@@ -287,8 +287,8 @@ impl<T> Drop for StructureEditGrant<T> {
     }
 }
 
-impl<T> Clone for StructureEditGrant<T> {
-    /// Clones the tree structure edit grant.
+impl<T> Clone for HierarchyEditGrant<T> {
+    /// Clones the tree hierarchy edit grant.
     ///
     /// If you want to avoid the risk of panic (even if it is very unlikely),
     /// use [`try_clone`][`Self::try_clone`] method.
@@ -299,24 +299,24 @@ impl<T> Clone for StructureEditGrant<T> {
     /// `isize::MAX`.
     fn clone(&self) -> Self {
         self.try_clone()
-            .expect("[precondition] too many structure edit grants are active")
+            .expect("[precondition] too many hierarchy edit grants are active")
     }
 }
 
-impl<T> StructureEditGrant<T> {
-    /// Creates a structure edit grant for the given tree.
-    pub(super) fn new(tree_core: &Rc<TreeCore<T>>) -> Result<Self, StructureEditGrantError> {
+impl<T> HierarchyEditGrant<T> {
+    /// Creates a hierarchy edit grant for the given tree.
+    pub(super) fn new(tree_core: &Rc<TreeCore<T>>) -> Result<Self, HierarchyEditGrantError> {
         tree_core.lock_manager.acquire_grant()?;
-        Ok(StructureEditGrant(Rc::downgrade(tree_core)))
+        Ok(HierarchyEditGrant(Rc::downgrade(tree_core)))
     }
 
-    /// Clones the tree structure edit grant.
+    /// Clones the tree hierarchy edit grant.
     ///
     /// # Failures
     ///
     /// Fails if the number of active edit grants for the tree exceeds
     /// `isize::MAX`.
-    pub fn try_clone(&self) -> Result<Self, StructureEditGrantError> {
+    pub fn try_clone(&self) -> Result<Self, HierarchyEditGrantError> {
         if let Some(tree_core) = Weak::upgrade(&self.0) {
             tree_core.lock_manager.acquire_grant()?;
         }
@@ -325,8 +325,8 @@ impl<T> StructureEditGrant<T> {
 
     /// Returns true if the grant is valid for the tree the given node belongs to.
     ///
-    /// A grant can be created by [`Tree::grant_structure_edit`] or
-    /// [`HotNode::extract_structure_edit_grant`].
+    /// A grant can be created by [`Tree::grant_hierarchy_edit`] or
+    /// [`HotNode::extract_hierarchy_edit_grant`].
     ///
     /// # Examples
     ///
@@ -337,16 +337,16 @@ impl<T> StructureEditGrant<T> {
     /// let node2 = Node::new_tree("bar");
     ///
     /// let grant1 = node1.tree()
-    ///     .grant_structure_edit()
+    ///     .grant_hierarchy_edit()
     ///     .expect("hierarchy edit should not yet be prohibited");
     ///
     /// assert!(grant1.is_valid_for_node(&node1));
     /// assert!(!grant1.is_valid_for_node(&node2));
     /// ```
     ///
-    /// [`Tree::grant_structure_edit`]: `crate::Tree::grant_structure_edit`
-    /// [`HotNode::extract_structure_edit_grant`]:
-    ///     `crate::HotNode::extract_structure_edit_grant`
+    /// [`Tree::grant_hierarchy_edit`]: `crate::Tree::grant_hierarchy_edit`
+    /// [`HotNode::extract_hierarchy_edit_grant`]:
+    ///     `crate::HotNode::extract_hierarchy_edit_grant`
     #[inline]
     #[must_use]
     pub fn is_valid_for_node(&self, node: &Node<T>) -> bool {
@@ -368,7 +368,7 @@ pub(crate) struct LockAggregatorForNode {
     /// The number of aggregated lock acquisition through the node.
     ///
     /// This aggregator does not need to remember which type of lock is active
-    /// because the backend `StructureLockManager` knows it.
+    /// because the backend `HierarchyLockManager` knows it.
     aggregated_count: usize,
 }
 
@@ -411,11 +411,11 @@ impl LockAggregatorForNode {
         self.aggregated_count = new_count;
     }
 
-    /// Acquires structure edit prohibition.
+    /// Acquires hierarchy edit prohibition.
     pub(crate) fn acquire_edit_prohibition<T>(
         &mut self,
         tree_core: &Rc<TreeCore<T>>,
-    ) -> Result<(), StructureEditProhibitionError> {
+    ) -> Result<(), HierarchyEditProhibitionError> {
         tree_core.lock_manager.ensure_prohibition_acquirable()?;
         if self.aggregated_count != 0 {
             // Already has locks.
@@ -428,11 +428,11 @@ impl LockAggregatorForNode {
         Ok(())
     }
 
-    /// Acquires structure edit grant.
+    /// Acquires hierarchy edit grant.
     pub(crate) fn acquire_edit_grant<T>(
         &mut self,
         tree_core: &Rc<TreeCore<T>>,
-    ) -> Result<(), StructureEditGrantError> {
+    ) -> Result<(), HierarchyEditGrantError> {
         tree_core.lock_manager.ensure_grant_acquirable()?;
         if self.aggregated_count != 0 {
             // Already has locks.

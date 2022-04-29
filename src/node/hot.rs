@@ -1,4 +1,4 @@
-//! Hot node, which is a [`Node`] with tree structure edit grant bundled.
+//! Hot node, which is a [`Node`] with tree hierarchy edit grant bundled.
 
 use core::cell::{BorrowError, BorrowMutError, Ref, RefMut};
 use core::fmt;
@@ -7,12 +7,12 @@ use alloc::rc::Rc;
 
 use crate::anchor::{AdoptAs, InsertAs};
 use crate::membership::{Membership, MembershipWithEditGrant};
-use crate::node::{edit, DebugPrettyPrint, IntraTreeLink, Node, NumChildren, StructureError};
+use crate::node::{edit, DebugPrettyPrint, HierarchyError, IntraTreeLink, Node, NumChildren};
 use crate::serial;
 use crate::traverse;
-use crate::tree::{StructureEditGrant, StructureEditGrantError, Tree, TreeCore};
+use crate::tree::{HierarchyEditGrant, HierarchyEditGrantError, Tree, TreeCore};
 
-/// A [`Node`] with a tree structure edit grant bundled.
+/// A [`Node`] with a tree hierarchy edit grant bundled.
 ///
 /// # Panics
 ///
@@ -77,7 +77,7 @@ impl<T: Eq> Eq for HotNode<T> {}
 
 impl<T> HotNode<T> {
     /// Creates a new `HotNode` from the given plain node.
-    pub(super) fn from_node(node: Node<T>) -> Result<Self, StructureEditGrantError> {
+    pub(super) fn from_node(node: Node<T>) -> Result<Self, HierarchyEditGrantError> {
         let Node {
             intra_link,
             membership,
@@ -93,11 +93,11 @@ impl<T> HotNode<T> {
     ///
     /// # Panics
     ///
-    /// Panics if the structure edit grant is not valid for the given node.
+    /// Panics if the hierarchy edit grant is not valid for the given node.
     ///
     /// Panics if there are too many grants for the node or for the tree.
     #[must_use]
-    pub(super) fn from_node_and_grant(node: Node<T>, grant: &StructureEditGrant<T>) -> Self {
+    pub(super) fn from_node_and_grant(node: Node<T>, grant: &HierarchyEditGrant<T>) -> Self {
         grant.panic_if_invalid_for_node(&node);
 
         let Node {
@@ -127,7 +127,7 @@ impl<T> HotNode<T> {
             "[consistency] the membership must be alive since the corresponding node link is alive",
         );
         let membership = MembershipWithEditGrant::new(membership)
-            .expect("[consistency] there should have already been tree structure edit grant");
+            .expect("[consistency] there should have already been tree hierarchy edit grant");
 
         Self {
             intra_link,
@@ -179,9 +179,9 @@ impl<T> From<HotNode<T>> for Node<T> {
     }
 }
 
-/// Tree structure edit grants.
+/// Tree hierarchy edit grants.
 impl<T> HotNode<T> {
-    /// Returns a copy of the tree structure edit grant.
+    /// Returns a copy of the tree hierarchy edit grant.
     ///
     /// # Examples
     ///
@@ -189,13 +189,13 @@ impl<T> HotNode<T> {
     /// use dendron::HotNode;
     ///
     /// let hot = HotNode::new_tree("root");
-    /// let grant = hot.extract_structure_edit_grant();
+    /// let grant = hot.extract_hierarchy_edit_grant();
     /// ```
     #[must_use]
-    pub fn extract_structure_edit_grant(&self) -> StructureEditGrant<T> {
+    pub fn extract_hierarchy_edit_grant(&self) -> HierarchyEditGrant<T> {
         self.tree()
-            .grant_structure_edit()
-            .expect("[validity] the tree structure is already granted to be edit")
+            .grant_hierarchy_edit()
+            .expect("[validity] the tree hierarchy is already granted to be edit")
     }
 }
 
@@ -722,7 +722,7 @@ impl<T> HotNode<T> {
     }
 }
 
-/// Node creation and structure modification.
+/// Node creation and hierarchy modification.
 impl<T> HotNode<T> {
     /// Creates and returns a new hot node as the root of a new tree.
     ///
@@ -750,7 +750,7 @@ impl<T> HotNode<T> {
     ///
     /// See [`Node::try_create_node_as`] for usage examples.
     #[inline]
-    pub fn try_create_node_as(&self, data: T, dest: AdoptAs) -> Result<Self, StructureError> {
+    pub fn try_create_node_as(&self, data: T, dest: AdoptAs) -> Result<Self, HierarchyError> {
         edit::try_create_node_as(&self.intra_link, self.tree_core(), data, dest)
             .map(|node| Self::from_node(node).expect("[validity] a new node can be locked"))
     }
@@ -787,10 +787,10 @@ impl<T> HotNode<T> {
     ///
     /// # Failures
     ///
-    /// Returns [`StructureError::SiblingsWithoutParent`] as an error if `self`
+    /// Returns [`HierarchyError::SiblingsWithoutParent`] as an error if `self`
     /// is a root node.
     #[inline]
-    pub fn try_create_as_prev_sibling(&self, data: T) -> Result<Self, StructureError> {
+    pub fn try_create_as_prev_sibling(&self, data: T) -> Result<Self, HierarchyError> {
         edit::try_create_as_prev_sibling(&self.intra_link, self.tree_core(), data)
             .map(|node| Self::from_node(node).expect("[validity] a new node can be locked"))
     }
@@ -801,10 +801,10 @@ impl<T> HotNode<T> {
     ///
     /// # Failures
     ///
-    /// Returns [`StructureError::SiblingsWithoutParent`] as an error if `self`
+    /// Returns [`HierarchyError::SiblingsWithoutParent`] as an error if `self`
     /// is a root node.
     #[inline]
-    pub fn try_create_as_next_sibling(&self, data: T) -> Result<Self, StructureError> {
+    pub fn try_create_as_next_sibling(&self, data: T) -> Result<Self, HierarchyError> {
         edit::try_create_as_next_sibling(&self.intra_link, self.tree_core(), data)
             .map(|node| Self::from_node(node).expect("[validity] a new node can be locked"))
     }
@@ -845,11 +845,11 @@ impl<T> HotNode<T> {
     /// Fails if:
     ///
     /// * the node is the root and has multiple children, or
-    ///     + In this case, [`StructureError::SiblingsWithoutParent`] error is returned.
+    ///     + In this case, [`HierarchyError::SiblingsWithoutParent`] error is returned.
     /// * the node is the root and has no children.
-    ///     + In this case, [`StructureError::EmptyTree`] error is returned.
+    ///     + In this case, [`HierarchyError::EmptyTree`] error is returned.
     #[inline]
-    pub fn replace_with_children(&self) -> Result<(), StructureError> {
+    pub fn replace_with_children(&self) -> Result<(), HierarchyError> {
         edit::replace_with_children(&self.intra_link)
     }
 
@@ -877,11 +877,11 @@ impl<T> HotNode<T> {
     ///
     /// # Failures
     ///
-    /// Fails with [`BorrowNodeData`][`StructureError::BorrowNodeData`] if any
+    /// Fails with [`BorrowNodeData`][`HierarchyError::BorrowNodeData`] if any
     /// data associated to the node in the subtree is mutably (i.e. exclusively)
     /// borrowed.
     #[inline]
-    pub fn clone_insert_subtree(&self, dest: InsertAs<&HotNode<T>>) -> Result<Self, StructureError>
+    pub fn clone_insert_subtree(&self, dest: InsertAs<&HotNode<T>>) -> Result<Self, HierarchyError>
     where
         T: Clone,
     {
@@ -894,7 +894,7 @@ impl<T> HotNode<T> {
     ///
     /// See [`Node::detach_insert_subtree`] for usage examples.
     #[inline]
-    pub fn detach_insert_subtree(&self, dest: InsertAs<&HotNode<T>>) -> Result<(), StructureError> {
+    pub fn detach_insert_subtree(&self, dest: InsertAs<&HotNode<T>>) -> Result<(), HierarchyError> {
         if self
             .plain_membership()
             .belongs_to_same_tree(dest.anchor().plain_membership())
