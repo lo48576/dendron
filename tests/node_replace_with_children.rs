@@ -14,7 +14,10 @@ fn replace_root_without_children() {
     let root = HotNode::new_tree("root");
 
     assert!(
-        matches!(root.replace_with_children(), Err(HierarchyError::EmptyTree)),
+        matches!(
+            root.try_replace_with_children(),
+            Err(HierarchyError::EmptyTree)
+        ),
         "tree cannot be empty"
     );
 }
@@ -30,7 +33,7 @@ fn replace_root_with_single_child() {
 
     //  root
     //  child
-    assert!(root.replace_with_children().is_ok());
+    assert!(root.try_replace_with_children().is_ok());
     assert!(root.is_root());
     assert!(child.is_root());
 }
@@ -45,7 +48,7 @@ fn replace_root_with_multiple_children() {
     //  `-- child1
 
     assert!(matches!(
-        root.replace_with_children(),
+        root.try_replace_with_children(),
         Err(HierarchyError::SiblingsWithoutParent)
     ));
 }
@@ -149,7 +152,7 @@ fn replace_non_root() {
                 assert!(!target.is_root(), "config={config:?}");
 
                 assert!(
-                    target.replace_with_children().is_ok(),
+                    target.try_replace_with_children().is_ok(),
                     "HotNode::replace_with_children should success (config={config:?})"
                 );
                 assert!(

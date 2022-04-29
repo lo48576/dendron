@@ -755,6 +755,20 @@ impl<T> HotNode<T> {
             .map(|node| Self::from_node(node).expect("[validity] a new node can be locked"))
     }
 
+    /// Creates a node as the next sibling of `self`, and returns the new node.
+    ///
+    /// See [`Node::create_node_as`] for usage examples.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the creation of a node at the specified position will make the
+    /// tree hierarchy invalid.
+    #[inline]
+    pub fn create_node_as(&self, data: T, dest: AdoptAs) -> Self {
+        self.try_create_node_as(data, dest)
+            .expect("[precondition] hierarchy to be created should be valid")
+    }
+
     /// Creates a node as the first child of `self`.
     ///
     /// See [`Node::create_as_first_child`] for usage examples.
@@ -795,6 +809,19 @@ impl<T> HotNode<T> {
             .map(|node| Self::from_node(node).expect("[validity] a new node can be locked"))
     }
 
+    /// Creates a node as the previous sibling of `self`.
+    ///
+    /// See [`Node::try_create_as_prev_sibling`] for usage examples.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `self` is a root node.
+    #[inline]
+    pub fn create_as_prev_sibling(&self, data: T) -> Self {
+        self.try_create_as_prev_sibling(data)
+            .expect("[precondition] hierarchy to be created should be valid")
+    }
+
     /// Creates a node as the next sibling of `self`.
     ///
     /// See [`Node::try_create_as_next_sibling`] for usage examples.
@@ -807,6 +834,20 @@ impl<T> HotNode<T> {
     pub fn try_create_as_next_sibling(&self, data: T) -> Result<Self, HierarchyError> {
         edit::try_create_as_next_sibling(&self.intra_link, self.tree_core(), data)
             .map(|node| Self::from_node(node).expect("[validity] a new node can be locked"))
+    }
+
+    /// Creates a node as the next sibling of `self`.
+    ///
+    /// See [`Node::try_create_as_next_sibling`] for usage examples.
+    ///
+    /// # Failures
+    ///
+    /// Returns [`HierarchyError::SiblingsWithoutParent`] as an error if `self`
+    /// is a root node.
+    #[inline]
+    pub fn create_as_next_sibling(&self, data: T) -> Self {
+        self.try_create_as_next_sibling(data)
+            .expect("[precondition] hierarchy to be created should be valid")
     }
 
     /// Inserts the children at the position of the node, and detach the node.
@@ -825,7 +866,7 @@ impl<T> HotNode<T> {
     /// `-- next
     /// ```
     ///
-    /// After `self.replace_with_children()`:
+    /// After `self.try_replace_with_children()`:
     ///
     /// ```text
     /// parent
@@ -838,7 +879,7 @@ impl<T> HotNode<T> {
     /// self (detached)
     /// ```
     ///
-    /// See [`Node::replace_with_children`] for usage examples.
+    /// See [`Node::try_replace_with_children`] for usage examples.
     ///
     /// # Failures
     ///
@@ -849,52 +890,127 @@ impl<T> HotNode<T> {
     /// * the node is the root and has no children.
     ///     + In this case, [`HierarchyError::EmptyTree`] error is returned.
     #[inline]
-    pub fn replace_with_children(&self) -> Result<(), HierarchyError> {
-        edit::replace_with_children(&self.intra_link)
+    pub fn try_replace_with_children(&self) -> Result<(), HierarchyError> {
+        edit::try_replace_with_children(&self.intra_link)
+    }
+
+    /// Inserts the children at the position of the node, and detach the node.
+    ///
+    /// `self` will become the root of a new single-node tree.
+    ///
+    /// See [`try_replace_with_children`][`Self::try_replace_with_children`]
+    /// method.
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    ///
+    /// * the node is the root and has multiple children, or
+    /// * the node is the root and has no children.
+    #[inline]
+    pub fn replace_with_children(&self) {
+        self.try_replace_with_children()
+            .expect("[precondition] the hierarchy to be created should be valid")
     }
 
     /// Clones the subtree and returns it as a new independent tree.
     ///
-    /// See [`Node::clone_subtree`] for usage examples.
+    /// See [`Node::try_clone_subtree`] for usage examples.
     ///
     /// # Failures
     ///
     /// Fails if any data associated to the node in the subtree is mutably
     /// (i.e. exclusively) borrowed.
     #[inline]
-    pub fn clone_subtree(&self) -> Result<Node<T>, BorrowError>
+    pub fn try_clone_subtree(&self) -> Result<Node<T>, BorrowError>
     where
         T: Clone,
     {
-        self.plain().clone_subtree()
+        self.plain().try_clone_subtree()
+    }
+
+    /// Clones the subtree and returns it as a new independent tree.
+    ///
+    /// See [`Node::try_clone_subtree`] for usage examples.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any data associated to the node in the subtree is mutably
+    /// (i.e. exclusively) borrowed.
+    #[inline]
+    #[must_use]
+    pub fn clone_subtree(&self) -> Node<T>
+    where
+        T: Clone,
+    {
+        self.try_clone_subtree()
+            .expect("[precondition] data associated to nodes should be borrowable")
     }
 
     /// Clones the node with its subtree, and inserts it to the given destination.
     ///
     /// Returns the root node of the cloned new subtree.
     ///
-    /// See [`Node::clone_insert_subtree`] for usage examples.
+    /// See [`Node::try_clone_insert_subtree`] for usage examples.
     ///
     /// # Failures
     ///
-    /// Fails with [`BorrowNodeData`][`HierarchyError::BorrowNodeData`] if any
-    /// data associated to the node in the subtree is mutably (i.e. exclusively)
-    /// borrowed.
+    /// Fails if:
+    ///
+    /// * the hierarchy to be created is invalid, or
+    /// * any data associated to the node in the subtree is mutably (i.e.
+    ///   exclusively) borrowed.
+    ///     + Returns [`BorrowNodeData`][`HierarchyError::BorrowNodeData`] in
+    ///       this case.
     #[inline]
-    pub fn clone_insert_subtree(&self, dest: InsertAs<&HotNode<T>>) -> Result<Self, HierarchyError>
+    pub fn try_clone_insert_subtree(
+        &self,
+        dest: InsertAs<&HotNode<T>>,
+    ) -> Result<Self, HierarchyError>
     where
         T: Clone,
     {
-        edit::clone_insert_subtree(&self.plain(), dest)
+        edit::try_clone_insert_subtree(&self.plain(), dest)
+    }
+
+    /// Clones the node with its subtree, and inserts it to the given destination.
+    ///
+    /// Returns the root node of the cloned new subtree.
+    ///
+    /// See [`try_clone_insert_subtree`][`Self::try_clone_insert_subtree`]
+    /// for detail.
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    ///
+    /// * the hierarchy to be created is invalid, or
+    /// * any data associated to the node in the subtree is mutably (i.e.
+    ///   exclusively) borrowed.
+    #[inline]
+    // This modifies hierarchy of the destination of the tree, so the returned
+    // value is not necessarily used.
+    #[allow(clippy::must_use_candidate)]
+    pub fn clone_insert_subtree(&self, dest: InsertAs<&HotNode<T>>) -> Self
+    where
+        T: Clone,
+    {
+        self.try_clone_insert_subtree(dest).expect(
+            "[precondition] the hierarchy to be created should be valid \
+             and the node data should be borrowable",
+        )
     }
 
     /// Detaches the node with its subtree, and inserts it to the given destination.
     ///
     /// Returns the root node of the transplanted subtree.
     ///
-    /// See [`Node::detach_insert_subtree`] for usage examples.
+    /// See [`Node::try_detach_insert_subtree`] for usage examples.
     #[inline]
-    pub fn detach_insert_subtree(&self, dest: InsertAs<&HotNode<T>>) -> Result<(), HierarchyError> {
+    pub fn try_detach_insert_subtree(
+        &self,
+        dest: InsertAs<&HotNode<T>>,
+    ) -> Result<(), HierarchyError> {
         if self
             .plain_membership()
             .belongs_to_same_tree(dest.anchor().plain_membership())
@@ -909,6 +1025,23 @@ impl<T> HotNode<T> {
                 &dest.anchor().tree_core(),
             )
         }
+    }
+
+    /// Detaches the node with its subtree, and inserts it to the given destination.
+    ///
+    /// See [`Node::try_detach_insert_subtree`] for detail.
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    ///
+    /// * the hierarchy edit grant is not valid for the given node, or
+    /// * the node (being moved) is an ancestor of the destination.
+    #[inline]
+    pub fn detach_insert_subtree(&self, dest: InsertAs<&HotNode<T>>) {
+        self.try_detach_insert_subtree(dest).expect(
+            "[precondition] the node being moved should not be an ancestor of the destination",
+        )
     }
 }
 

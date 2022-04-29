@@ -513,7 +513,7 @@ pub(super) fn try_create_as_next_sibling<T>(
 /// `-- next
 /// ```
 ///
-/// After `replace_with_children(this)`:
+/// After `try_replace_with_children(this)`:
 ///
 /// ```text
 /// parent
@@ -534,7 +534,7 @@ pub(super) fn try_create_as_next_sibling<T>(
 ///     + In this case, [`HierarchyError::SiblingsWithoutParent`] error is returned.
 /// * the node is the root and has no children.
 ///     + In this case, [`HierarchyError::EmptyTree`] error is returned.
-pub(super) fn replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<(), HierarchyError> {
+pub(super) fn try_replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<(), HierarchyError> {
     let first_child_link = this.first_child_link();
 
     if let Some(parent_link) = this.parent_link() {
@@ -655,7 +655,7 @@ pub(super) fn replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<(), Hi
 /// Fails with [`BorrowNodeData`][`HierarchyError::BorrowNodeData`] if any
 /// data associated to the node in the subtree is mutably (i.e. exclusively)
 /// borrowed.
-pub(super) fn clone_insert_subtree<T>(
+pub(super) fn try_clone_insert_subtree<T>(
     source: &Node<T>,
     dest: InsertAs<&HotNode<T>>,
 ) -> Result<HotNode<T>, HierarchyError>

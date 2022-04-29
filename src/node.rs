@@ -1793,6 +1793,24 @@ impl<T> Node<T> {
         edit::try_create_node_as(&self.intra_link, self.membership.tree_core(), data, dest)
     }
 
+    /// Creates a node as the next sibling of `self`, and returns the new node.
+    ///
+    /// See [`try_create_node_as`][`Self::try_create_node_as`] for usage
+    /// examples.
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    ///
+    /// * the hierarchy edit grant is not valid for the given node, or
+    /// * creation of a node at the specified position will make the tree
+    ///   hierarchy invalid.
+    #[inline]
+    pub fn create_node_as(&self, grant: &HierarchyEditGrant<T>, data: T, dest: AdoptAs) -> Self {
+        self.try_create_node_as(grant, data, dest)
+            .expect("[precondition] hierarchy to be created should be valid")
+    }
+
     /// Creates a node as the first child of `self`.
     ///
     /// # Panics
@@ -1920,6 +1938,23 @@ impl<T> Node<T> {
         edit::try_create_as_prev_sibling(&self.intra_link, self.membership.tree_core(), data)
     }
 
+    /// Creates a node as the previous sibling of `self`.
+    ///
+    /// See [`try_create_as_prev_sibling`][`Self::try_create_as_prev_sibling`]
+    /// for usage examples.
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    ///
+    /// - the hierarchy edit grant is not valid for the given node, or
+    /// - `self` is a root node.
+    #[inline]
+    pub fn create_as_prev_sibling(&self, grant: &HierarchyEditGrant<T>, data: T) -> Self {
+        self.try_create_as_prev_sibling(grant, data)
+            .expect("[precondition] hierarchy to be created should be valid")
+    }
+
     /// Creates a node as the next sibling of `self`.
     ///
     /// # Failures
@@ -1967,6 +2002,23 @@ impl<T> Node<T> {
         edit::try_create_as_next_sibling(&self.intra_link, self.membership.tree_core(), data)
     }
 
+    /// Creates a node as the next sibling of `self`.
+    ///
+    /// See [`try_create_as_next_sibling`][`Self::try_create_as_next_sibling`]
+    /// for usage examples.
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    ///
+    /// - the hierarchy edit grant is not valid for the given node, or
+    /// - `self` is a root node.
+    #[inline]
+    pub fn create_as_next_sibling(&self, grant: &HierarchyEditGrant<T>, data: T) -> Self {
+        self.try_create_as_next_sibling(grant, data)
+            .expect("[precondition] hierarchy to be created should be valid")
+    }
+
     /// Inserts the children at the position of the node, and detach the node.
     ///
     /// `self` will become the root of a new single-node tree.
@@ -1983,7 +2035,7 @@ impl<T> Node<T> {
     /// `-- next
     /// ```
     ///
-    /// After `self.replace_with_children()`:
+    /// After `self.try_replace_with_children()`:
     ///
     /// ```text
     /// parent
@@ -2009,13 +2061,33 @@ impl<T> Node<T> {
     ///
     /// Panics if the hierarchy edit grant is not valid for the given node.
     #[inline]
-    pub fn replace_with_children(
+    pub fn try_replace_with_children(
         &self,
         grant: &HierarchyEditGrant<T>,
     ) -> Result<(), HierarchyError> {
         grant.panic_if_invalid_for_node(self);
 
-        edit::replace_with_children(&self.intra_link)
+        edit::try_replace_with_children(&self.intra_link)
+    }
+
+    /// Inserts the children at the position of the node, and detach the node.
+    ///
+    /// `self` will become the root of a new single-node tree.
+    ///
+    /// See [`try_replace_with_children`][`Self::try_replace_with_children`]
+    /// method.
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    ///
+    /// * the hierarchy edit grant is not valid for the given node,
+    /// * the node is the root and has multiple children, or
+    /// * the node is the root and has no children.
+    #[inline]
+    pub fn replace_with_children(&self, grant: &HierarchyEditGrant<T>) {
+        self.try_replace_with_children(grant)
+            .expect("[precondition] the hierarchy to be created should be valid")
     }
 
     /// Clones the subtree and returns it as a new independent tree.
@@ -2041,7 +2113,7 @@ impl<T> Node<T> {
     /// //  `-- 1
     /// //      `-- 1-0
     ///
-    /// let cloned = child1.clone_subtree()
+    /// let cloned = child1.try_clone_subtree()
     ///     .expect("data are currently not borrowed");
     /// //  root
     /// //  |-- 0
@@ -2056,7 +2128,7 @@ impl<T> Node<T> {
     /// assert_eq!(cloned, child1);
     /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
-    pub fn clone_subtree(&self) -> Result<Self, BorrowError>
+    pub fn try_clone_subtree(&self) -> Result<Self, BorrowError>
     where
         T: Clone,
     {
@@ -2086,15 +2158,35 @@ impl<T> Node<T> {
             })
     }
 
+    /// Clones the subtree and returns it as a new independent tree.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any data associated to the node in the subtree is mutably
+    /// (i.e. exclusively) borrowed.
+    #[inline]
+    #[must_use]
+    pub fn clone_subtree(&self) -> Self
+    where
+        T: Clone,
+    {
+        self.try_clone_subtree()
+            .expect("[precondition] data associated to nodes should be borrowable")
+    }
+
     /// Clones the node with its subtree, and inserts it to the given destination.
     ///
     /// Returns the root node of the cloned new subtree.
     ///
     /// # Failures
     ///
-    /// Fails with [`BorrowNodeData`][`HierarchyError::BorrowNodeData`] if any
-    /// data associated to the node in the subtree is mutably (i.e. exclusively)
-    /// borrowed.
+    /// Fails if:
+    ///
+    /// * the hierarchy to be created is invalid, or
+    /// * any data associated to the node in the subtree is mutably (i.e.
+    ///   exclusively) borrowed.
+    ///     + Returns [`BorrowNodeData`][`HierarchyError::BorrowNodeData`] in
+    ///       this case.
     ///
     /// # Examples
     ///
@@ -2121,7 +2213,7 @@ impl<T> Node<T> {
     ///
     /// let node2_0_hot = node2_0.bundle_hierarchy_edit_grant(&grant);
     /// let cloned = node1
-    ///     .clone_insert_subtree(InsertAs::PreviousSiblingOf(&node2_0_hot))
+    ///     .try_clone_insert_subtree(InsertAs::PreviousSiblingOf(&node2_0_hot))
     ///     .expect("creating valid hierarchy");
     /// //  root
     /// //  |-- 0
@@ -2162,14 +2254,42 @@ impl<T> Node<T> {
     /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
-    pub fn clone_insert_subtree(
+    pub fn try_clone_insert_subtree(
         &self,
         dest: InsertAs<&HotNode<T>>,
     ) -> Result<HotNode<T>, HierarchyError>
     where
         T: Clone,
     {
-        edit::clone_insert_subtree(self, dest)
+        edit::try_clone_insert_subtree(self, dest)
+    }
+
+    /// Clones the node with its subtree, and inserts it to the given destination.
+    ///
+    /// Returns the root node of the cloned new subtree.
+    ///
+    /// See [`try_clone_insert_subtree`][`Self::try_clone_insert_subtree`]
+    /// for detail.
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    ///
+    /// * the hierarchy to be created is invalid, or
+    /// * any data associated to the node in the subtree is mutably (i.e.
+    ///   exclusively) borrowed.
+    #[inline]
+    // This modifies hierarchy of the destination of the tree, so the returned
+    // value is not necessarily used.
+    #[allow(clippy::must_use_candidate)]
+    pub fn clone_insert_subtree(&self, dest: InsertAs<&HotNode<T>>) -> HotNode<T>
+    where
+        T: Clone,
+    {
+        self.try_clone_insert_subtree(dest).expect(
+            "[precondition] the hierarchy to be created should be valid \
+             and the node data should be borrowable",
+        )
     }
 
     /// Detaches the node with its subtree, and inserts it to the given destination.
@@ -2207,7 +2327,10 @@ impl<T> Node<T> {
     ///
     /// let node2_0_hot = node2_0.bundle_hierarchy_edit_grant(&grant);
     /// node1
-    ///     .detach_insert_subtree(&grant, InsertAs::PreviousSiblingOf(&node2_0_hot))
+    ///     .try_detach_insert_subtree(
+    ///         &grant,
+    ///         InsertAs::PreviousSiblingOf(&node2_0_hot)
+    ///     )
     ///     .expect("creating valid hierarchy");
     /// //  root
     /// //  |-- 0
@@ -2240,7 +2363,7 @@ impl<T> Node<T> {
     /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
-    pub fn detach_insert_subtree(
+    pub fn try_detach_insert_subtree(
         &self,
         grant: &HierarchyEditGrant<T>,
         dest: InsertAs<&HotNode<T>>,
@@ -2261,6 +2384,27 @@ impl<T> Node<T> {
                 &dest.anchor().tree_core(),
             )
         }
+    }
+
+    /// Detaches the node with its subtree, and inserts it to the given destination.
+    ///
+    /// See [`Node::try_detach_insert_subtree`] for detail.
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    ///
+    /// * the hierarchy edit grant is not valid for the given node, or
+    /// * the node (being moved) is an ancestor of the destination.
+    #[inline]
+    pub fn detach_insert_subtree(
+        &self,
+        grant: &HierarchyEditGrant<T>,
+        dest: InsertAs<&HotNode<T>>,
+    ) {
+        self.try_detach_insert_subtree(grant, dest).expect(
+            "[precondition] the node being moved should not be an ancestor of the destination",
+        )
     }
 }
 

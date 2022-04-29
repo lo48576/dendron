@@ -1091,13 +1091,31 @@ impl<T> FrozenNode<T> {
     /// Fails if any data associated to the node in the subtree is mutably
     /// (i.e. exclusively) borrowed.
     ///
-    /// See [`Node::clone_subtree`] for usage examples.
+    /// See [`Node::try_clone_subtree`] for usage examples.
     #[inline]
-    pub fn clone_subtree(&self) -> Result<Node<T>, BorrowError>
+    pub fn try_clone_subtree(&self) -> Result<Node<T>, BorrowError>
     where
         T: Clone,
     {
-        self.plain().clone_subtree()
+        self.plain().try_clone_subtree()
+    }
+
+    /// Clones the subtree and returns it as a new independent tree.
+    ///
+    /// See [`Node::try_clone_subtree`] for usage examples.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any data associated to the node in the subtree is mutably
+    /// (i.e. exclusively) borrowed.
+    #[inline]
+    #[must_use]
+    pub fn clone_subtree(&self) -> Node<T>
+    where
+        T: Clone,
+    {
+        self.try_clone_subtree()
+            .expect("[precondition] data associated to nodes should be borrowable")
     }
 
     /// Clones the node with its subtree, and inserts it to the given destination.
@@ -1110,16 +1128,16 @@ impl<T> FrozenNode<T> {
     /// data associated to the node in the subtree is mutably (i.e. exclusively)
     /// borrowed.
     ///
-    /// See [`Node::clone_insert_subtree`] for usage examples.
+    /// See [`Node::try_clone_insert_subtree`] for usage examples.
     #[inline]
-    pub fn clone_insert_subtree(
+    pub fn try_clone_insert_subtree(
         &self,
         dest: InsertAs<&HotNode<T>>,
     ) -> Result<HotNode<T>, HierarchyError>
     where
         T: Clone,
     {
-        edit::clone_insert_subtree(&self.plain(), dest)
+        edit::try_clone_insert_subtree(&self.plain(), dest)
     }
 }
 
