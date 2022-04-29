@@ -1,6 +1,6 @@
 //! Macros.
 
-/// A macro that evaluates to the root node of a new tree.
+/// A macro that evaluates to the root node (of type [`Node`][`crate::Node`]) of a new tree.
 ///
 /// Syntax is simple:
 ///
@@ -117,7 +117,7 @@ macro_rules! tree_node {
     (@@process_descendant, $parent:ident, []) => {};
 }
 
-/// A macro that evaluates to the root node of a new tree.
+/// A macro that evaluates to the root node of a new tree of type [`Tree`][`crate::Tree`].
 ///
 /// Syntax is simple:
 ///

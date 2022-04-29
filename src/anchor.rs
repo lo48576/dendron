@@ -33,6 +33,17 @@ pub enum InsertAs<T> {
 
 impl<T> InsertAs<T> {
     /// Converts the anchor type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::InsertAs;
+    ///
+    /// assert_eq!(
+    ///     InsertAs::FirstChildOf('\n').map(u32::from),
+    ///     InsertAs::FirstChildOf(0xa_u32)
+    /// );
+    /// ```
     pub fn map<U, F>(self, f: F) -> InsertAs<U>
     where
         F: FnOnce(T) -> U,
@@ -68,6 +79,17 @@ impl<T> InsertAs<T> {
     }
 
     /// Converts from `&InsertAs<T>` to `InsertAs<T>`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::{AdoptAs, InsertAs};
+    ///
+    /// assert_eq!(
+    ///     InsertAs::FirstChildOf('\n').as_ref(),
+    ///     InsertAs::FirstChildOf(&'\n'),
+    /// );
+    /// ```
     #[must_use]
     pub fn as_ref(&self) -> InsertAs<&T> {
         match self {
