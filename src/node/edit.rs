@@ -4,7 +4,7 @@ use alloc::rc::Rc;
 
 use crate::anchor::{AdoptAs, InsertAs};
 use crate::membership::Membership;
-use crate::node::{HotNode, IntraTreeLink, IntraTreeLinkWeak, Node, NodeBuilder, StructureError};
+use crate::node::{HierarchyError, HotNode, IntraTreeLink, IntraTreeLinkWeak, Node, NodeBuilder};
 use crate::serial::{TreeBuildError, TreeBuilder};
 use crate::traverse::DftEvent;
 use crate::tree::TreeCore;
@@ -121,7 +121,7 @@ impl<'a, T> OrphanRoot<'a, T> {
     fn create_new_tree(self) {
         let tree_core = TreeCore::new_rc(self.link.clone());
         self.set_tree_core(&tree_core)
-            .expect("[validity] brand-new tree structure can be locked by any types of lock");
+            .expect("[validity] brand-new tree hierarchy can be locked by any types of lock");
     }
 
     /// Returns true if the given node is an ancestor of `self`.
@@ -139,14 +139,14 @@ impl<'a, T> OrphanRoot<'a, T> {
     }
 
     /// Inserts the node into the given destination.
-    fn insert(self, dest: InsertAs<&IntraTreeLink<T>>) -> Result<(), StructureError> {
+    fn insert(self, dest: InsertAs<&IntraTreeLink<T>>) -> Result<(), HierarchyError> {
         match dest {
             InsertAs::FirstChildOf(parent) => self.insert_as_first_child_of(parent),
             InsertAs::LastChildOf(parent) => self.insert_as_last_child_of(parent),
             InsertAs::PreviousSiblingOf(anchor) => {
                 let parent = anchor
                     .parent_link()
-                    .ok_or(StructureError::SiblingsWithoutParent)?;
+                    .ok_or(HierarchyError::SiblingsWithoutParent)?;
                 match anchor.prev_sibling_link() {
                     Some(prev_sibling) => {
                         // siblings: prev_sibling --> self --> anchor
@@ -159,7 +159,7 @@ impl<'a, T> OrphanRoot<'a, T> {
             InsertAs::NextSiblingOf(anchor) => {
                 let parent = anchor
                     .parent_link()
-                    .ok_or(StructureError::SiblingsWithoutParent)?;
+                    .ok_or(HierarchyError::SiblingsWithoutParent)?;
                 match anchor.next_sibling_link() {
                     Some(next_sibling) => {
                         // siblings: anchor --> this --> next_sibling
@@ -173,9 +173,9 @@ impl<'a, T> OrphanRoot<'a, T> {
     }
 
     /// Inserts the node as the first child of the given node.
-    fn insert_as_first_child_of(self, parent: &IntraTreeLink<T>) -> Result<(), StructureError> {
+    fn insert_as_first_child_of(self, parent: &IntraTreeLink<T>) -> Result<(), HierarchyError> {
         if !self.is_newly_created && self.is_ancestor_of(parent.clone()) {
-            return Err(StructureError::AncestorDescendantLoop);
+            return Err(HierarchyError::AncestorDescendantLoop);
         }
 
         // Fields to update:
@@ -208,9 +208,9 @@ impl<'a, T> OrphanRoot<'a, T> {
     }
 
     /// Inserts the node as the last child of the given node.
-    fn insert_as_last_child_of(self, parent: &IntraTreeLink<T>) -> Result<(), StructureError> {
+    fn insert_as_last_child_of(self, parent: &IntraTreeLink<T>) -> Result<(), HierarchyError> {
         if !self.is_newly_created && self.is_ancestor_of(parent.clone()) {
-            return Err(StructureError::AncestorDescendantLoop);
+            return Err(HierarchyError::AncestorDescendantLoop);
         }
 
         // Fields to update:
@@ -329,7 +329,7 @@ pub(super) fn detach_subtree<T>(this: &IntraTreeLink<T>) {
 pub(super) fn detach_and_move_inside_same_tree<T>(
     this: &IntraTreeLink<T>,
     dest: InsertAs<&IntraTreeLink<T>>,
-) -> Result<(), StructureError> {
+) -> Result<(), HierarchyError> {
     if this.is_root() {
         // Detaching entire tree here is meaningless.
         // Do nothing.
@@ -350,11 +350,11 @@ pub(super) fn detach_and_move_to_another_tree<T>(
     this: &IntraTreeLink<T>,
     dest: InsertAs<&IntraTreeLink<T>>,
     dest_tree_core: &Rc<TreeCore<T>>,
-) -> Result<(), StructureError> {
+) -> Result<(), HierarchyError> {
     let orphan_this = OrphanRoot::new_by_unlink(this);
     orphan_this
         .set_tree_core(dest_tree_core)
-        .expect("[consistency] brand-new tree structure can be locked by any types of lock");
+        .expect("[consistency] brand-new tree hierarchy can be locked by any types of lock");
     orphan_this.insert(dest)
 }
 
@@ -384,7 +384,7 @@ pub(super) fn try_create_node_as<T>(
     tree_core: Rc<TreeCore<T>>,
     data: T,
     dest: AdoptAs,
-) -> Result<Node<T>, StructureError> {
+) -> Result<Node<T>, HierarchyError> {
     match dest {
         AdoptAs::FirstChild => Ok(create_as_first_child(this, tree_core, data)),
         AdoptAs::LastChild => Ok(create_as_last_child(this, tree_core, data)),
@@ -414,7 +414,7 @@ pub(super) fn create_as_first_child<T>(
     OrphanRoot::create_and_process(data, tree_core, |orphan_link| {
         orphan_link.insert_as_first_child_of(this)
     })
-    .expect("[validity] the structure of the tree the parent belongs to should be editable")
+    .expect("[validity] the hierarchy of the tree the parent belongs to should be editable")
 }
 
 /// Creates a node as the last child of the given node.
@@ -438,14 +438,14 @@ pub(super) fn create_as_last_child<T>(
     OrphanRoot::create_and_process(data, tree_core, |orphan_link| {
         orphan_link.insert_as_last_child_of(this)
     })
-    .expect("[validity] the structure of the tree the parent belongs to should be editable")
+    .expect("[validity] the hierarchy of the tree the parent belongs to should be editable")
 }
 
 /// Creates a node as the previous sibling of the given node.
 ///
 /// # Failures
 ///
-/// Returns [`StructureError::SiblingsWithoutParent`] as an error if the given
+/// Returns [`HierarchyError::SiblingsWithoutParent`] as an error if the given
 /// node is a root node.
 ///
 /// # Panics
@@ -458,7 +458,7 @@ pub(super) fn try_create_as_prev_sibling<T>(
     this: &IntraTreeLink<T>,
     tree_core: Rc<TreeCore<T>>,
     data: T,
-) -> Result<Node<T>, StructureError> {
+) -> Result<Node<T>, HierarchyError> {
     debug_assert!(
         this.belongs_to_tree_core_rc(&tree_core),
         "[validity] the given node link must belong to the tree with the given core"
@@ -473,7 +473,7 @@ pub(super) fn try_create_as_prev_sibling<T>(
 ///
 /// # Failures
 ///
-/// Returns [`StructureError::SiblingsWithoutParent`] as an error if the given
+/// Returns [`HierarchyError::SiblingsWithoutParent`] as an error if the given
 /// node is a root node.
 ///
 /// # Panics
@@ -486,7 +486,7 @@ pub(super) fn try_create_as_next_sibling<T>(
     this: &IntraTreeLink<T>,
     tree_core: Rc<TreeCore<T>>,
     data: T,
-) -> Result<Node<T>, StructureError> {
+) -> Result<Node<T>, HierarchyError> {
     debug_assert!(
         this.belongs_to_tree_core_rc(&tree_core),
         "[validity] the given node link must belong to the tree with the given core"
@@ -531,10 +531,10 @@ pub(super) fn try_create_as_next_sibling<T>(
 /// Fails if:
 ///
 /// * the node is the root and has multiple children, or
-///     + In this case, [`StructureError::SiblingsWithoutParent`] error is returned.
+///     + In this case, [`HierarchyError::SiblingsWithoutParent`] error is returned.
 /// * the node is the root and has no children.
-///     + In this case, [`StructureError::EmptyTree`] error is returned.
-pub(super) fn replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<(), StructureError> {
+///     + In this case, [`HierarchyError::EmptyTree`] error is returned.
+pub(super) fn replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<(), HierarchyError> {
     let first_child_link = this.first_child_link();
 
     if let Some(parent_link) = this.parent_link() {
@@ -619,12 +619,12 @@ pub(super) fn replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<(), St
             Some(first_child_link) => {
                 if first_child_link.next_sibling_link().is_some() {
                     // The root node has more than two children.
-                    return Err(StructureError::SiblingsWithoutParent);
+                    return Err(HierarchyError::SiblingsWithoutParent);
                 }
                 first_child_link
             }
             // The root has no children.
-            None => return Err(StructureError::EmptyTree),
+            None => return Err(HierarchyError::EmptyTree),
         };
 
         // Disconnect the child from `this`.
@@ -641,7 +641,7 @@ pub(super) fn replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<(), St
     // Create a new tree core for `this`.
     let tree_core_rc = TreeCore::new_rc(this.clone());
     set_memberships_of_descendants_and_self(this, &tree_core_rc)
-        .expect("[validity] brand-new tree structure can be locked by any types of lock");
+        .expect("[validity] brand-new tree hierarchy can be locked by any types of lock");
 
     Ok(())
 }
@@ -652,20 +652,20 @@ pub(super) fn replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<(), St
 ///
 /// # Failures
 ///
-/// Fails with [`BorrowNodeData`][`StructureError::BorrowNodeData`] if any
+/// Fails with [`BorrowNodeData`][`HierarchyError::BorrowNodeData`] if any
 /// data associated to the node in the subtree is mutably (i.e. exclusively)
 /// borrowed.
 pub(super) fn clone_insert_subtree<T>(
     source: &Node<T>,
     dest: InsertAs<&HotNode<T>>,
-) -> Result<HotNode<T>, StructureError>
+) -> Result<HotNode<T>, HierarchyError>
 where
     T: Clone,
 {
     let subtree_root = dest.try_create_node(
         source
             .try_borrow_data()
-            .map_err(StructureError::BorrowNodeData)?
+            .map_err(HierarchyError::BorrowNodeData)?
             .clone(),
     )?;
     let mut events = source.to_events();
@@ -682,11 +682,11 @@ where
         )
         .and_then(|builder| builder.finish())
         .map(|node| {
-            node.bundle_new_structure_edit_grant()
-                .expect("[consistency] the structure of the destination tree is already editable")
+            node.bundle_new_hierarchy_edit_grant()
+                .expect("[consistency] the hierarchy of the destination tree is already editable")
         })
         .map_err(|e| match e {
-            TreeBuildError::BorrowData(e) => StructureError::BorrowNodeData(e),
+            TreeBuildError::BorrowData(e) => HierarchyError::BorrowNodeData(e),
             TreeBuildError::RootNotOpened | TreeBuildError::RootClosed => {
                 unreachable!("[validity] subtree should be consistently serializable")
             }

@@ -1,7 +1,7 @@
 //! Tests for `HotNode::replace_with_children`.
 
 use dendron::traverse::DftEvent;
-use dendron::{HotNode, StructureError};
+use dendron::{HierarchyError, HotNode};
 
 fn serialize_subtree<T: Clone>(node: &HotNode<T>) -> Vec<DftEvent<T>> {
     node.depth_first_traverse()
@@ -14,7 +14,7 @@ fn replace_root_without_children() {
     let root = HotNode::new_tree("root");
 
     assert!(
-        matches!(root.replace_with_children(), Err(StructureError::EmptyTree)),
+        matches!(root.replace_with_children(), Err(HierarchyError::EmptyTree)),
         "tree cannot be empty"
     );
 }
@@ -46,7 +46,7 @@ fn replace_root_with_multiple_children() {
 
     assert!(matches!(
         root.replace_with_children(),
-        Err(StructureError::SiblingsWithoutParent)
+        Err(HierarchyError::SiblingsWithoutParent)
     ));
 }
 

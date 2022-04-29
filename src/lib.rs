@@ -22,8 +22,8 @@ pub mod traverse;
 mod tree;
 
 pub use self::anchor::{AdoptAs, InsertAs};
-pub use self::node::{DebugPrettyPrint, FrozenNode, HotNode, Node, StructureError};
+pub use self::node::{DebugPrettyPrint, FrozenNode, HierarchyError, HotNode, Node};
 pub use self::tree::{
-    StructureEditGrant, StructureEditGrantError, StructureEditProhibition,
-    StructureEditProhibitionError, Tree,
+    HierarchyEditGrant, HierarchyEditGrantError, HierarchyEditProhibition,
+    HierarchyEditProhibitionError, Tree,
 };

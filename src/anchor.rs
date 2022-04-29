@@ -1,6 +1,6 @@
 //! Anchor types.
 
-use crate::node::{HotNode, StructureError};
+use crate::node::{HierarchyError, HotNode};
 
 /// Relation of the node being `adopt`ed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -104,7 +104,7 @@ impl<T> InsertAs<T> {
 impl<T> InsertAs<&HotNode<T>> {
     /// Creates a new node and inserts to the destination.
     #[inline]
-    pub(super) fn try_create_node(&self, data: T) -> Result<HotNode<T>, StructureError> {
+    pub(super) fn try_create_node(&self, data: T) -> Result<HotNode<T>, HierarchyError> {
         self.anchor().try_create_node_as(data, self.to_adopt_as())
     }
 }

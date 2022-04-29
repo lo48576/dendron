@@ -1,4 +1,4 @@
-//! Frozen node, which is a [`Node`] with tree structure edit prohibition bundled.
+//! Frozen node, which is a [`Node`] with tree hierarchy edit prohibition bundled.
 
 use core::cell::{BorrowError, BorrowMutError, Ref, RefMut};
 use core::fmt;
@@ -8,13 +8,13 @@ use alloc::rc::Rc;
 use crate::anchor::InsertAs;
 use crate::membership::{Membership, MembershipWithEditProhibition};
 use crate::node::{
-    edit, DebugPrettyPrint, HotNode, IntraTreeLink, Node, NumChildren, StructureError,
+    edit, DebugPrettyPrint, HierarchyError, HotNode, IntraTreeLink, Node, NumChildren,
 };
 use crate::serial;
 use crate::traverse;
-use crate::tree::{StructureEditProhibition, StructureEditProhibitionError, Tree, TreeCore};
+use crate::tree::{HierarchyEditProhibition, HierarchyEditProhibitionError, Tree, TreeCore};
 
-/// A [`Node`] with a tree structure edit prohibition bundled.
+/// A [`Node`] with a tree hierarchy edit prohibition bundled.
 ///
 /// # Panics
 ///
@@ -79,7 +79,7 @@ impl<T: Eq> Eq for FrozenNode<T> {}
 
 impl<T> FrozenNode<T> {
     /// Creates a new `FrozenNode` from the given plain node.
-    pub(super) fn from_node(node: Node<T>) -> Result<Self, StructureEditProhibitionError> {
+    pub(super) fn from_node(node: Node<T>) -> Result<Self, HierarchyEditProhibitionError> {
         let Node {
             intra_link,
             membership,
@@ -95,13 +95,13 @@ impl<T> FrozenNode<T> {
     ///
     /// # Panics
     ///
-    /// Panics if the structure edit prohibition is not valid for the given node.
+    /// Panics if the hierarchy edit prohibition is not valid for the given node.
     ///
     /// Panics if there are too many prohibitions for the node or for the tree.
     #[must_use]
     pub(super) fn from_node_and_prohibition(
         node: Node<T>,
-        prohibition: &StructureEditProhibition<T>,
+        prohibition: &HierarchyEditProhibition<T>,
     ) -> Self {
         prohibition.panic_if_invalid_for_node(&node);
 
@@ -132,7 +132,7 @@ impl<T> FrozenNode<T> {
             "[consistency] the membership must be alive since the corresponding node link is alive",
         );
         let membership = MembershipWithEditProhibition::new(membership)
-            .expect("[consistency] there should have already been tree structure edit prohibition");
+            .expect("[consistency] there should have already been tree hierarchy edit prohibition");
 
         Self {
             intra_link,
@@ -162,7 +162,7 @@ impl<T> FrozenNode<T> {
     /// use dendron::{FrozenNode, Node};
     ///
     /// let frozen = Node::new_tree("root")
-    ///     .bundle_new_structure_edit_prohibition()
+    ///     .bundle_new_hierarchy_edit_prohibition()
     ///     .expect("no hierarchy edit grant exist");
     ///
     /// let plain: Node<_> = frozen.plain();
@@ -180,9 +180,9 @@ impl<T> From<FrozenNode<T>> for Node<T> {
     }
 }
 
-/// Tree structure edit prohibitions.
+/// Tree hierarchy edit prohibitions.
 impl<T> FrozenNode<T> {
-    /// Returns a copy of the tree structure edit prohibition.
+    /// Returns a copy of the tree hierarchy edit prohibition.
     ///
     /// # Examples
     ///
@@ -190,16 +190,16 @@ impl<T> FrozenNode<T> {
     /// use dendron::{FrozenNode, Node};
     ///
     /// let frozen = Node::new_tree("root")
-    ///     .bundle_new_structure_edit_prohibition()
+    ///     .bundle_new_hierarchy_edit_prohibition()
     ///     .expect("no hierarchy edit grant exist");
     ///
-    /// let prohibition = frozen.extract_structure_edit_prohibition();
+    /// let prohibition = frozen.extract_hierarchy_edit_prohibition();
     /// ```
     #[must_use]
-    pub fn extract_structure_edit_prohibition(&self) -> StructureEditProhibition<T> {
+    pub fn extract_hierarchy_edit_prohibition(&self) -> HierarchyEditProhibition<T> {
         self.tree()
-            .prohibit_structure_edit()
-            .expect("[validity] the tree structure is already prohibited to be edit")
+            .prohibit_hierarchy_edit()
+            .expect("[validity] the tree hierarchy is already prohibited to be edit")
     }
 }
 
@@ -219,7 +219,7 @@ impl<T> FrozenNode<T> {
     /// use dendron::Node;
     ///
     /// let frozen = Node::new_tree("root")
-    ///     .bundle_new_structure_edit_prohibition()
+    ///     .bundle_new_hierarchy_edit_prohibition()
     ///     .expect("no hierarchy edit grant exist");
     ///
     /// assert_eq!(
@@ -246,7 +246,7 @@ impl<T> FrozenNode<T> {
     /// use dendron::Node;
     ///
     /// let frozen = Node::new_tree("root")
-    ///     .bundle_new_structure_edit_prohibition()
+    ///     .bundle_new_hierarchy_edit_prohibition()
     ///     .expect("no hierarchy edit grant exist");
     ///
     /// assert_eq!(*frozen.borrow_data(), "root");
@@ -265,7 +265,7 @@ impl<T> FrozenNode<T> {
     /// use dendron::Node;
     ///
     /// let frozen = Node::new_tree("root")
-    ///     .bundle_new_structure_edit_prohibition()
+    ///     .bundle_new_hierarchy_edit_prohibition()
     ///     .expect("no hierarchy edit grant exist");
     ///
     /// *frozen
@@ -291,7 +291,7 @@ impl<T> FrozenNode<T> {
     /// use dendron::Node;
     ///
     /// let frozen = Node::new_tree("root")
-    ///     .bundle_new_structure_edit_prohibition()
+    ///     .bundle_new_hierarchy_edit_prohibition()
     ///     .expect("no hierarchy edit grant exist");
     ///
     /// *frozen.borrow_data_mut() = "ROOT";
@@ -311,10 +311,10 @@ impl<T> FrozenNode<T> {
     /// use dendron::Node;
     ///
     /// let frozen1 = Node::new_tree("root")
-    ///     .bundle_new_structure_edit_prohibition()
+    ///     .bundle_new_hierarchy_edit_prohibition()
     ///     .expect("no hierarchy edit grant exist");
     /// let frozen2 = Node::new_tree("root")
-    ///     .bundle_new_structure_edit_prohibition()
+    ///     .bundle_new_hierarchy_edit_prohibition()
     ///     .expect("no hierarchy edit grant exist");
     ///
     /// assert!(frozen1.ptr_eq(&frozen1));
@@ -342,7 +342,7 @@ impl<T> FrozenNode<T> {
     /// use dendron::Node;
     ///
     /// let frozen = Node::new_tree("root")
-    ///     .bundle_new_structure_edit_prohibition()
+    ///     .bundle_new_hierarchy_edit_prohibition()
     ///     .expect("no hierarchy edit grant exist");
     /// let tree = frozen.tree();
     ///
@@ -362,7 +362,7 @@ impl<T> FrozenNode<T> {
     /// use dendron::Node;
     ///
     /// let frozen = Node::new_tree("root")
-    ///     .bundle_new_structure_edit_prohibition()
+    ///     .bundle_new_hierarchy_edit_prohibition()
     ///     .expect("no hierarchy edit grant exist");
     ///
     /// assert!(frozen.is_root());
@@ -381,10 +381,10 @@ impl<T> FrozenNode<T> {
     /// use dendron::Node;
     ///
     /// let frozen1 = Node::new_tree("root")
-    ///     .bundle_new_structure_edit_prohibition()
+    ///     .bundle_new_hierarchy_edit_prohibition()
     ///     .expect("no hierarchy edit grant exist");
     /// let frozen2 = Node::new_tree("root")
-    ///     .bundle_new_structure_edit_prohibition()
+    ///     .bundle_new_hierarchy_edit_prohibition()
     ///     .expect("no hierarchy edit grant exist");
     ///
     /// assert!(!frozen1.belongs_to_same_tree(&frozen2));
@@ -403,7 +403,7 @@ impl<T> FrozenNode<T> {
     /// use dendron::Node;
     ///
     /// let frozen = Node::new_tree("root")
-    ///     .bundle_new_structure_edit_prohibition()
+    ///     .bundle_new_hierarchy_edit_prohibition()
     ///     .expect("no hierarchy edit grant exist");
     ///
     /// assert!(frozen.root().ptr_eq(&frozen));
@@ -858,7 +858,7 @@ impl<T> FrozenNode<T> {
     ///         "2",
     ///     ]
     /// }
-    ///     .bundle_new_structure_edit_prohibition()
+    ///     .bundle_new_hierarchy_edit_prohibition()
     ///     .expect("no hierarchy edit grant exist");
     /// //  root
     /// //  |-- 0
@@ -954,7 +954,7 @@ impl<T> FrozenNode<T> {
     ///         "2",
     ///     ]
     /// }
-    ///     .bundle_new_structure_edit_prohibition()
+    ///     .bundle_new_hierarchy_edit_prohibition()
     ///     .expect("no hierarchy edit grant exist");
     /// //  root
     /// //  |-- 0
@@ -1032,7 +1032,7 @@ impl<T> FrozenNode<T> {
     ///         "2",
     ///     ]
     /// }
-    ///     .bundle_new_structure_edit_prohibition()
+    ///     .bundle_new_hierarchy_edit_prohibition()
     ///     .expect("no hierarchy edit grant exist");
     /// //  root
     /// //  |-- 0
@@ -1106,7 +1106,7 @@ impl<T> FrozenNode<T> {
     ///
     /// # Failures
     ///
-    /// Fails with [`BorrowNodeData`][`StructureError::BorrowNodeData`] if any
+    /// Fails with [`BorrowNodeData`][`HierarchyError::BorrowNodeData`] if any
     /// data associated to the node in the subtree is mutably (i.e. exclusively)
     /// borrowed.
     ///
@@ -1115,7 +1115,7 @@ impl<T> FrozenNode<T> {
     pub fn clone_insert_subtree(
         &self,
         dest: InsertAs<&HotNode<T>>,
-    ) -> Result<HotNode<T>, StructureError>
+    ) -> Result<HotNode<T>, HierarchyError>
     where
         T: Clone,
     {
