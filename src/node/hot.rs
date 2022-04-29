@@ -937,9 +937,13 @@ impl<T> HotNode<T> {
     ///
     /// # Failures
     ///
-    /// Fails with [`BorrowNodeData`][`HierarchyError::BorrowNodeData`] if any
-    /// data associated to the node in the subtree is mutably (i.e. exclusively)
-    /// borrowed.
+    /// Fails if:
+    ///
+    /// * the hierarchy to be created is invalid, or
+    /// * any data associated to the node in the subtree is mutably (i.e.
+    ///   exclusively) borrowed.
+    ///     + Returns [`BorrowNodeData`][`HierarchyError::BorrowNodeData`] in
+    ///       this case.
     #[inline]
     pub fn try_clone_insert_subtree(
         &self,
