@@ -21,6 +21,45 @@
 //! the nodes if they are connected to other nodes referred by the user.
 //! See examples below for detail.
 //!
+//! ```
+//! use dendron::Node;
+//!
+//! let root = Node::new_tree("root");
+//! let grant = root.tree().grant_hierarchy_edit().unwrap();
+//! let child0 = root.create_as_last_child(&grant, "child0");
+//! let child1 = root.create_as_last_child(&grant, "child1");
+//! let child1_0 = child1.create_as_last_child(&grant, "child1_0");
+//! //  root
+//! //  |-- child0
+//! //  `-- child1
+//! //      `-- child1_0
+//!
+//! drop(grant);
+//! drop(root);
+//! drop(child0);
+//! drop(child1);
+//! // Now only `child1_0` is alive.
+//!
+//! // `child1_0` makes the entire tree and belonging nodes alive,
+//! // so `root` is still alive.
+//! assert_eq!(*child1_0.root().borrow_data(), "root");
+//!
+//! let tree = child1_0.tree();
+//! drop(child1_0);
+//! // Now all node references are dropped and only `tree` is alive.
+//!
+//! // `tree` makes the entire tree and belonging nodes alive,
+//! // so `child0` is still alive.
+//! assert_eq!(
+//!     *tree.root().first_child().unwrap().borrow_data(),
+//!     "child0"
+//! );
+//!
+//! drop(tree);
+//! // Now all tree references and node references are dropped, so all objects
+//! // in the tree is released. No memory leaks!
+//! ```
+//!
 //! ## Hierarchy edit prohibitions and grants
 //!
 //! Sometimes users may wish tree hierarchy to be preserved, especially when
