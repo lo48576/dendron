@@ -102,7 +102,14 @@ impl<T> Drop for TreeCore<T> {
     }
 }
 
-/// A reference to the tree.
+/// A reference to the tree, with shared ownership.
+///
+/// Tree cannot exist without the root node, so you should create tree by
+/// creating a new root node. See [`Node::new_tree`] and
+/// [`HotNode::new_tree`][`crate::HotNode::new_tree`].
+///
+/// There are convenience macro to create a tree ([`tree!`][`crate::tree!`]) or
+/// a root node ([`tree_node!`][`crate::tree_node!`]).
 #[derive(Debug)]
 pub struct Tree<T> {
     /// A reference to the tree core.
