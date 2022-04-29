@@ -25,4 +25,4 @@ std = []
 [dependencies]
 
 [badges]
-maintenance = { status = "experimental" }
+maintenance = { status = "actively-developed" }
