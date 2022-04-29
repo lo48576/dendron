@@ -118,6 +118,20 @@ impl<T> Tree<T> {
     }
 
     /// Returns the root node.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::{Tree, tree};
+    ///
+    /// let tree = tree! {
+    ///     "root", ["0"]
+    /// };
+    /// //  root
+    /// //  `-- 0
+    ///
+    /// assert_eq!(*tree.root().borrow_data(), "root");
+    /// ```
     #[inline]
     #[must_use]
     pub fn root(&self) -> Node<T> {
@@ -131,6 +145,24 @@ impl<T> Tree<T> {
     }
 
     /// Prohibits the tree structure edit.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::{Tree, tree};
+    ///
+    /// let tree = tree! {
+    ///     "root", ["0"]
+    /// };
+    /// //  root
+    /// //  `-- 0
+    ///
+    /// let prohibition = tree
+    ///     .prohibit_structure_edit()
+    ///     .expect("hierarchy edit should not yet be granted");
+    ///
+    /// assert!(prohibition.is_valid_for_node(&tree.root()));
+    /// ```
     #[inline]
     pub fn prohibit_structure_edit(
         &self,
@@ -139,6 +171,24 @@ impl<T> Tree<T> {
     }
 
     /// Grants the tree structure edit.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::{Tree, tree};
+    ///
+    /// let tree = tree! {
+    ///     "root", ["0"]
+    /// };
+    /// //  root
+    /// //  `-- 0
+    ///
+    /// let grant = tree
+    ///     .grant_structure_edit()
+    ///     .expect("hierarchy edit should not yet be prohibition");
+    ///
+    /// assert!(grant.is_valid_for_node(&tree.root()));
+    /// ```
     #[inline]
     pub fn grant_structure_edit(&self) -> Result<StructureEditGrant<T>, StructureEditGrantError> {
         StructureEditGrant::new(&self.core)

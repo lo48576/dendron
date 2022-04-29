@@ -237,6 +237,30 @@ impl<T> StructureEditProhibition<T> {
     }
 
     /// Returns true if the prohibition is valid for the tree the given node belongs to.
+    ///
+    /// A prohibition can be created by [`Tree::prohibit_structure_edit`] or
+    /// [`FrozenNode::extract_structure_edit_prohibition`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::Node;
+    ///
+    /// let node1 = Node::new_tree("foo");
+    /// let node2 = Node::new_tree("bar");
+    ///
+    /// let prohibition1 = node1.tree()
+    ///     .prohibit_structure_edit()
+    ///     .expect("hierarchy edit should not yet be granted");
+    ///
+    /// assert!(prohibition1.is_valid_for_node(&node1));
+    /// assert!(!prohibition1.is_valid_for_node(&node2));
+    /// ```
+    ///
+    /// [`Tree::prohibit_structure_edit`]:
+    ///     `crate::Tree::prohibit_structure_edit`
+    /// [`FrozenNode::extract_structure_edit_prohibition`]:
+    ///     `crate::FrozenNode::extract_structure_edit_prohibition`
     #[inline]
     #[must_use]
     pub fn is_valid_for_node(&self, node: &Node<T>) -> bool {
@@ -300,6 +324,29 @@ impl<T> StructureEditGrant<T> {
     }
 
     /// Returns true if the grant is valid for the tree the given node belongs to.
+    ///
+    /// A grant can be created by [`Tree::grant_structure_edit`] or
+    /// [`HotNode::extract_structure_edit_grant`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::Node;
+    ///
+    /// let node1 = Node::new_tree("foo");
+    /// let node2 = Node::new_tree("bar");
+    ///
+    /// let grant1 = node1.tree()
+    ///     .grant_structure_edit()
+    ///     .expect("hierarchy edit should not yet be prohibited");
+    ///
+    /// assert!(grant1.is_valid_for_node(&node1));
+    /// assert!(!grant1.is_valid_for_node(&node2));
+    /// ```
+    ///
+    /// [`Tree::grant_structure_edit`]: `crate::Tree::grant_structure_edit`
+    /// [`HotNode::extract_structure_edit_grant`]:
+    ///     `crate::HotNode::extract_structure_edit_grant`
     #[inline]
     #[must_use]
     pub fn is_valid_for_node(&self, node: &Node<T>) -> bool {
