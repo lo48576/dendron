@@ -2173,7 +2173,7 @@ impl<T> Node<T> {
     ///
     /// let node2_0_hot = node2_0.bundle_hierarchy_edit_grant(&grant);
     /// let cloned = node1
-    ///     .clone_insert_subtree(InsertAs::PreviousSiblingOf(&node2_0_hot))
+    ///     .try_clone_insert_subtree(InsertAs::PreviousSiblingOf(&node2_0_hot))
     ///     .expect("creating valid hierarchy");
     /// //  root
     /// //  |-- 0
@@ -2214,14 +2214,14 @@ impl<T> Node<T> {
     /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
     #[inline]
-    pub fn clone_insert_subtree(
+    pub fn try_clone_insert_subtree(
         &self,
         dest: InsertAs<&HotNode<T>>,
     ) -> Result<HotNode<T>, HierarchyError>
     where
         T: Clone,
     {
-        edit::clone_insert_subtree(self, dest)
+        edit::try_clone_insert_subtree(self, dest)
     }
 
     /// Detaches the node with its subtree, and inserts it to the given destination.

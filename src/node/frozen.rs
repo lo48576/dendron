@@ -1110,16 +1110,16 @@ impl<T> FrozenNode<T> {
     /// data associated to the node in the subtree is mutably (i.e. exclusively)
     /// borrowed.
     ///
-    /// See [`Node::clone_insert_subtree`] for usage examples.
+    /// See [`Node::try_clone_insert_subtree`] for usage examples.
     #[inline]
-    pub fn clone_insert_subtree(
+    pub fn try_clone_insert_subtree(
         &self,
         dest: InsertAs<&HotNode<T>>,
     ) -> Result<HotNode<T>, HierarchyError>
     where
         T: Clone,
     {
-        edit::clone_insert_subtree(&self.plain(), dest)
+        edit::try_clone_insert_subtree(&self.plain(), dest)
     }
 }
 

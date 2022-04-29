@@ -914,7 +914,7 @@ impl<T> HotNode<T> {
     ///
     /// Returns the root node of the cloned new subtree.
     ///
-    /// See [`Node::clone_insert_subtree`] for usage examples.
+    /// See [`Node::try_clone_insert_subtree`] for usage examples.
     ///
     /// # Failures
     ///
@@ -922,11 +922,14 @@ impl<T> HotNode<T> {
     /// data associated to the node in the subtree is mutably (i.e. exclusively)
     /// borrowed.
     #[inline]
-    pub fn clone_insert_subtree(&self, dest: InsertAs<&HotNode<T>>) -> Result<Self, HierarchyError>
+    pub fn try_clone_insert_subtree(
+        &self,
+        dest: InsertAs<&HotNode<T>>,
+    ) -> Result<Self, HierarchyError>
     where
         T: Clone,
     {
-        edit::clone_insert_subtree(&self.plain(), dest)
+        edit::try_clone_insert_subtree(&self.plain(), dest)
     }
 
     /// Detaches the node with its subtree, and inserts it to the given destination.

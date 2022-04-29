@@ -655,7 +655,7 @@ pub(super) fn try_replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<()
 /// Fails with [`BorrowNodeData`][`HierarchyError::BorrowNodeData`] if any
 /// data associated to the node in the subtree is mutably (i.e. exclusively)
 /// borrowed.
-pub(super) fn clone_insert_subtree<T>(
+pub(super) fn try_clone_insert_subtree<T>(
     source: &Node<T>,
     dest: InsertAs<&HotNode<T>>,
 ) -> Result<HotNode<T>, HierarchyError>
