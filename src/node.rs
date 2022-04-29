@@ -2369,6 +2369,27 @@ impl<T> Node<T> {
             )
         }
     }
+
+    /// Detaches the node with its subtree, and inserts it to the given destination.
+    ///
+    /// See [`Node::try_detach_insert_subtree`] for detail.
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    ///
+    /// * the hierarchy edit grant is not valid for the given node, or
+    /// * the node (being moved) is an ancestor of the destination.
+    #[inline]
+    pub fn detach_insert_subtree(
+        &self,
+        grant: &HierarchyEditGrant<T>,
+        dest: InsertAs<&HotNode<T>>,
+    ) {
+        self.try_detach_insert_subtree(grant, dest).expect(
+            "[precondition] the node being moved should not be an ancestor of the destination",
+        )
+    }
 }
 
 /// Comparison.
