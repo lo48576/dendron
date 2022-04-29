@@ -2070,6 +2070,26 @@ impl<T> Node<T> {
         edit::try_replace_with_children(&self.intra_link)
     }
 
+    /// Inserts the children at the position of the node, and detach the node.
+    ///
+    /// `self` will become the root of a new single-node tree.
+    ///
+    /// See [`try_replace_with_children`][`Self::try_replace_with_children`]
+    /// method.
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    ///
+    /// * the hierarchy edit grant is not valid for the given node,
+    /// * the node is the root and has multiple children, or
+    /// * the node is the root and has no children.
+    #[inline]
+    pub fn replace_with_children(&self, grant: &HierarchyEditGrant<T>) {
+        self.try_replace_with_children(grant)
+            .expect("[precondition] the hierarchy to be created should be valid")
+    }
+
     /// Clones the subtree and returns it as a new independent tree.
     ///
     /// # Failures
