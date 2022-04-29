@@ -14,6 +14,9 @@ use crate::tree::{HierarchyEditGrant, HierarchyEditGrantError, Tree, TreeCore};
 
 /// A [`Node`] with a tree hierarchy edit grant bundled.
 ///
+/// `HotNode` can be created by [`Node::bundle_hierarchy_edit_grant`] or
+/// [`Node::bundle_new_hierarchy_edit_grant`].
+///
 /// # Panics
 ///
 /// Panics if the number of active edit grants through this node is

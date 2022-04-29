@@ -16,6 +16,9 @@ use crate::tree::{HierarchyEditProhibition, HierarchyEditProhibitionError, Tree,
 
 /// A [`Node`] with a tree hierarchy edit prohibition bundled.
 ///
+/// `FrozenNode` can be created by [`Node::bundle_hierarchy_edit_prohibition`] or
+/// [`Node::bundle_new_hierarchy_edit_prohibition`].
+///
 /// # Panics
 ///
 /// Panics if the number of active edit prohibitions through this node is
