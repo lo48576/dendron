@@ -2113,7 +2113,7 @@ impl<T> Node<T> {
     /// //  `-- 1
     /// //      `-- 1-0
     ///
-    /// let cloned = child1.clone_subtree()
+    /// let cloned = child1.try_clone_subtree()
     ///     .expect("data are currently not borrowed");
     /// //  root
     /// //  |-- 0
@@ -2128,7 +2128,7 @@ impl<T> Node<T> {
     /// assert_eq!(cloned, child1);
     /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
-    pub fn clone_subtree(&self) -> Result<Self, BorrowError>
+    pub fn try_clone_subtree(&self) -> Result<Self, BorrowError>
     where
         T: Clone,
     {
