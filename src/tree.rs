@@ -2,7 +2,7 @@
 
 mod lock;
 
-use core::cell::RefCell;
+use core::cell::{BorrowError, RefCell};
 
 use alloc::rc::Rc;
 
@@ -109,6 +109,35 @@ pub struct Tree<T> {
     core: Rc<TreeCore<T>>,
 }
 
+impl<T, U: PartialEq<U>> PartialEq<Tree<U>> for Tree<T>
+where
+    T: PartialEq<U>,
+{
+    /// Compares two trees.
+    ///
+    /// Returns `Ok(true)` if the two trees are equal, even if they are stored
+    /// in different allocation.
+    ///
+    /// # Panics
+    ///
+    /// May panic if associated data of some nodes are already borrowed
+    /// exclusively (i.e. mutably).
+    ///
+    /// To avoid panicking, use [`try_eq`][`Self::try_eq`] method.
+    ///
+    /// # Examples
+    ///
+    /// See the documentation for [`try_eq`][`Self::try_eq`] method.
+    #[inline]
+    fn eq(&self, other: &Tree<U>) -> bool {
+        self.try_eq(other).expect(
+            "[precondition] data associated to the nodes in both trees should be borrowable",
+        )
+    }
+}
+
+impl<T: Eq> Eq for Tree<T> {}
+
 impl<T> Tree<T> {
     /// Creates a new `Tree` from the given `Rc` to the core tree.
     #[inline]
@@ -192,5 +221,74 @@ impl<T> Tree<T> {
     #[inline]
     pub fn grant_hierarchy_edit(&self) -> Result<HierarchyEditGrant<T>, HierarchyEditGrantError> {
         HierarchyEditGrant::new(&self.core)
+    }
+
+    /// Compares two trees.
+    ///
+    /// Returns `Ok(true)` if the two trees are equal, even if they are stored
+    /// in different allocation.
+    ///
+    /// # Failures
+    ///
+    /// May return `Err(_)` if associated data of some nodes are already
+    /// borrowed exclusively (i.e. mutably).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::{tree, Tree};
+    ///
+    /// //  root
+    /// //  |-- 0
+    /// //  |   |-- 0-0
+    /// //  |   `-- 0-1
+    /// //  |       `-- 0-1-0
+    /// //  `-- 1
+    /// let tree1: Tree<&'static str> = tree! {
+    ///     "root", [
+    ///         /("0", [
+    ///             "0-0",
+    ///             /("0-1", [
+    ///                 "0-1-0",
+    ///             ]),
+    ///         ]),
+    ///         "1",
+    ///     ]
+    /// };
+    ///
+    /// //  0
+    /// //  |-- 0-0
+    /// //  `-- 0-1
+    /// //      `-- 0-1-0
+    /// let tree2: Tree<String> = tree! {
+    ///     "0".to_owned(), [
+    ///         "0-0".into(),
+    ///         /("0-1".into(), [
+    ///             "0-1-0".into(),
+    ///         ]),
+    ///     ]
+    /// };
+    ///
+    /// assert!(
+    ///     !tree1.try_eq(&tree2).expect("data are not borrowed"),
+    ///     "node1 and node2 are not equal"
+    /// );
+    ///
+    /// let tree1_first_child_of_root = tree1.root()
+    ///     .first_child()
+    ///     .expect("the root of `tree1` has a child");
+    /// assert!(
+    ///     tree1_first_child_of_root
+    ///         .try_eq(&tree2.root())
+    ///         .expect("data are not borrowed"),
+    ///     "the first child of the root of tree1 and tree2 are equal"
+    /// );
+    /// ```
+    #[inline]
+    pub fn try_eq<U>(&self, other: &Tree<U>) -> Result<bool, BorrowError>
+    where
+        T: PartialEq<U>,
+    {
+        self.root().try_eq(&other.root())
     }
 }
