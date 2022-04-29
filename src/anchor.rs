@@ -2,7 +2,7 @@
 
 use crate::node::{HierarchyError, HotNode};
 
-/// Relation of the node being `adopt`ed.
+/// Relation of the node being adopted.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AdoptAs {
     /// As the first child.
