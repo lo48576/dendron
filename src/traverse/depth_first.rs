@@ -571,11 +571,11 @@ impl<T> Iterator for StableShallowDepthFirstTraverser<T> {
                 }
                 let min = match depth.cmp(depth_back) {
                     // `Close` for `depth..=depth_back`.
-                    Ordering::Greater => depth_back - depth + 1,
+                    Ordering::Greater => depth - depth_back + 1,
                     // `Close`, `Open`, and `Close` again for `depth`.
                     Ordering::Equal => 3,
                     // `Close` for `depth`, `Open` for `depth..=depth_back`, and `Close` for `depth_back`.
-                    Ordering::Less => depth - depth_back + 3,
+                    Ordering::Less => depth_back - depth + 3,
                 };
                 (min, None)
             }
