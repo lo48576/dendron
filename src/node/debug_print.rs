@@ -174,12 +174,7 @@ impl fmt::Write for IndentWriter<'_, '_> {
             }
 
             let (line_end, ends_with_newline) = match s.find('\n') {
-                Some(pos) => {
-                    if let Some(level) = self.indents.last_mut() {
-                        level.is_first_line = false;
-                    }
-                    (pos + 1, true)
-                }
+                Some(pos) => (pos + 1, true),
                 None => (s.len(), false),
             };
             let content = &s[..line_end];
@@ -191,6 +186,9 @@ impl fmt::Write for IndentWriter<'_, '_> {
                 );
                 if self.line_state == LineState::PartialIndent {
                     self.complete_partial_indent()?;
+                }
+                if let Some(level) = self.indents.last_mut() {
+                    level.is_first_line = level.is_first_line && !ends_with_newline;
                 }
                 self.fmt.write_str(content)?;
 
