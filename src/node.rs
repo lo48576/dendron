@@ -2248,6 +2248,34 @@ impl<T> Node<T> {
         edit::try_clone_insert_subtree(self, dest)
     }
 
+    /// Clones the node with its subtree, and inserts it to the given destination.
+    ///
+    /// Returns the root node of the cloned new subtree.
+    ///
+    /// See [`try_clone_insert_subtree`][`Self::try_clone_insert_subtree`]
+    /// for detail.
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    ///
+    /// * the hierarchy to be created is invalid, or
+    /// * any data associated to the node in the subtree is mutably (i.e.
+    ///   exclusively) borrowed.
+    #[inline]
+    // This modifies hierarchy of the destination of the tree, so the returned
+    // value is not necessarily used.
+    #[allow(clippy::must_use_candidate)]
+    pub fn clone_insert_subtree(&self, dest: InsertAs<&HotNode<T>>) -> HotNode<T>
+    where
+        T: Clone,
+    {
+        self.try_clone_insert_subtree(dest).expect(
+            "[precondition] the hierarchy to be created should be valid \
+             and the node data should be borrowable",
+        )
+    }
+
     /// Detaches the node with its subtree, and inserts it to the given destination.
     ///
     /// # Failures
