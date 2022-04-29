@@ -1,6 +1,6 @@
 [package]
 name = "dendron"
-version = "0.0.0"
+version = "0.1.0"
 authors = ["YOSHIOKA Takuma <nop_thread@nops.red>"]
 edition = "2021"
 rust-version = "1.59"
@@ -10,7 +10,6 @@ description = "Generic tree data structure"
 repository = "https://gitlab.com/nop_thread/dendron"
 keywords = ["tree"]
 categories = ["data-structures"]
-publish = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -25,4 +24,4 @@ std = []
 [dependencies]
 
 [badges]
-maintenance = { status = "experimental" }
+maintenance = { status = "actively-developed" }
