@@ -223,6 +223,30 @@ impl<T> Tree<T> {
         HierarchyEditGrant::new(&self.core)
     }
 
+    /// Returns `true` if the two `Tree`s point to the same allocation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::tree;
+    ///
+    /// let tree1 = tree!("root");
+    /// let tree2 = tree!("root");
+    ///
+    /// assert!(tree1.ptr_eq(&tree1));
+    ///
+    /// assert!(tree1 == tree2, "same content and hierarchy");
+    /// assert!(
+    ///     !tree1.ptr_eq(&tree2),
+    ///     "same content and hierarchy but different allocation"
+    /// );
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn ptr_eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.core, &other.core)
+    }
+
     /// Compares two trees.
     ///
     /// Returns `Ok(true)` if the two trees are equal, even if they are stored
