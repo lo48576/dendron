@@ -4,6 +4,7 @@ mod debug_print;
 mod lock;
 
 use core::cell::{BorrowError, RefCell};
+use core::fmt;
 
 use alloc::rc::Rc;
 
@@ -122,10 +123,15 @@ impl<T> TreeCore<T> {
 ///
 /// There are convenience macro to create a tree ([`tree!`][`crate::tree!`]) or
 /// a root node ([`tree_node!`][`crate::tree_node!`]).
-#[derive(Debug)]
 pub struct Tree<T> {
     /// A reference to the tree core.
     core: Rc<TreeCore<T>>,
+}
+
+impl<T> fmt::Debug for Tree<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.debug_print_local().fmt(f)
+    }
 }
 
 impl<T, U: PartialEq<U>> PartialEq<Tree<U>> for Tree<T>
