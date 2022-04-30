@@ -30,6 +30,7 @@ pub struct FrozenNode<T> {
 }
 
 impl<T> Clone for FrozenNode<T> {
+    #[inline]
     fn clone(&self) -> Self {
         Self {
             intra_link: self.intra_link.clone(),
@@ -39,6 +40,7 @@ impl<T> Clone for FrozenNode<T> {
 }
 
 impl<T: fmt::Debug> fmt::Debug for FrozenNode<T> {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.debug_print_local().fmt(f)
     }
@@ -76,6 +78,7 @@ impl<T: Eq> Eq for FrozenNode<T> {}
 
 impl<T> FrozenNode<T> {
     /// Creates a new `FrozenNode` from the given plain node.
+    #[inline]
     pub(super) fn from_node(node: Node<T>) -> Result<Self, HierarchyEditProhibitionError> {
         let Node {
             intra_link,
@@ -164,6 +167,7 @@ impl<T> FrozenNode<T> {
     ///
     /// let plain: Node<_> = frozen.plain();
     /// ```
+    #[inline]
     #[must_use]
     pub fn plain(&self) -> Node<T> {
         Node::with_link_and_membership(self.intra_link.clone(), self.membership.as_inner().clone())
@@ -364,6 +368,7 @@ impl<T> FrozenNode<T> {
     ///
     /// assert!(frozen.is_root());
     /// ```
+    #[inline]
     #[must_use]
     pub fn is_root(&self) -> bool {
         // The node is a root if and only if the node has no parent.
@@ -405,6 +410,7 @@ impl<T> FrozenNode<T> {
     ///
     /// assert!(frozen.root().ptr_eq(&frozen));
     /// ```
+    #[inline]
     #[must_use]
     pub fn root(&self) -> Self {
         Self::from_node_link_with_prohibition(self.tree_core().root_link())

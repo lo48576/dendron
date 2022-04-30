@@ -21,6 +21,7 @@ pub enum DftEvent<T> {
 
 impl<T> DftEvent<T> {
     /// Returns the value with ownership.
+    #[inline]
     #[must_use]
     pub fn into_value(self) -> T {
         match self {
@@ -30,6 +31,7 @@ impl<T> DftEvent<T> {
     }
 
     /// Returns a reference to the value.
+    #[inline]
     #[must_use]
     pub fn as_value(&self) -> &T {
         match self {
@@ -39,6 +41,7 @@ impl<T> DftEvent<T> {
     }
 
     /// Returns a mutable reference to the value.
+    #[inline]
     #[must_use]
     pub fn as_value_mut(&mut self) -> &mut T {
         match self {
@@ -60,6 +63,7 @@ impl<T> DftEvent<T> {
     }
 
     /// Extracts the value for `Open` event if possible.
+    #[inline]
     #[must_use]
     pub fn into_open(self) -> Option<T> {
         match self {
@@ -69,6 +73,7 @@ impl<T> DftEvent<T> {
     }
 
     /// Extracts the value for `Close` event if possible.
+    #[inline]
     #[must_use]
     pub fn into_close(self) -> Option<T> {
         match self {

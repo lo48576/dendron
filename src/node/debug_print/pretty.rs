@@ -18,6 +18,7 @@ struct IndentedBlockState {
 
 impl IndentedBlockState {
     /// Returns the indent string for the indent type.
+    #[inline]
     fn as_str(self) -> &'static str {
         match (self.is_last_item, self.is_first_line) {
             (false, true) => "|-- ",
@@ -28,6 +29,7 @@ impl IndentedBlockState {
     }
 
     /// Returns the leading part of the indent string.
+    #[inline]
     fn as_str_leading(self) -> &'static str {
         match (self.is_last_item, self.is_first_line) {
             (false, true) => "|--",
@@ -38,6 +40,7 @@ impl IndentedBlockState {
     }
 
     /// Returns the trailing whitespaces part of the indent string.
+    #[inline]
     fn as_str_trailing_spaces(self) -> &'static str {
         match (self.is_last_item, self.is_first_line) {
             (_, true) => " ",
@@ -81,6 +84,7 @@ struct IndentWriter<'a, 'b> {
 
 impl<'a, 'b> IndentWriter<'a, 'b> {
     /// Creates a new `PadAdapter`.
+    #[inline]
     fn new(fmt: &'b mut fmt::Formatter<'a>) -> Self {
         Self {
             fmt,
@@ -117,6 +121,7 @@ impl<'a, 'b> IndentWriter<'a, 'b> {
     /// Returns `Ok(())` if an item is successfully closed.
     /// Returns `Err(())` if there are no items that can be closed, i.e. the
     /// current item is the root.
+    #[inline]
     fn close_item(&mut self) -> Result<(), ()> {
         match self.indents.pop() {
             Some(_) => Ok(()),
@@ -221,6 +226,7 @@ pub struct DebugPrettyPrint<'a, T> {
 
 impl<'a, T> DebugPrettyPrint<'a, T> {
     /// Creates a new `DebugPrint` object for the node.
+    #[inline]
     pub(crate) fn new(link: &'a IntraTreeLink<T>) -> Self {
         Self { link }
     }

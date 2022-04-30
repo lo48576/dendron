@@ -27,6 +27,7 @@ pub struct Node<T> {
 }
 
 impl<T> Clone for Node<T> {
+    #[inline]
     fn clone(&self) -> Self {
         Self {
             intra_link: self.intra_link.clone(),
@@ -36,6 +37,7 @@ impl<T> Clone for Node<T> {
 }
 
 impl<T: fmt::Debug> fmt::Debug for Node<T> {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.debug_print_local().fmt(f)
     }
@@ -2328,7 +2330,6 @@ impl<T> Node<T> {
     /// );
     /// # Ok::<_, dendron::HierarchyEditGrantError>(())
     /// ```
-    #[inline]
     pub fn try_detach_insert_subtree(
         &self,
         grant: &HierarchyEditGrant<T>,
@@ -2639,6 +2640,7 @@ pub struct NodeWeak<T> {
 }
 
 impl<T> Clone for NodeWeak<T> {
+    #[inline]
     fn clone(&self) -> Self {
         Self {
             intra_link: self.intra_link.clone(),
@@ -2673,7 +2675,6 @@ impl<T> NodeWeak<T> {
     /// drop(root);
     /// assert!(root_weak.upgrade().is_none());
     /// ```
-    #[inline]
     #[must_use]
     pub fn upgrade(&self) -> Option<Node<T>> {
         let intra_link = self.intra_link.upgrade()?;

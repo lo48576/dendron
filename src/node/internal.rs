@@ -283,6 +283,7 @@ impl<T> IntraTreeLink<T> {
     }
 
     /// Returns true if the current node is the first sibling.
+    #[inline]
     #[must_use]
     pub(crate) fn is_first_sibling(&self) -> bool {
         self.prev_sibling_cyclic_link().is_last_sibling()
@@ -389,6 +390,7 @@ impl<T> IntraTreeLink<T> {
     }
 
     /// Connects adjacent siblings bidirectionally.
+    #[inline]
     pub(crate) fn connect_adjacent_siblings(prev: &IntraTreeLink<T>, next: IntraTreeLink<T>) {
         next.replace_prev_sibling_cyclic(prev.downgrade());
         prev.replace_next_sibling(Some(next));
@@ -587,6 +589,7 @@ impl<T> Default for IntraTreeLinkWeak<T> {
 
 impl<T> IntraTreeLinkWeak<T> {
     /// Creates a strong intra node link from the weak one.
+    #[inline]
     #[must_use]
     pub(super) fn upgrade(&self) -> Option<IntraTreeLink<T>> {
         Weak::upgrade(&self.core).map(|core| IntraTreeLink { core })

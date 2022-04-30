@@ -17,6 +17,7 @@ pub enum Event<T> {
 
 impl<T> Event<T> {
     /// Converts the internal open value.
+    #[inline]
     pub fn map<F, U>(self, f: F) -> Event<U>
     where
         F: FnOnce(T) -> U,
@@ -625,6 +626,7 @@ impl<T> TreeBuilder<T> {
     /// ])?;
     /// # Ok::<_, dendron::serial::TreeBuildError>(())
     /// ```
+    #[inline]
     pub fn push_events<I>(&mut self, events: I) -> Result<(), TreeBuildError>
     where
         I: IntoIterator<Item = Event<T>>,
@@ -671,6 +673,7 @@ impl<T> TreeBuilder<T> {
     /// builder.push_dft_event(DftEvent::Close(src))?;
     /// # Ok::<_, dendron::serial::TreeBuildError>(())
     /// ```
+    #[inline]
     pub fn push_dft_event(&mut self, ev: DftEvent<Node<T>>) -> Result<(), TreeBuildError>
     where
         T: Clone,

@@ -118,6 +118,7 @@ impl<'a, T> OrphanRoot<'a, T> {
     }
 
     /// Make the orphan subtree a new independent tree.
+    #[inline]
     fn create_new_tree(self) {
         let tree_core = TreeCore::new_rc(self.link.clone());
         self.set_tree_core(&tree_core)
@@ -313,6 +314,7 @@ impl<'a, T> OrphanRoot<'a, T> {
 }
 
 /// Detaches the node and its descendant from the current tree, and let it be another tree.
+#[inline]
 pub(super) fn detach_subtree<T>(this: &IntraTreeLink<T>) {
     if this.is_root() {
         // Detaching entire tree is meaningless.
@@ -326,6 +328,7 @@ pub(super) fn detach_subtree<T>(this: &IntraTreeLink<T>) {
 
 /// Detaches the node and its descendant from the current parent, and inserts to other place in the
 /// same tree.
+#[inline]
 pub(super) fn detach_and_move_inside_same_tree<T>(
     this: &IntraTreeLink<T>,
     dest: InsertAs<&IntraTreeLink<T>>,

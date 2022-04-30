@@ -30,6 +30,7 @@ pub struct HotNode<T> {
 }
 
 impl<T> Clone for HotNode<T> {
+    #[inline]
     fn clone(&self) -> Self {
         Self {
             intra_link: self.intra_link.clone(),
@@ -39,6 +40,7 @@ impl<T> Clone for HotNode<T> {
 }
 
 impl<T: fmt::Debug> fmt::Debug for HotNode<T> {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.debug_print_local().fmt(f)
     }
@@ -76,6 +78,7 @@ impl<T: Eq> Eq for HotNode<T> {}
 
 impl<T> HotNode<T> {
     /// Creates a new `HotNode` from the given plain node.
+    #[inline]
     pub(super) fn from_node(node: Node<T>) -> Result<Self, HierarchyEditGrantError> {
         let Node {
             intra_link,
@@ -165,6 +168,7 @@ impl<T> HotNode<T> {
     /// let hot = HotNode::new_tree("root");
     /// let plain: Node<_> = hot.plain();
     /// ```
+    #[inline]
     #[must_use]
     pub fn plain(&self) -> Node<T> {
         Node::with_link_and_membership(self.intra_link.clone(), self.membership.as_inner().clone())
@@ -359,6 +363,7 @@ impl<T> HotNode<T> {
     /// assert!(root.is_root());
     /// assert!(!child.is_root());
     /// ```
+    #[inline]
     #[must_use]
     pub fn is_root(&self) -> bool {
         // The node is a root if and only if the node has no parent.
@@ -402,6 +407,7 @@ impl<T> HotNode<T> {
     ///
     /// assert!(tree.root().ptr_eq(&node.plain()));
     /// ```
+    #[inline]
     #[must_use]
     pub fn root(&self) -> Self {
         Self::from_node_link_with_grant(self.tree_core().root_link())

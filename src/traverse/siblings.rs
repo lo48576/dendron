@@ -45,6 +45,7 @@ impl<T> Iterator for SiblingsTraverser<T> {
         mem::replace(&mut self.next, next_of_next)
     }
 
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         if self.next.as_ref().is_some() {
             (1, None)
@@ -96,6 +97,7 @@ impl<T> Iterator for ReverseSiblingsTraverser<T> {
         mem::replace(&mut self.next, next_of_next)
     }
 
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         if self.next.as_ref().is_some() {
             (1, None)
