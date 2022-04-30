@@ -10,7 +10,8 @@ mod plain;
 use core::cell::BorrowError;
 use core::fmt;
 
-pub use self::debug_print::DebugPrettyPrint;
+pub(crate) use self::debug_print::DebugPrintSubtreeDescendant;
+pub use self::debug_print::{DebugPrettyPrint, DebugPrintNodeLocal, DebugPrintSubtree};
 pub use self::frozen::FrozenNode;
 pub use self::hot::HotNode;
 pub(crate) use self::internal::IntraTreeLink;

@@ -1,14 +1,17 @@
 //! Tree.
 
+mod debug_print;
 mod lock;
 
 use core::cell::{BorrowError, RefCell};
+use core::fmt;
 
 use alloc::rc::Rc;
 
 use crate::node::{IntraTreeLink, Node};
 use crate::traverse::DftEvent;
 
+pub use self::debug_print::{DebugPrintTree, DebugPrintTreeLocal};
 use self::lock::HierarchyLockManager;
 pub(crate) use self::lock::LockAggregatorForNode;
 pub use self::lock::{
@@ -23,7 +26,6 @@ pub use self::lock::{
 ///
 /// A value of this type is shared among nodes in the tree, so this will be
 /// referred as `Rc<RefCell<TreeCore<T>>>` or `Weak<RefCell<TreeCore<T>>>`.
-#[derive(Debug)]
 pub(crate) struct TreeCore<T> {
     /// Root node.
     root: RefCell<IntraTreeLink<T>>,
@@ -102,6 +104,16 @@ impl<T> Drop for TreeCore<T> {
     }
 }
 
+/// Debug printing.
+impl<T> TreeCore<T> {
+    /// Returns a debug-printable proxy that does not dump nodes.
+    #[inline]
+    #[must_use]
+    pub(crate) fn debug_print_local(&self) -> DebugPrintTreeLocal<'_, T> {
+        DebugPrintTreeLocal::new(self)
+    }
+}
+
 /// A reference to the tree, with shared ownership.
 ///
 /// Tree cannot exist without the root node, so you should create tree by
@@ -110,10 +122,15 @@ impl<T> Drop for TreeCore<T> {
 ///
 /// There are convenience macro to create a tree ([`tree!`][`crate::tree!`]) or
 /// a root node ([`tree_node!`][`crate::tree_node!`]).
-#[derive(Debug)]
 pub struct Tree<T> {
     /// A reference to the tree core.
     core: Rc<TreeCore<T>>,
+}
+
+impl<T> fmt::Debug for Tree<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.debug_print_local().fmt(f)
+    }
 }
 
 impl<T, U: PartialEq<U>> PartialEq<Tree<U>> for Tree<T>
@@ -383,5 +400,25 @@ impl<T> Tree<T> {
     {
         self.try_clone_tree()
             .expect("[precondition] data associated to nodes should be borrowable")
+    }
+}
+
+/// Debug printing.
+impl<T> Tree<T> {
+    /// Returns a debug-printable proxy that does not dump nodes.
+    #[inline]
+    #[must_use]
+    pub fn debug_print_local(&self) -> DebugPrintTreeLocal<'_, T> {
+        self.core.debug_print_local()
+    }
+
+    /// Returns a debug-printable proxy that dumps nodes.
+    #[inline]
+    #[must_use]
+    pub fn debug_print(&self) -> DebugPrintTree<'_, T>
+    where
+        T: fmt::Debug,
+    {
+        DebugPrintTree::new(self)
     }
 }

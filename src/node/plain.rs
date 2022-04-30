@@ -7,7 +7,7 @@ use alloc::rc::{Rc, Weak};
 
 use crate::anchor::{AdoptAs, InsertAs};
 use crate::membership::{Membership, WeakMembership};
-use crate::node::debug_print::DebugPrettyPrint;
+use crate::node::debug_print::{DebugPrettyPrint, DebugPrintNodeLocal, DebugPrintSubtree};
 use crate::node::edit;
 use crate::node::internal::{IntraTreeLink, NodeBuilder, NumChildren};
 use crate::node::{FrozenNode, HierarchyError, HotNode};
@@ -37,12 +37,7 @@ impl<T> Clone for Node<T> {
 
 impl<T: fmt::Debug> fmt::Debug for Node<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Node")
-            .field("data", &self.intra_link.try_borrow_data())
-            .field("next_sibling", &self.intra_link.next_sibling_link())
-            .field("first_child", &self.intra_link.first_child_link())
-            .field("membership", &self.membership)
-            .finish()
+        self.debug_print_local().fmt(f)
     }
 }
 
@@ -2546,5 +2541,71 @@ impl<T> Node<T> {
     #[must_use]
     pub fn debug_pretty_print(&self) -> DebugPrettyPrint<'_, T> {
         DebugPrettyPrint::new(&self.intra_link)
+    }
+
+    /// Returns a debug-printable proxy that does not dump neighbor nodes.
+    ///
+    /// # (No) guarantees
+    ///
+    /// This is provided mainly for debugging purpose. Node that the output
+    /// format is not guaranteed to be stable, and any format changes won't be
+    /// considered as breaking changes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::{Node, tree_node};
+    ///
+    /// let root = tree_node! {
+    ///     "root", [
+    ///         /("0", [
+    ///             "0-0",
+    ///             "0-1",
+    ///         ]),
+    ///     ]
+    /// };
+    ///
+    /// let printable = root.debug_print_local();
+    ///
+    /// println!("default oneliner = {:?}", printable);
+    /// println!("alternate multiline = {:#?}", printable);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn debug_print_local(&self) -> DebugPrintNodeLocal<'_, T> {
+        DebugPrintNodeLocal::new_plain(&self.intra_link, &self.membership)
+    }
+
+    /// Returns a debug-printable proxy that dumps descendant nodes.
+    ///
+    /// # (No) guarantees
+    ///
+    /// This is provided mainly for debugging purpose. Node that the output
+    /// format is not guaranteed to be stable, and any format changes won't be
+    /// considered as breaking changes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::{Node, tree_node};
+    ///
+    /// let root = tree_node! {
+    ///     "root", [
+    ///         /("0", [
+    ///             "0-0",
+    ///             "0-1",
+    ///         ]),
+    ///     ]
+    /// };
+    ///
+    /// let printable = root.debug_print_subtree();
+    ///
+    /// println!("default oneliner = {:?}", printable);
+    /// println!("alternate multiline = {:#?}", printable);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn debug_print_subtree(&self) -> DebugPrintSubtree<'_, T> {
+        DebugPrintSubtree::new_plain(&self.intra_link, &self.membership)
     }
 }

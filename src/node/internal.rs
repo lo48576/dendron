@@ -1,7 +1,6 @@
 //! Internals of a node.
 
 use core::cell::{BorrowError, BorrowMutError, Ref, RefCell, RefMut};
-use core::fmt;
 use core::iter;
 use core::mem;
 
@@ -12,7 +11,6 @@ use crate::traverse::DftEvent;
 use crate::tree::TreeCore;
 
 /// Internal node data.
-#[derive(Debug)]
 struct NodeCore<T> {
     /// Data associated to the node.
     data: RefCell<T>,
@@ -76,7 +74,6 @@ impl<T> NodeBuilder<T> {
 }
 
 /// An intra-tree owning reference to a node.
-#[derive(Debug)]
 pub(crate) struct IntraTreeLink<T> {
     /// Target node core.
     core: Rc<NodeCore<T>>,
@@ -585,12 +582,6 @@ impl<T> Default for IntraTreeLinkWeak<T> {
         Self {
             core: Default::default(),
         }
-    }
-}
-
-impl<T: fmt::Debug> fmt::Debug for IntraTreeLinkWeak<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("IntraTreeLinkWeak").finish()
     }
 }
 

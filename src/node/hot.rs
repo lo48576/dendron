@@ -7,7 +7,8 @@ use alloc::rc::Rc;
 
 use crate::anchor::{AdoptAs, InsertAs};
 use crate::membership::{Membership, MembershipWithEditGrant};
-use crate::node::{edit, DebugPrettyPrint, HierarchyError, IntraTreeLink, Node, NumChildren};
+use crate::node::debug_print::{DebugPrettyPrint, DebugPrintNodeLocal, DebugPrintSubtree};
+use crate::node::{edit, HierarchyError, IntraTreeLink, Node, NumChildren};
 use crate::serial;
 use crate::traverse;
 use crate::tree::{HierarchyEditGrant, HierarchyEditGrantError, Tree, TreeCore};
@@ -39,12 +40,7 @@ impl<T> Clone for HotNode<T> {
 
 impl<T: fmt::Debug> fmt::Debug for HotNode<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("HotNode")
-            .field("data", &self.intra_link.try_borrow_data())
-            .field("next_sibling", &self.intra_link.next_sibling_link())
-            .field("first_child", &self.intra_link.first_child_link())
-            .field("membership", &self.membership)
-            .finish()
+        self.debug_print_local().fmt(f)
     }
 }
 
@@ -1073,5 +1069,31 @@ impl<T> HotNode<T> {
     #[must_use]
     pub fn debug_pretty_print(&self) -> DebugPrettyPrint<'_, T> {
         DebugPrettyPrint::new(&self.intra_link)
+    }
+
+    /// Returns a debug-printable proxy that does not dump neighbor nodes.
+    ///
+    /// This is provided mainly for debugging purpose. Node that the output
+    /// format is not guaranteed to be stable, and any format changes won't be
+    /// considered as breaking changes.
+    ///
+    /// See [`Node::debug_print_local`] for usage.
+    #[inline]
+    #[must_use]
+    pub fn debug_print_local(&self) -> DebugPrintNodeLocal<'_, T> {
+        DebugPrintNodeLocal::new_hot(&self.intra_link, self.membership.as_ref())
+    }
+
+    /// Returns a debug-printable proxy that also dumps descendants recursively.
+    ///
+    /// This is provided mainly for debugging purpose. Node that the output
+    /// format is not guaranteed to be stable, and any format changes won't be
+    /// considered as breaking changes.
+    ///
+    /// See [`Node::debug_print_subtree`] for usage.
+    #[inline]
+    #[must_use]
+    pub fn debug_print_subtree(&self) -> DebugPrintSubtree<'_, T> {
+        DebugPrintSubtree::new_hot(&self.intra_link, self.membership.as_ref())
     }
 }
