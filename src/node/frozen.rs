@@ -40,12 +40,7 @@ impl<T> Clone for FrozenNode<T> {
 
 impl<T: fmt::Debug> fmt::Debug for FrozenNode<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("FrozenNode")
-            .field("data", &self.intra_link.try_borrow_data())
-            .field("next_sibling", &self.intra_link.next_sibling_link())
-            .field("first_child", &self.intra_link.first_child_link())
-            .field("membership", &self.membership)
-            .finish()
+        self.debug_print_local().fmt(f)
     }
 }
 
