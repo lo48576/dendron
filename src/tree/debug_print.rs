@@ -41,7 +41,7 @@ impl<T: fmt::Debug> fmt::Debug for DebugPrintTree<'_, T> {
         let root_link = self.tree.core.root_link();
         f.debug_struct("Tree")
             .field("lock_manager", &self.tree.core.lock_manager)
-            .field("nodes", &DebugPrintSubtreeDescendant::new(&root_link))
+            .field("nodes", &DebugPrintSubtreeDescendant::new_plain(&root_link))
             .finish()
     }
 }

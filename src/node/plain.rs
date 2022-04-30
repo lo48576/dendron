@@ -2573,7 +2573,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn debug_print_local(&self) -> DebugPrintNodeLocal<'_, T> {
-        DebugPrintNodeLocal::new(&self.intra_link, &self.membership)
+        DebugPrintNodeLocal::new_plain(&self.intra_link, &self.membership)
     }
 
     /// Returns a debug-printable proxy that dumps descendant nodes.
@@ -2606,6 +2606,6 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn debug_print_subtree(&self) -> DebugPrintSubtree<'_, T> {
-        DebugPrintSubtree::new(&self.intra_link, &self.membership)
+        DebugPrintSubtree::new_plain(&self.intra_link, &self.membership)
     }
 }

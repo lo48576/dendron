@@ -1081,7 +1081,7 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn debug_print_local(&self) -> DebugPrintNodeLocal<'_, T> {
-        DebugPrintNodeLocal::new(&self.intra_link, self.membership.as_ref())
+        DebugPrintNodeLocal::new_hot(&self.intra_link, self.membership.as_ref())
     }
 
     /// Returns a debug-printable proxy that also dumps descendants recursively.
@@ -1094,6 +1094,6 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn debug_print_subtree(&self) -> DebugPrintSubtree<'_, T> {
-        DebugPrintSubtree::new(&self.intra_link, self.membership.as_ref())
+        DebugPrintSubtree::new_hot(&self.intra_link, self.membership.as_ref())
     }
 }
