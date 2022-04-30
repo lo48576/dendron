@@ -11,7 +11,7 @@ use alloc::rc::Rc;
 use crate::node::{IntraTreeLink, Node};
 use crate::traverse::DftEvent;
 
-pub use self::debug_print::DebugPrintTreeLocal;
+pub use self::debug_print::{DebugPrintTree, DebugPrintTreeLocal};
 use self::lock::HierarchyLockManager;
 pub(crate) use self::lock::LockAggregatorForNode;
 pub use self::lock::{
@@ -411,5 +411,15 @@ impl<T> Tree<T> {
     #[must_use]
     pub fn debug_print_local(&self) -> DebugPrintTreeLocal<'_, T> {
         self.core.debug_print_local()
+    }
+
+    /// Returns a debug-printable proxy that dumps nodes.
+    #[inline]
+    #[must_use]
+    pub fn debug_print(&self) -> DebugPrintTree<'_, T>
+    where
+        T: fmt::Debug,
+    {
+        DebugPrintTree::new(self)
     }
 }

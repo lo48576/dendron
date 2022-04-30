@@ -5,6 +5,7 @@ mod pretty;
 
 use core::fmt;
 
+pub(crate) use self::debug::DebugPrintSubtreeDescendant;
 pub use self::debug::{DebugPrintNodeLocal, DebugPrintSubtree};
 pub use self::pretty::DebugPrettyPrint;
 

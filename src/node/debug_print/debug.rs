@@ -105,7 +105,7 @@ impl<T: fmt::Debug> fmt::Debug for DebugPrintSubtreeChildren<'_, T> {
 
 /// An internal wrapper for a descendant of `DebugPrintSubtree` target.
 #[derive(Clone, Copy)]
-struct DebugPrintSubtreeDescendant<'a, T>(&'a IntraTreeLink<T>);
+pub(crate) struct DebugPrintSubtreeDescendant<'a, T>(&'a IntraTreeLink<T>);
 
 impl<T: fmt::Debug> fmt::Debug for DebugPrintSubtreeDescendant<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -116,5 +116,14 @@ impl<T: fmt::Debug> fmt::Debug for DebugPrintSubtreeDescendant<'_, T> {
         };
         ds.field("children", &DebugPrintSubtreeChildren(self.0))
             .finish()
+    }
+}
+
+impl<'a, T> DebugPrintSubtreeDescendant<'a, T> {
+    /// Creates a new `DebugPrintSubtreeDescendant`.
+    #[inline]
+    #[must_use]
+    pub(crate) fn new(link: &'a IntraTreeLink<T>) -> Self {
+        Self(link)
     }
 }
