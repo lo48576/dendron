@@ -1,5 +1,6 @@
 //! Tree.
 
+mod debug_print;
 mod lock;
 
 use core::cell::{BorrowError, RefCell};
@@ -9,6 +10,7 @@ use alloc::rc::Rc;
 use crate::node::{IntraTreeLink, Node};
 use crate::traverse::DftEvent;
 
+pub use self::debug_print::DebugPrintTreeLocal;
 use self::lock::HierarchyLockManager;
 pub(crate) use self::lock::LockAggregatorForNode;
 pub use self::lock::{
@@ -99,6 +101,16 @@ impl<T> Drop for TreeCore<T> {
             }
             drop(close_link);
         }
+    }
+}
+
+/// Debug printing.
+impl<T> TreeCore<T> {
+    /// Returns a debug-printable proxy that does not dump nodes.
+    #[inline]
+    #[must_use]
+    pub(crate) fn debug_print_local(&self) -> DebugPrintTreeLocal<'_, T> {
+        DebugPrintTreeLocal::new(self)
     }
 }
 
@@ -383,5 +395,15 @@ impl<T> Tree<T> {
     {
         self.try_clone_tree()
             .expect("[precondition] data associated to nodes should be borrowable")
+    }
+}
+
+/// Debug printing.
+impl<T> Tree<T> {
+    /// Returns a debug-printable proxy that does not dump nodes.
+    #[inline]
+    #[must_use]
+    pub fn debug_print_local(&self) -> DebugPrintTreeLocal<'_, T> {
+        self.core.debug_print_local()
     }
 }
