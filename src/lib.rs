@@ -192,8 +192,14 @@ pub mod traverse;
 pub mod tree;
 
 pub use self::anchor::{AdoptAs, InsertAs};
-pub use self::node::{DebugPrettyPrint, FrozenNode, HierarchyError, HotNode, Node};
+pub use self::node::{FrozenNode, HierarchyError, HotNode, Node};
 pub use self::tree::{
     HierarchyEditGrant, HierarchyEditGrantError, HierarchyEditProhibition,
     HierarchyEditProhibitionError, Tree,
 };
+
+/// Deprecated re-export of [`node::DebugPrettyPrint`].
+// `#[deprecated] cannot be used for `use` statement. See
+// <https://github.com/rust-lang/rust/issues/30827>.
+#[deprecated(since = "0.2.0", note = "use `node::DebugPrettyPrint` instead")]
+pub type DebugPrettyPrint<'a, T> = self::node::DebugPrettyPrint<'a, T>;
