@@ -5,7 +5,7 @@ mod pretty;
 
 use core::fmt;
 
-pub use self::debug::DebugPrintNodeLocal;
+pub use self::debug::{DebugPrintNodeLocal, DebugPrintSubtree};
 pub use self::pretty::DebugPrettyPrint;
 
 /// Fake option for debug printing.

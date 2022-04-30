@@ -7,7 +7,7 @@ use alloc::rc::Rc;
 
 use crate::anchor::{AdoptAs, InsertAs};
 use crate::membership::{Membership, MembershipWithEditGrant};
-use crate::node::debug_print::{DebugPrettyPrint, DebugPrintNodeLocal};
+use crate::node::debug_print::{DebugPrettyPrint, DebugPrintNodeLocal, DebugPrintSubtree};
 use crate::node::{edit, HierarchyError, IntraTreeLink, Node, NumChildren};
 use crate::serial;
 use crate::traverse;
@@ -1082,5 +1082,18 @@ impl<T> HotNode<T> {
     #[must_use]
     pub fn debug_print_local(&self) -> DebugPrintNodeLocal<'_, T> {
         DebugPrintNodeLocal::new(&self.intra_link, self.membership.as_ref())
+    }
+
+    /// Returns a debug-printable proxy that also dumps descendants recursively.
+    ///
+    /// This is provided mainly for debugging purpose. Node that the output
+    /// format is not guaranteed to be stable, and any format changes won't be
+    /// considered as breaking changes.
+    ///
+    /// See [`Node::debug_print_subtree`] for usage.
+    #[inline]
+    #[must_use]
+    pub fn debug_print_subtree(&self) -> DebugPrintSubtree<'_, T> {
+        DebugPrintSubtree::new(&self.intra_link, self.membership.as_ref())
     }
 }
