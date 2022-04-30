@@ -193,7 +193,7 @@ pub mod tree;
 
 pub use self::anchor::{AdoptAs, InsertAs};
 pub use self::node::{FrozenNode, HierarchyError, HotNode, Node};
-pub use self::tree::{HierarchyEditGrant, HierarchyEditProhibition, Tree};
+pub use self::tree::{HierarchyEditGrant, HierarchyEditProhibition, Tree, TreeWeak};
 
 /// Deprecated re-export of [`node::DebugPrettyPrint`].
 // `#[deprecated] cannot be used for `use` statement. See
