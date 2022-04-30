@@ -186,14 +186,32 @@ mod macros;
 
 mod anchor;
 mod membership;
-mod node;
+pub mod node;
 pub mod serial;
 pub mod traverse;
-mod tree;
+pub mod tree;
 
 pub use self::anchor::{AdoptAs, InsertAs};
-pub use self::node::{DebugPrettyPrint, FrozenNode, HierarchyError, HotNode, Node};
-pub use self::tree::{
-    HierarchyEditGrant, HierarchyEditGrantError, HierarchyEditProhibition,
-    HierarchyEditProhibitionError, Tree,
-};
+pub use self::node::{FrozenNode, HierarchyError, HotNode, Node};
+pub use self::tree::{HierarchyEditGrant, HierarchyEditProhibition, Tree};
+
+/// Deprecated re-export of [`node::DebugPrettyPrint`].
+// `#[deprecated] cannot be used for `use` statement. See
+// <https://github.com/rust-lang/rust/issues/30827>.
+#[deprecated(since = "0.2.0", note = "use `node::DebugPrettyPrint` instead")]
+pub type DebugPrettyPrint<'a, T> = self::node::DebugPrettyPrint<'a, T>;
+
+/// Deprecated re-export of [`tree::HierarchyEditGrantError`].
+// `#[deprecated] cannot be used for `use` statement. See
+// <https://github.com/rust-lang/rust/issues/30827>.
+#[deprecated(since = "0.2.0", note = "use `tree::HierarchyEditGrantError` instead")]
+pub type HierarchyEditGrantError = self::tree::HierarchyEditGrantError;
+
+/// Deprecated re-export of [`tree::HierarchyEditProhibitionError`].
+// `#[deprecated] cannot be used for `use` statement. See
+// <https://github.com/rust-lang/rust/issues/30827>.
+#[deprecated(
+    since = "0.2.0",
+    note = "use `tree::HierarchyEditProhibitionError` instead"
+)]
+pub type HierarchyEditProhibitionError = self::tree::HierarchyEditProhibitionError;
