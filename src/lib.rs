@@ -186,10 +186,10 @@ mod macros;
 
 mod anchor;
 mod membership;
-mod node;
+pub mod node;
 pub mod serial;
 pub mod traverse;
-mod tree;
+pub mod tree;
 
 pub use self::anchor::{AdoptAs, InsertAs};
 pub use self::node::{DebugPrettyPrint, FrozenNode, HierarchyError, HotNode, Node};
