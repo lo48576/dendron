@@ -26,7 +26,6 @@ pub use self::lock::{
 ///
 /// A value of this type is shared among nodes in the tree, so this will be
 /// referred as `Rc<RefCell<TreeCore<T>>>` or `Weak<RefCell<TreeCore<T>>>`.
-#[derive(Debug)]
 pub(crate) struct TreeCore<T> {
     /// Root node.
     root: RefCell<IntraTreeLink<T>>,
