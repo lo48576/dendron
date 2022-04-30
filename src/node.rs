@@ -16,7 +16,7 @@ pub use self::frozen::FrozenNode;
 pub use self::hot::HotNode;
 pub(crate) use self::internal::IntraTreeLink;
 use self::internal::{IntraTreeLinkWeak, NodeBuilder, NumChildren};
-pub use self::plain::Node;
+pub use self::plain::{Node, NodeWeak};
 
 /// Hierarchy modification error.
 // `From<BorrowError> for Self` is not implemented because the crate should not

@@ -588,7 +588,7 @@ impl<T> Default for IntraTreeLinkWeak<T> {
 impl<T> IntraTreeLinkWeak<T> {
     /// Creates a strong intra node link from the weak one.
     #[must_use]
-    fn upgrade(&self) -> Option<IntraTreeLink<T>> {
+    pub(super) fn upgrade(&self) -> Option<IntraTreeLink<T>> {
         Weak::upgrade(&self.core).map(|core| IntraTreeLink { core })
     }
 
