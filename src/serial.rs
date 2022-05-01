@@ -5,6 +5,7 @@ use core::fmt;
 
 use crate::node::{FrozenNode, HotNode, Node};
 use crate::traverse::{self, DftEvent};
+use crate::tree::Tree;
 
 /// An event to build tree.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -109,6 +110,17 @@ impl<T> FromIterator<Event<T>> for Result<HotNode<T>, TreeBuildError> {
             root.bundle_new_hierarchy_edit_grant()
                 .expect("[validity] brand-new tree must be lockable")
         })
+    }
+}
+
+impl<T> FromIterator<Event<T>> for Result<Tree<T>, TreeBuildError> {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = Event<T>>,
+    {
+        let mut builder = TreeBuilder::new();
+        builder.push_events(iter)?;
+        builder.finish().map(|root| root.tree())
     }
 }
 
