@@ -1,6 +1,6 @@
 //! Internals of a node.
 
-use core::cell::{BorrowError, BorrowMutError, Ref, RefCell, RefMut};
+use core::cell::{BorrowError, BorrowMutError, Cell, Ref, RefCell, RefMut};
 use core::iter;
 use core::mem;
 
@@ -18,6 +18,11 @@ struct NodeCore<T> {
     neighbors: RefCell<Neighbors<T>>,
     /// Membership to a tree.
     membership: WeakMembership<T>,
+    /// The number of children.
+    ///
+    /// Note that this can be transiently inconsistent during editing node.
+    /// This inconsistency should not be observed from outside of the crate.
+    num_children: Cell<usize>,
 }
 
 /// A collection of links to neighbor nodes.
@@ -55,6 +60,8 @@ pub(super) struct NodeBuilder<T> {
     pub(super) prev_sibling_cyclic: IntraTreeLinkWeak<T>,
     /// Membership to a tree.
     pub(super) membership: WeakMembership<T>,
+    /// Number of children.
+    pub(super) num_children: usize,
 }
 
 impl<T> NodeBuilder<T> {
@@ -70,6 +77,7 @@ impl<T> NodeBuilder<T> {
                 prev_sibling_cyclic: self.prev_sibling_cyclic,
             }),
             membership: self.membership,
+            num_children: Cell::new(self.num_children),
         })
     }
     /// Builds a node core.
@@ -247,22 +255,7 @@ impl<T> IntraTreeLink<T> {
     /// Returns true if the node has any children.
     #[must_use]
     pub(super) fn has_children(&self) -> bool {
-        self.neighbors().first_child.is_some()
-    }
-
-    /// Returns the number of children.
-    #[must_use]
-    pub(super) fn num_children_rough(&self) -> NumChildren {
-        let first_child = match self.first_child_link() {
-            Some(v) => v,
-            None => return NumChildren::Zero,
-        };
-        let last_child = first_child.prev_sibling_cyclic_link();
-        if first_child.ptr_eq(&last_child) {
-            NumChildren::One
-        } else {
-            NumChildren::TwoOrMore
-        }
+        self.core.num_children.get() != 0
     }
 
     /// Returns the membership.
@@ -371,6 +364,26 @@ impl<T> IntraTreeLink<T> {
     pub(crate) fn connect_adjacent_siblings(prev: &IntraTreeLink<T>, next: IntraTreeLink<T>) {
         next.replace_prev_sibling_cyclic(prev.downgrade());
         prev.replace_next_sibling(Some(next));
+    }
+
+    /// Returns a reference to the cached number of children.
+    #[inline]
+    pub(super) fn num_children_cell(&self) -> &Cell<usize> {
+        &self.core.num_children
+    }
+
+    /// Adds the given number to the `num_children` cache.
+    #[inline]
+    pub(super) fn num_children_add(&self, v: usize) {
+        let old = self.core.num_children.get();
+        self.core.num_children.set(old + v);
+    }
+
+    /// Subtracts the given number from the `num_children` cache.
+    #[inline]
+    pub(super) fn num_children_sub(&self, v: usize) {
+        let old = self.core.num_children.get();
+        self.core.num_children.set(old - v);
     }
 }
 
@@ -578,15 +591,4 @@ impl<T> IntraTreeLinkWeak<T> {
     fn is_unavailable(&self) -> bool {
         self.core.strong_count() == 0
     }
-}
-
-/// The number of children.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub(super) enum NumChildren {
-    /// No children.
-    Zero,
-    /// Just one child.
-    One,
-    /// More than two children.
-    TwoOrMore,
 }

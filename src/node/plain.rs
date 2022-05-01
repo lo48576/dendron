@@ -9,7 +9,7 @@ use crate::anchor::{AdoptAs, InsertAs};
 use crate::membership::{Membership, WeakMembership};
 use crate::node::debug_print::{DebugPrettyPrint, DebugPrintNodeLocal, DebugPrintSubtree};
 use crate::node::edit;
-use crate::node::internal::{IntraTreeLink, IntraTreeLinkWeak, NodeBuilder, NumChildren};
+use crate::node::internal::{IntraTreeLink, IntraTreeLinkWeak, NodeBuilder};
 use crate::node::{FrozenNode, HierarchyError, HotNode};
 use crate::serial::{self, TreeBuildError};
 use crate::traverse;
@@ -848,6 +848,44 @@ impl<T> Node<T> {
         self.intra_link.has_next_sibling()
     }
 
+    /// Returns the number of children.
+    ///
+    /// This is `O(1)` operation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::Node;
+    ///
+    /// let root = Node::new_tree("root");
+    /// assert_eq!(root.num_children(), 0);
+    /// let grant = root.tree().grant_hierarchy_edit()?;
+    /// let child0 = root.create_as_last_child(&grant, "child0");
+    /// assert_eq!(root.num_children(), 1);
+    /// let child1 = root.create_as_last_child(&grant, "child1");
+    /// assert_eq!(root.num_children(), 2);
+    /// let child2 = root.create_as_last_child(&grant, "child2");
+    /// assert_eq!(root.num_children(), 3);
+    /// let child2_0 = child2.create_as_last_child(&grant, "child2_0");
+    /// //  root
+    /// //  |-- child0
+    /// //  |-- child1
+    /// //  `-- child2
+    /// //      `-- child2_0
+    ///
+    /// assert_eq!(root.count_children(), 3);
+    /// assert_eq!(child0.count_children(), 0);
+    /// assert_eq!(child1.count_children(), 0);
+    /// assert_eq!(child2.count_children(), 1);
+    /// assert_eq!(child2_0.count_children(), 0);
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn num_children(&self) -> usize {
+        self.intra_link.num_children_cell().get()
+    }
+
     /// Returns true if the node has any children.
     ///
     /// # Examples
@@ -875,10 +913,13 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn has_children(&self) -> bool {
-        self.intra_link.has_children()
+        self.num_children() != 0
     }
 
     /// Returns true if the node has just one child.
+    ///
+    /// Use [`num_children`][`Self::num_children`] method instead, i.e. use
+    /// `self.num_children() == 1`.
     ///
     /// # Examples
     ///
@@ -904,11 +945,15 @@ impl<T> Node<T> {
     /// ```
     #[inline]
     #[must_use]
+    #[deprecated(since = "0.1.1", note = "use `Node::num_children`")]
     pub fn has_one_child(&self) -> bool {
-        self.intra_link.num_children_rough() == NumChildren::One
+        self.num_children() == 1
     }
 
     /// Returns true if the node has two or more children.
+    ///
+    /// Use [`num_children`][`Self::num_children`] method instead, i.e. use
+    /// `self.num_children() > 1`.
     ///
     /// # Examples
     ///
@@ -934,13 +979,14 @@ impl<T> Node<T> {
     /// ```
     #[inline]
     #[must_use]
+    #[deprecated(since = "0.1.1", note = "use `Node::num_children`")]
     pub fn has_multiple_children(&self) -> bool {
-        self.intra_link.num_children_rough() == NumChildren::TwoOrMore
+        self.num_children() > 1
     }
 
     /// Returns the number of children.
     ///
-    /// Note that this is O(N) operation.
+    /// Use [`num_children`][`Self::num_children`] method instead.
     ///
     /// # Examples
     ///
@@ -968,8 +1014,9 @@ impl<T> Node<T> {
     /// ```
     #[inline]
     #[must_use]
+    #[deprecated(since = "0.1.1", note = "use `Node::num_children`")]
     pub fn count_children(&self) -> usize {
-        self.intra_link.count_children()
+        self.num_children()
     }
 
     /// Returns the number of preceding siblings.
@@ -1528,6 +1575,7 @@ impl<T> Node<T> {
             next_sibling: Default::default(),
             prev_sibling_cyclic: Default::default(),
             membership: weak_membership.clone(),
+            num_children: 0,
         }
         .build_link();
 
