@@ -11,7 +11,7 @@ use alloc::rc::{Rc, Weak};
 use crate::node::{IntraTreeLink, Node};
 use crate::traverse::DftEvent;
 
-pub use self::debug_print::{DebugPrintTree, DebugPrintTreeLocal};
+pub use self::debug_print::{DebugPrettyPrint, DebugPrintTree, DebugPrintTreeLocal};
 use self::lock::HierarchyLockManager;
 pub(crate) use self::lock::LockAggregatorForNode;
 pub use self::lock::{
@@ -427,6 +427,67 @@ impl<T> Tree<T> {
 
 /// Debug printing.
 impl<T> Tree<T> {
+    /// Returns the pretty-printable proxy object to the tree.
+    ///
+    /// # (No) guarantees
+    ///
+    /// This is provided mainly for debugging purpose. Node that the output
+    /// format is not guaranteed to be stable, and any format changes won't be
+    /// considered as breaking changes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::tree;
+    ///
+    /// let tree = tree! {
+    ///     "root", [
+    ///         /("0", [
+    ///             "0\n0",
+    ///             "0\n1",
+    ///         ]),
+    ///         "1",
+    ///         /("2", [
+    ///             /("2\n0", [
+    ///                 "2\n0\n0",
+    ///             ])
+    ///         ]),
+    ///     ]
+    /// };
+    ///
+    /// let printable = tree.debug_pretty_print();
+    ///
+    /// let expected_debug = r#""root"
+    /// |-- "0"
+    /// |   |-- "0\n0"
+    /// |   `-- "0\n1"
+    /// |-- "1"
+    /// `-- "2"
+    ///     `-- "2\n0"
+    ///         `-- "2\n0\n0""#;
+    /// assert_eq!(format!("{:?}", printable), expected_debug);
+    ///
+    /// let expected_display = r#"root
+    /// |-- 0
+    /// |   |-- 0
+    /// |   |   0
+    /// |   `-- 0
+    /// |       1
+    /// |-- 1
+    /// `-- 2
+    ///     `-- 2
+    ///         0
+    ///         `-- 2
+    ///             0
+    ///             0"#;
+    /// assert_eq!(printable.to_string(), expected_display);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn debug_pretty_print(&self) -> DebugPrettyPrint<'_, T> {
+        DebugPrettyPrint::new(&self.core)
+    }
+
     /// Returns a debug-printable proxy that does not dump nodes.
     #[inline]
     #[must_use]
