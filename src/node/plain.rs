@@ -224,7 +224,7 @@ impl<T> Node<T> {
     ///
     /// let node = Node::new_tree("root");
     /// let frozen = node.bundle_new_hierarchy_edit_prohibition()?;
-    /// # Ok::<_, dendron::HierarchyEditProhibitionError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditProhibitionError>(())
     /// ```
     #[inline]
     pub fn bundle_new_hierarchy_edit_prohibition(
@@ -246,7 +246,7 @@ impl<T> Node<T> {
     ///
     /// let node = Node::new_tree("root");
     /// let hot_node = node.bundle_new_hierarchy_edit_grant()?;
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     pub fn bundle_new_hierarchy_edit_grant(self) -> Result<HotNode<T>, HierarchyEditGrantError> {
@@ -272,7 +272,7 @@ impl<T> Node<T> {
     /// let prohibition = node.tree().prohibit_hierarchy_edit()?;
     ///
     /// let frozen_node = node.bundle_hierarchy_edit_prohibition(&prohibition);
-    /// # Ok::<_, dendron::HierarchyEditProhibitionError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditProhibitionError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -302,7 +302,7 @@ impl<T> Node<T> {
     /// let grant = node.tree().grant_hierarchy_edit()?;
     ///
     /// let hot_node = node.bundle_hierarchy_edit_grant(&grant);
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -474,7 +474,7 @@ impl<T> Node<T> {
     /// assert!(child.belongs_to_same_tree(&root));
     ///
     /// assert!(!root.belongs_to_same_tree(&other_node));
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -497,7 +497,7 @@ impl<T> Node<T> {
     ///
     /// assert!(root.is_root());
     /// assert!(!child.is_root());
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -539,7 +539,7 @@ impl<T> Node<T> {
     ///
     /// assert!(child.parent().expect("has parent").ptr_eq(&root));
     /// assert!(root.parent().is_none());
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -565,7 +565,7 @@ impl<T> Node<T> {
     /// assert!(child0.prev_sibling().is_none());
     /// assert!(child1.prev_sibling().expect("has prev sibling").ptr_eq(&child0));
     /// assert!(root.prev_sibling().is_none());
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -591,7 +591,7 @@ impl<T> Node<T> {
     /// assert!(child0.next_sibling().expect("has next sibling").ptr_eq(&child1));
     /// assert!(child1.next_sibling().is_none());
     /// assert!(root.prev_sibling().is_none());
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -621,7 +621,7 @@ impl<T> Node<T> {
     /// assert!(child2.first_sibling().ptr_eq(&child0));
     ///
     /// assert!(root.first_sibling().ptr_eq(&root));
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[must_use]
     pub fn first_sibling(&self) -> Self {
@@ -658,7 +658,7 @@ impl<T> Node<T> {
     /// assert!(child2.last_sibling().ptr_eq(&child2));
     ///
     /// assert!(root.first_sibling().ptr_eq(&root));
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[must_use]
     pub fn last_sibling(&self) -> Self {
@@ -697,7 +697,7 @@ impl<T> Node<T> {
     /// let (root_first_sib, root_last_sib) = root.first_last_sibling();
     /// assert!(root_first_sib.ptr_eq(&root));
     /// assert!(root_last_sib.ptr_eq(&root));
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[must_use]
     pub fn first_last_sibling(&self) -> (Self, Self) {
@@ -732,7 +732,7 @@ impl<T> Node<T> {
     ///
     /// assert!(root.first_child().expect("has children").ptr_eq(&child0));
     /// assert!(child0.first_child().is_none());
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -757,7 +757,7 @@ impl<T> Node<T> {
     ///
     /// assert!(root.last_child().expect("has children").ptr_eq(&child1));
     /// assert!(child0.last_child().is_none());
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -788,7 +788,7 @@ impl<T> Node<T> {
     /// assert!(last_child.ptr_eq(&child2));
     ///
     /// assert!(child1.first_last_child().is_none());
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[must_use]
     pub fn first_last_child(&self) -> Option<(Self, Self)> {
@@ -814,7 +814,7 @@ impl<T> Node<T> {
     /// assert!(!child0.has_prev_sibling());
     /// assert!(child1.has_prev_sibling());
     /// assert!(!root.has_prev_sibling());
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -840,7 +840,7 @@ impl<T> Node<T> {
     /// assert!(child0.has_next_sibling());
     /// assert!(!child1.has_next_sibling());
     /// assert!(!root.has_next_sibling());
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -908,7 +908,7 @@ impl<T> Node<T> {
     ///
     /// assert!(!child0.has_children());
     /// assert!(!child1_0.has_children());
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -941,7 +941,7 @@ impl<T> Node<T> {
     /// assert!(!root.has_one_child());
     /// assert!(!child0.has_one_child());
     /// assert!(!child1_0.has_one_child());
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -975,7 +975,7 @@ impl<T> Node<T> {
     /// assert!(!child0.has_multiple_children());
     /// assert!(!child1.has_multiple_children());
     /// assert!(!child1_0.has_multiple_children());
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -1010,7 +1010,7 @@ impl<T> Node<T> {
     /// assert_eq!(child1.count_children(), 0);
     /// assert_eq!(child2.count_children(), 1);
     /// assert_eq!(child2_0.count_children(), 0);
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -1045,7 +1045,7 @@ impl<T> Node<T> {
     /// assert_eq!(child1.count_preceding_siblings(), 1);
     /// assert_eq!(child2.count_preceding_siblings(), 2);
     /// assert_eq!(child2_0.count_preceding_siblings(), 0);
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -1079,7 +1079,7 @@ impl<T> Node<T> {
     /// assert_eq!(child1.count_following_siblings(), 1);
     /// assert_eq!(child2.count_following_siblings(), 0);
     /// assert_eq!(child2_0.count_following_siblings(), 0);
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -1110,7 +1110,7 @@ impl<T> Node<T> {
     /// assert_eq!(child0.count_ancestors(), 1);
     /// assert_eq!(child1.count_ancestors(), 1);
     /// assert_eq!(child1_0.count_ancestors(), 2);
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -1320,7 +1320,7 @@ impl<T> Node<T> {
     ///     .map(|node| *node.borrow_data())
     ///     .collect::<Vec<_>>();
     /// assert_eq!(ancestors, &["1", "root"]);
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -1351,7 +1351,7 @@ impl<T> Node<T> {
     ///     .map(|node| *node.borrow_data())
     ///     .collect::<Vec<_>>();
     /// assert_eq!(ancestors_or_self, &["1-0", "1", "root"]);
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -1382,7 +1382,7 @@ impl<T> Node<T> {
     ///     .map(|node| *node.borrow_data())
     ///     .collect::<Vec<_>>();
     /// assert_eq!(siblings, &["0", "1", "2"]);
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[must_use]
     pub fn siblings(&self) -> traverse::SiblingsTraverser<T> {
@@ -1415,7 +1415,7 @@ impl<T> Node<T> {
     ///     .map(|node| *node.borrow_data())
     ///     .collect::<Vec<_>>();
     /// assert_eq!(siblings, &["2", "1", "0"]);
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[must_use]
     pub fn siblings_reverse(&self) -> traverse::ReverseSiblingsTraverser<T> {
@@ -1448,7 +1448,7 @@ impl<T> Node<T> {
     ///     .map(|node| *node.borrow_data())
     ///     .collect::<Vec<_>>();
     /// assert_eq!(siblings, &["1", "0"]);
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -1479,7 +1479,7 @@ impl<T> Node<T> {
     ///     .map(|node| *node.borrow_data())
     ///     .collect::<Vec<_>>();
     /// assert_eq!(siblings, &["0"]);
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -1512,7 +1512,7 @@ impl<T> Node<T> {
     ///     .map(|node| *node.borrow_data())
     ///     .collect::<Vec<_>>();
     /// assert_eq!(siblings, &["1", "2"]);
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -1543,7 +1543,7 @@ impl<T> Node<T> {
     ///     .map(|node| *node.borrow_data())
     ///     .collect::<Vec<_>>();
     /// assert_eq!(siblings, &["2"]);
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -1660,7 +1660,7 @@ impl<T> Node<T> {
     ///         ]
     ///     }
     /// );
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     pub fn detach_subtree(&self, grant: &HierarchyEditGrant<T>) {
@@ -1708,7 +1708,7 @@ impl<T> Node<T> {
     ///
     /// assert!(child1.first_child().expect("has children").ptr_eq(&new));
     /// assert!(child1_0.prev_sibling().expect("has a sibling").ptr_eq(&new));
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     ///
     /// ## `AdoptAs::LastChild`
@@ -1737,7 +1737,7 @@ impl<T> Node<T> {
     ///
     /// assert!(child1.last_child().expect("has children").ptr_eq(&new));
     /// assert!(child1_0.next_sibling().expect("has a sibling").ptr_eq(&new));
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     ///
     /// ## `AdoptAs::PreviousSibling`
@@ -1766,7 +1766,7 @@ impl<T> Node<T> {
     ///
     /// assert!(child0.next_sibling().expect("has siblings").ptr_eq(&new));
     /// assert!(child1.prev_sibling().expect("has siblings").ptr_eq(&new));
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     ///
     /// ## `AdoptAs::NextSibling`
@@ -1795,7 +1795,7 @@ impl<T> Node<T> {
     ///
     /// assert!(root.last_child().expect("has children").ptr_eq(&new));
     /// assert!(child1.next_sibling().expect("has siblings").ptr_eq(&new));
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     pub fn try_create_node_as(
@@ -1857,7 +1857,7 @@ impl<T> Node<T> {
     ///
     /// assert!(child1.first_child().expect("has children").ptr_eq(&new));
     /// assert!(child1_0.prev_sibling().expect("has a sibling").ptr_eq(&new));
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     pub fn create_as_first_child(&self, grant: &HierarchyEditGrant<T>, data: T) -> Self {
@@ -1896,7 +1896,7 @@ impl<T> Node<T> {
     ///
     /// assert!(child1.last_child().expect("has children").ptr_eq(&new));
     /// assert!(child1_0.next_sibling().expect("has a sibling").ptr_eq(&new));
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     pub fn create_as_last_child(&self, grant: &HierarchyEditGrant<T>, data: T) -> Self {
@@ -1941,7 +1941,7 @@ impl<T> Node<T> {
     ///
     /// assert!(child0.next_sibling().expect("has siblings").ptr_eq(&new));
     /// assert!(child1.prev_sibling().expect("has siblings").ptr_eq(&new));
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     pub fn try_create_as_prev_sibling(
@@ -2005,7 +2005,7 @@ impl<T> Node<T> {
     ///
     /// assert!(root.last_child().expect("has children").ptr_eq(&new));
     /// assert!(child1.next_sibling().expect("has siblings").ptr_eq(&new));
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     pub fn try_create_as_next_sibling(
@@ -2142,7 +2142,7 @@ impl<T> Node<T> {
     /// assert!(!cloned.belongs_to_same_tree(&root));
     /// // Descendants are also cloned.
     /// assert_eq!(cloned, child1);
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     pub fn try_clone_subtree(&self) -> Result<Self, BorrowError>
     where
@@ -2267,7 +2267,7 @@ impl<T> Node<T> {
     ///         ]
     ///     }
     /// );
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     pub fn try_clone_insert_subtree(
@@ -2376,7 +2376,7 @@ impl<T> Node<T> {
     ///         ]
     ///     }
     /// );
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     pub fn try_detach_insert_subtree(
         &self,
@@ -2540,7 +2540,7 @@ impl<T: Clone> Node<T> {
     ///         Event::Close(3),
     ///     ]
     /// );
-    /// # Ok::<_, dendron::HierarchyEditGrantError>(())
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
     #[must_use]
