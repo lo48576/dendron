@@ -15,6 +15,7 @@ use crate::tree::TreeCore;
 pub struct HierarchyEditProhibitionError;
 
 impl fmt::Display for HierarchyEditProhibitionError {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("edif of the tree hierarchy is already granted")
     }
@@ -30,6 +31,7 @@ impl std::error::Error for HierarchyEditProhibitionError {}
 pub struct HierarchyEditGrantError;
 
 impl fmt::Display for HierarchyEditGrantError {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("edit of the tree hierarchy is already prohibited")
     }
@@ -216,6 +218,7 @@ impl HierarchyLockManager {
 pub struct HierarchyEditProhibition<T>(Weak<TreeCore<T>>);
 
 impl<T> Drop for HierarchyEditProhibition<T> {
+    #[inline]
     fn drop(&mut self) {
         if let Some(tree_core) = Weak::upgrade(&self.0) {
             tree_core.lock_manager.release_prohibition();
@@ -294,6 +297,7 @@ impl<T> HierarchyEditProhibition<T> {
 pub struct HierarchyEditGrant<T>(Weak<TreeCore<T>>);
 
 impl<T> Drop for HierarchyEditGrant<T> {
+    #[inline]
     fn drop(&mut self) {
         if let Some(tree_core) = Weak::upgrade(&self.0) {
             tree_core.lock_manager.release_grant();
@@ -311,6 +315,7 @@ impl<T> Clone for HierarchyEditGrant<T> {
     ///
     /// Panics if the number of active edit grants for the tree will exceed
     /// `isize::MAX`.
+    #[inline]
     fn clone(&self) -> Self {
         self.try_clone()
             .expect("[precondition] too many hierarchy edit grants are active")

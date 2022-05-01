@@ -270,6 +270,7 @@ impl<T> Clone for WeakMembership<T> {
 /// Initialization.
 impl<T> WeakMembership<T> {
     /// Creates a new weak membership with null reference to the tree core.
+    #[inline]
     #[must_use]
     pub(crate) fn new() -> Self {
         Self {
@@ -397,6 +398,7 @@ pub(crate) struct MembershipWithEditProhibition<T> {
 }
 
 impl<T> Drop for MembershipWithEditProhibition<T> {
+    #[inline]
     fn drop(&mut self) {
         self.inner.decrement_edit_lock_count();
     }
@@ -408,6 +410,7 @@ impl<T> Clone for MembershipWithEditProhibition<T> {
     /// # Panics
     ///
     /// Panics if the aggregated lock count is `usize::MAX`.
+    #[inline]
     fn clone(&self) -> Self {
         self.inner.increment_nonzero_edit_lock_count();
         Self {
@@ -418,6 +421,7 @@ impl<T> Clone for MembershipWithEditProhibition<T> {
 
 impl<T> MembershipWithEditProhibition<T> {
     /// Clones a membership and bundles a hierarchy edit prohibition.
+    #[inline]
     pub(crate) fn new(inner: Membership<T>) -> Result<Self, HierarchyEditProhibitionError> {
         inner.acquire_edit_prohibition()?;
         Ok(Self { inner })
@@ -453,6 +457,7 @@ pub(crate) struct MembershipWithEditGrant<T> {
 }
 
 impl<T> Drop for MembershipWithEditGrant<T> {
+    #[inline]
     fn drop(&mut self) {
         self.inner.decrement_edit_lock_count();
     }
@@ -460,6 +465,7 @@ impl<T> Drop for MembershipWithEditGrant<T> {
 
 impl<T> Clone for MembershipWithEditGrant<T> {
     /// Clones the membership and the grant.
+    #[inline]
     fn clone(&self) -> Self {
         self.inner.increment_nonzero_edit_lock_count();
         Self {

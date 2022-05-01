@@ -59,6 +59,7 @@ impl<T> TreeCore<T> {
     /// Fails if the tree `dest` cannot be locked with the currently active
     /// tree hierarchy edit lock for `self`.
     // Intended only for use by `membership` module.
+    #[inline]
     pub(crate) fn transfer_single_lock_to(
         self: &Rc<TreeCore<T>>,
         dest: &Rc<TreeCore<T>>,
@@ -128,6 +129,7 @@ pub struct Tree<T> {
 }
 
 impl<T> fmt::Debug for Tree<T> {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.debug_print_local().fmt(f)
     }

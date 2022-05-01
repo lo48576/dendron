@@ -27,6 +27,7 @@ pub struct NonAllocatingBreadthFirstTraverser<T> {
 }
 
 impl<T> Clone for NonAllocatingBreadthFirstTraverser<T> {
+    #[inline]
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -95,6 +96,7 @@ impl<T> Iterator for NonAllocatingBreadthFirstTraverser<T> {
         None
     }
 
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         if self.root.is_none() {
             (0, Some(0))
@@ -119,6 +121,7 @@ enum QueuedEvent<T> {
 }
 
 impl<T> Clone for QueuedEvent<T> {
+    #[inline]
     fn clone(&self) -> Self {
         match self {
             Self::Node(node) => Self::Node(node.clone()),
@@ -141,6 +144,7 @@ pub struct AllocatingBreadthFirstTraverser<T> {
 }
 
 impl<T> Clone for AllocatingBreadthFirstTraverser<T> {
+    #[inline]
     fn clone(&self) -> Self {
         Self {
             events: self.events.clone(),
@@ -247,6 +251,7 @@ impl<T> Iterator for AllocatingBreadthFirstTraverser<T> {
         None
     }
 
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         let len = self.events.len();
         // Note that if the queue always contains one `IncrementDepth` when the

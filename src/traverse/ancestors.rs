@@ -45,6 +45,7 @@ impl<T> Iterator for AncestorsTraverser<T> {
         mem::replace(&mut self.next, next_of_next)
     }
 
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         if self.next.as_ref().is_some() {
             (1, None)

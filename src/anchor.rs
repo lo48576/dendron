@@ -68,6 +68,7 @@ impl<T> InsertAs<T> {
     }
 
     /// Returns the corresponding `AdoptAs` value.
+    #[inline]
     #[must_use]
     pub(super) fn to_adopt_as(&self) -> AdoptAs {
         match self {
@@ -90,6 +91,7 @@ impl<T> InsertAs<T> {
     ///     InsertAs::FirstChildOf(&'\n'),
     /// );
     /// ```
+    #[inline]
     #[must_use]
     pub fn as_ref(&self) -> InsertAs<&T> {
         match self {
