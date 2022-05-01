@@ -370,6 +370,31 @@ impl<T> HotNode<T> {
         self.intra_link.is_root()
     }
 
+    /// Returns true if the node belongs to the given tree.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::HotNode;
+    ///
+    /// let root = HotNode::new_tree("root");
+    /// let child = root.create_as_last_child("child");
+    /// //  root
+    /// //  `-- child
+    ///
+    /// let other_node = HotNode::new_tree("other");
+    ///
+    /// assert!(root.belongs_to(&root.tree()));
+    /// assert!(child.belongs_to(&root.tree()));
+    ///
+    /// assert!(!root.belongs_to(&other_node.tree()));
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn belongs_to(&self, tree: &Tree<T>) -> bool {
+        self.membership.as_ref().belongs_to(tree)
+    }
+
     /// Returns true if the given node belong to the same tree.
     ///
     /// # Examples
