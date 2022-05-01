@@ -455,6 +455,33 @@ impl<T> Node<T> {
         Tree::from_core_rc(self.membership.tree_core())
     }
 
+    /// Returns true if the node belongs to the given tree.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::Node;
+    ///
+    /// let root = Node::new_tree("root");
+    /// let grant = root.tree().grant_hierarchy_edit()?;
+    /// let child = root.create_as_last_child(&grant, "child");
+    /// //  root
+    /// //  `-- child
+    ///
+    /// let other_node = Node::new_tree("other");
+    ///
+    /// assert!(root.belongs_to(&root.tree()));
+    /// assert!(child.belongs_to(&root.tree()));
+    ///
+    /// assert!(!root.belongs_to(&other_node.tree()));
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn belongs_to(&self, tree: &Tree<T>) -> bool {
+        self.membership.belongs_to(tree)
+    }
+
     /// Returns true if the given node belong to the same tree.
     ///
     /// # Examples

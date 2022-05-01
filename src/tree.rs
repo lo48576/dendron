@@ -273,6 +273,13 @@ impl<T> Tree<T> {
         Rc::ptr_eq(&self.core, &other.core)
     }
 
+    /// Returns `true` if the given `Rc<TreeCore>` point to the same allocation as `self`.
+    #[inline]
+    #[must_use]
+    pub(crate) fn ptr_eq_core(&self, other: &Rc<TreeCore<T>>) -> bool {
+        Rc::ptr_eq(&self.core, other)
+    }
+
     /// Compares two trees.
     ///
     /// Returns `Ok(true)` if the two trees are equal, even if they are stored
