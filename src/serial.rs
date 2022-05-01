@@ -90,12 +90,11 @@ impl<T> FromIterator<Event<T>> for Result<FrozenNode<T>, TreeBuildError> {
     where
         I: IntoIterator<Item = Event<T>>,
     {
-        let mut builder = TreeBuilder::new();
-        builder.push_events(iter)?;
-        builder.finish().map(|root| {
-            root.bundle_new_hierarchy_edit_prohibition()
-                .expect("[validity] brand-new tree must be lockable")
-        })
+        let root = iter.into_iter().collect::<Result<Node<T>, _>>()?;
+        let frozen = root
+            .bundle_new_hierarchy_edit_prohibition()
+            .expect("[validity] brand-new tree must be lockable");
+        Ok(frozen)
     }
 }
 
@@ -104,12 +103,11 @@ impl<T> FromIterator<Event<T>> for Result<HotNode<T>, TreeBuildError> {
     where
         I: IntoIterator<Item = Event<T>>,
     {
-        let mut builder = TreeBuilder::new();
-        builder.push_events(iter)?;
-        builder.finish().map(|root| {
-            root.bundle_new_hierarchy_edit_grant()
-                .expect("[validity] brand-new tree must be lockable")
-        })
+        let root = iter.into_iter().collect::<Result<Node<T>, _>>()?;
+        let hot = root
+            .bundle_new_hierarchy_edit_grant()
+            .expect("[validity] brand-new tree must be lockable");
+        Ok(hot)
     }
 }
 
@@ -118,9 +116,9 @@ impl<T> FromIterator<Event<T>> for Result<Tree<T>, TreeBuildError> {
     where
         I: IntoIterator<Item = Event<T>>,
     {
-        let mut builder = TreeBuilder::new();
-        builder.push_events(iter)?;
-        builder.finish().map(|root| root.tree())
+        iter.into_iter()
+            .collect::<Result<Node<T>, _>>()
+            .map(|root| root.tree())
     }
 }
 
