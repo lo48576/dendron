@@ -57,9 +57,9 @@
     + in favor of another method `num_children`.
 
 
-## [0.0.1]
+## [0.1.0]
 
 Initial release.
 
-[Unreleased]: <https://gitlab.com/nop_thread/dendron/-/compare/v0.0.1...develop>
-[0.0.1]: <https://gitlab.com/nop_thread/dendron/-/tags/v0.0.1>
+[Unreleased]: <https://gitlab.com/nop_thread/dendron/-/compare/v0.1.0...develop>
+[0.1.0]: <https://gitlab.com/nop_thread/dendron/-/tags/v0.1.0>
