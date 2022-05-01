@@ -2514,7 +2514,7 @@ impl<T> Node<T> {
     /// # Examples
     ///
     /// ```
-    /// use dendron::{Node, tree_node};
+    /// use dendron::tree_node;
     ///
     /// let root = tree_node! {
     ///     "root", [
