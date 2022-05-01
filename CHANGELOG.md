@@ -4,6 +4,7 @@
 
 * Reorganize some modules (in non-breaking way).
 * Implement better and various debug formatting.
+* Implement events-to-tree conversion.
 * Add weak reference types.
 
 ### Added
@@ -20,6 +21,9 @@
     + Add `TreeWeak` and `NodeWeak` types.
     + They can be upgradable to `Tree` and `Node` respectively if the target
       tree or node is still alive.
+* Implement events-to-tree conversion.
+    + Add trait implementation
+      `FromIterator<serial::Event<T>> for Result<Tree<T>, TreeBuilderError>`.
 
 ### Non-breaking changes
 * Reorganize some modules.
