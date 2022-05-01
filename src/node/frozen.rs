@@ -7,14 +7,16 @@ use alloc::rc::Rc;
 
 use crate::anchor::InsertAs;
 use crate::membership::{Membership, MembershipWithEditProhibition};
-use crate::node::{
-    edit, DebugPrettyPrint, HierarchyError, HotNode, IntraTreeLink, Node, NumChildren,
-};
+use crate::node::debug_print::{DebugPrettyPrint, DebugPrintNodeLocal, DebugPrintSubtree};
+use crate::node::{edit, HierarchyError, HotNode, IntraTreeLink, Node};
 use crate::serial;
 use crate::traverse;
 use crate::tree::{HierarchyEditProhibition, HierarchyEditProhibitionError, Tree, TreeCore};
 
 /// A [`Node`] with a tree hierarchy edit prohibition bundled.
+///
+/// `FrozenNode` can be created by [`Node::bundle_hierarchy_edit_prohibition`] or
+/// [`Node::bundle_new_hierarchy_edit_prohibition`].
 ///
 /// # Panics
 ///
@@ -28,6 +30,7 @@ pub struct FrozenNode<T> {
 }
 
 impl<T> Clone for FrozenNode<T> {
+    #[inline]
     fn clone(&self) -> Self {
         Self {
             intra_link: self.intra_link.clone(),
@@ -37,13 +40,9 @@ impl<T> Clone for FrozenNode<T> {
 }
 
 impl<T: fmt::Debug> fmt::Debug for FrozenNode<T> {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("FrozenNode")
-            .field("data", &self.intra_link.try_borrow_data())
-            .field("next_sibling", &self.intra_link.next_sibling_link())
-            .field("first_child", &self.intra_link.first_child_link())
-            .field("membership", &self.membership)
-            .finish()
+        self.debug_print_local().fmt(f)
     }
 }
 
@@ -79,6 +78,7 @@ impl<T: Eq> Eq for FrozenNode<T> {}
 
 impl<T> FrozenNode<T> {
     /// Creates a new `FrozenNode` from the given plain node.
+    #[inline]
     pub(super) fn from_node(node: Node<T>) -> Result<Self, HierarchyEditProhibitionError> {
         let Node {
             intra_link,
@@ -167,6 +167,7 @@ impl<T> FrozenNode<T> {
     ///
     /// let plain: Node<_> = frozen.plain();
     /// ```
+    #[inline]
     #[must_use]
     pub fn plain(&self) -> Node<T> {
         Node::with_link_and_membership(self.intra_link.clone(), self.membership.as_inner().clone())
@@ -367,6 +368,7 @@ impl<T> FrozenNode<T> {
     ///
     /// assert!(frozen.is_root());
     /// ```
+    #[inline]
     #[must_use]
     pub fn is_root(&self) -> bool {
         // The node is a root if and only if the node has no parent.
@@ -408,6 +410,7 @@ impl<T> FrozenNode<T> {
     ///
     /// assert!(frozen.root().ptr_eq(&frozen));
     /// ```
+    #[inline]
     #[must_use]
     pub fn root(&self) -> Self {
         Self::from_node_link_with_prohibition(self.tree_core().root_link())
@@ -553,31 +556,51 @@ impl<T> FrozenNode<T> {
         self.intra_link.has_children()
     }
 
+    /// Returns the number of children.
+    ///
+    /// This is `O(1)` operation.
+    ///
+    /// See [`Node::num_children`] for usage examples.
+    #[inline]
+    #[must_use]
+    pub fn num_children(&self) -> usize {
+        self.intra_link.num_children_cell().get()
+    }
+
     /// Returns true if the node has just one child.
+    ///
+    /// Use [`num_children`][`Self::num_children`] method instead, i.e. use
+    /// `self.num_children() == 1`.
     ///
     /// See [`Node::has_one_child`] for usage examples.
     #[inline]
     #[must_use]
+    #[deprecated(since = "0.1.1", note = "use `HotNode::num_children`")]
     pub fn has_one_child(&self) -> bool {
-        self.intra_link.num_children_rough() == NumChildren::One
+        self.num_children() == 1
     }
 
     /// Returns true if the node has two or more children.
     ///
+    /// Use [`num_children`][`Self::num_children`] method instead, i.e. use
+    /// `self.num_children() > 1`.
+    ///
     /// See [`Node::has_multiple_children`] for usage examples.
     #[inline]
     #[must_use]
+    #[deprecated(since = "0.1.1", note = "use `HotNode::num_children`")]
     pub fn has_multiple_children(&self) -> bool {
-        self.intra_link.num_children_rough() == NumChildren::TwoOrMore
+        self.num_children() > 1
     }
 
     /// Returns the number of children.
     ///
-    /// Note that this is O(N) operation.
+    /// Use [`num_children`][`Self::num_children`] method instead.
     ///
     /// See [`Node::count_children`] for usage examples.
     #[inline]
     #[must_use]
+    #[deprecated(since = "0.1.1", note = "use `HotNode::num_children`")]
     pub fn count_children(&self) -> usize {
         self.intra_link.count_children()
     }
@@ -1166,5 +1189,31 @@ impl<T> FrozenNode<T> {
     #[must_use]
     pub fn debug_pretty_print(&self) -> DebugPrettyPrint<'_, T> {
         DebugPrettyPrint::new(&self.intra_link)
+    }
+
+    /// Returns a debug-printable proxy that does not dump neighbor nodes.
+    ///
+    /// This is provided mainly for debugging purpose. Node that the output
+    /// format is not guaranteed to be stable, and any format changes won't be
+    /// considered as breaking changes.
+    ///
+    /// See [`Node::debug_print_local`] for usage.
+    #[inline]
+    #[must_use]
+    pub fn debug_print_local(&self) -> DebugPrintNodeLocal<'_, T> {
+        DebugPrintNodeLocal::new_frozen(&self.intra_link, self.membership.as_ref())
+    }
+
+    /// Returns a debug-printable proxy that also dumps descendants recursively.
+    ///
+    /// This is provided mainly for debugging purpose. Node that the output
+    /// format is not guaranteed to be stable, and any format changes won't be
+    /// considered as breaking changes.
+    ///
+    /// See [`Node::debug_print_subtree`] for usage.
+    #[inline]
+    #[must_use]
+    pub fn debug_print_subtree(&self) -> DebugPrintSubtree<'_, T> {
+        DebugPrintSubtree::new_frozen(&self.intra_link, self.membership.as_ref())
     }
 }

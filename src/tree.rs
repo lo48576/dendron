@@ -1,14 +1,17 @@
 //! Tree.
 
+mod debug_print;
 mod lock;
 
 use core::cell::{BorrowError, RefCell};
+use core::fmt;
 
-use alloc::rc::Rc;
+use alloc::rc::{Rc, Weak};
 
 use crate::node::{IntraTreeLink, Node};
 use crate::traverse::DftEvent;
 
+pub use self::debug_print::{DebugPrettyPrint, DebugPrintTree, DebugPrintTreeLocal};
 use self::lock::HierarchyLockManager;
 pub(crate) use self::lock::LockAggregatorForNode;
 pub use self::lock::{
@@ -23,7 +26,6 @@ pub use self::lock::{
 ///
 /// A value of this type is shared among nodes in the tree, so this will be
 /// referred as `Rc<RefCell<TreeCore<T>>>` or `Weak<RefCell<TreeCore<T>>>`.
-#[derive(Debug)]
 pub(crate) struct TreeCore<T> {
     /// Root node.
     root: RefCell<IntraTreeLink<T>>,
@@ -57,6 +59,7 @@ impl<T> TreeCore<T> {
     /// Fails if the tree `dest` cannot be locked with the currently active
     /// tree hierarchy edit lock for `self`.
     // Intended only for use by `membership` module.
+    #[inline]
     pub(crate) fn transfer_single_lock_to(
         self: &Rc<TreeCore<T>>,
         dest: &Rc<TreeCore<T>>,
@@ -102,11 +105,34 @@ impl<T> Drop for TreeCore<T> {
     }
 }
 
-/// A reference to the tree.
-#[derive(Debug)]
+/// Debug printing.
+impl<T> TreeCore<T> {
+    /// Returns a debug-printable proxy that does not dump nodes.
+    #[inline]
+    #[must_use]
+    pub(crate) fn debug_print_local(&self) -> DebugPrintTreeLocal<'_, T> {
+        DebugPrintTreeLocal::new(self)
+    }
+}
+
+/// A reference to the tree, with shared ownership.
+///
+/// Tree cannot exist without the root node, so you should create tree by
+/// creating a new root node. See [`Node::new_tree`] and
+/// [`HotNode::new_tree`][`crate::HotNode::new_tree`].
+///
+/// There are convenience macro to create a tree ([`tree!`][`crate::tree!`]) or
+/// a root node ([`tree_node!`][`crate::tree_node!`]).
 pub struct Tree<T> {
     /// A reference to the tree core.
     core: Rc<TreeCore<T>>,
+}
+
+impl<T> fmt::Debug for Tree<T> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.debug_print_local().fmt(f)
+    }
 }
 
 impl<T, U: PartialEq<U>> PartialEq<Tree<U>> for Tree<T>
@@ -376,5 +402,143 @@ impl<T> Tree<T> {
     {
         self.try_clone_tree()
             .expect("[precondition] data associated to nodes should be borrowable")
+    }
+
+    /// Downgrades the reference to a weak one.
+    ///
+    /// ```
+    /// use dendron::tree;
+    ///
+    /// let tree = tree!("root");
+    /// let tree_weak = tree.downgrade();
+    /// assert!(tree_weak.upgrade().is_some());
+    ///
+    /// drop(tree);
+    /// assert!(tree_weak.upgrade().is_none());
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn downgrade(&self) -> TreeWeak<T> {
+        TreeWeak {
+            core: Rc::downgrade(&self.core),
+        }
+    }
+}
+
+/// Debug printing.
+impl<T> Tree<T> {
+    /// Returns the pretty-printable proxy object to the tree.
+    ///
+    /// # (No) guarantees
+    ///
+    /// This is provided mainly for debugging purpose. Node that the output
+    /// format is not guaranteed to be stable, and any format changes won't be
+    /// considered as breaking changes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::tree;
+    ///
+    /// let tree = tree! {
+    ///     "root", [
+    ///         /("0", [
+    ///             "0\n0",
+    ///             "0\n1",
+    ///         ]),
+    ///         "1",
+    ///         /("2", [
+    ///             /("2\n0", [
+    ///                 "2\n0\n0",
+    ///             ])
+    ///         ]),
+    ///     ]
+    /// };
+    ///
+    /// let printable = tree.debug_pretty_print();
+    ///
+    /// let expected_debug = r#""root"
+    /// |-- "0"
+    /// |   |-- "0\n0"
+    /// |   `-- "0\n1"
+    /// |-- "1"
+    /// `-- "2"
+    ///     `-- "2\n0"
+    ///         `-- "2\n0\n0""#;
+    /// assert_eq!(format!("{:?}", printable), expected_debug);
+    ///
+    /// let expected_display = r#"root
+    /// |-- 0
+    /// |   |-- 0
+    /// |   |   0
+    /// |   `-- 0
+    /// |       1
+    /// |-- 1
+    /// `-- 2
+    ///     `-- 2
+    ///         0
+    ///         `-- 2
+    ///             0
+    ///             0"#;
+    /// assert_eq!(printable.to_string(), expected_display);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn debug_pretty_print(&self) -> DebugPrettyPrint<'_, T> {
+        DebugPrettyPrint::new(&self.core)
+    }
+
+    /// Returns a debug-printable proxy that does not dump nodes.
+    #[inline]
+    #[must_use]
+    pub fn debug_print_local(&self) -> DebugPrintTreeLocal<'_, T> {
+        self.core.debug_print_local()
+    }
+
+    /// Returns a debug-printable proxy that dumps nodes.
+    #[inline]
+    #[must_use]
+    pub fn debug_print(&self) -> DebugPrintTree<'_, T>
+    where
+        T: fmt::Debug,
+    {
+        DebugPrintTree::new(self)
+    }
+}
+
+/// A weak reference to the tree, without ownership.
+pub struct TreeWeak<T> {
+    /// A weak reference to the tree core.
+    core: Weak<TreeCore<T>>,
+}
+
+impl<T> fmt::Debug for TreeWeak<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.upgrade() {
+            Some(tree) => tree.debug_print_local().fmt(f),
+            None => f.write_str("TreeWeak(<dropped>)"),
+        }
+    }
+}
+
+impl<T> TreeWeak<T> {
+    /// Attempts to upgrade the weak reference of a tree to a `Tree`.
+    ///
+    /// Returns `None` if the target tree is already dropped.
+    ///
+    /// ```
+    /// use dendron::tree;
+    ///
+    /// let tree = tree!("root");
+    /// let tree_weak = tree.downgrade();
+    /// assert!(tree_weak.upgrade().is_some());
+    ///
+    /// drop(tree);
+    /// assert!(tree_weak.upgrade().is_none());
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn upgrade(&self) -> Option<Tree<T>> {
+        Weak::upgrade(&self.core).map(|core| Tree { core })
     }
 }

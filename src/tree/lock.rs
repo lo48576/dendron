@@ -15,6 +15,7 @@ use crate::tree::TreeCore;
 pub struct HierarchyEditProhibitionError;
 
 impl fmt::Display for HierarchyEditProhibitionError {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("edif of the tree hierarchy is already granted")
     }
@@ -30,6 +31,7 @@ impl std::error::Error for HierarchyEditProhibitionError {}
 pub struct HierarchyEditGrantError;
 
 impl fmt::Display for HierarchyEditGrantError {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("edit of the tree hierarchy is already prohibited")
     }
@@ -206,9 +208,17 @@ impl HierarchyLockManager {
 }
 
 /// A token to keep the tree hierarchy prohibited to be edited.
+///
+/// A prohibition can be created by [`Tree::prohibit_hierarchy_edit`] or
+/// [`FrozenNode::extract_hierarchy_edit_prohibition`].
+///
+/// [`Tree::prohibit_hierarchy_edit`]: `crate::Tree::prohibit_hierarchy_edit`
+/// [`FrozenNode::extract_hierarchy_edit_prohibition`]:
+///     `crate::FrozenNode::extract_hierarchy_edit_prohibition`
 pub struct HierarchyEditProhibition<T>(Weak<TreeCore<T>>);
 
 impl<T> Drop for HierarchyEditProhibition<T> {
+    #[inline]
     fn drop(&mut self) {
         if let Some(tree_core) = Weak::upgrade(&self.0) {
             tree_core.lock_manager.release_prohibition();
@@ -237,9 +247,6 @@ impl<T> HierarchyEditProhibition<T> {
     }
 
     /// Returns true if the prohibition is valid for the tree the given node belongs to.
-    ///
-    /// A prohibition can be created by [`Tree::prohibit_hierarchy_edit`] or
-    /// [`FrozenNode::extract_hierarchy_edit_prohibition`].
     ///
     /// # Examples
     ///
@@ -277,9 +284,20 @@ impl<T> HierarchyEditProhibition<T> {
 }
 
 /// A token to keep the tree hierarchy granted to be edited.
+///
+/// A grant can be created by [`Tree::grant_hierarchy_edit`] or
+/// [`HotNode::extract_hierarchy_edit_grant`].
+///
+/// A grant can be created by [`Tree::grant_hierarchy_edit`] or
+/// [`HotNode::extract_hierarchy_edit_grant`].
+///
+/// [`Tree::grant_hierarchy_edit`]: `crate::Tree::grant_hierarchy_edit`
+/// [`HotNode::extract_hierarchy_edit_grant`]:
+///     `crate::HotNode::extract_hierarchy_edit_grant`
 pub struct HierarchyEditGrant<T>(Weak<TreeCore<T>>);
 
 impl<T> Drop for HierarchyEditGrant<T> {
+    #[inline]
     fn drop(&mut self) {
         if let Some(tree_core) = Weak::upgrade(&self.0) {
             tree_core.lock_manager.release_grant();
@@ -297,6 +315,7 @@ impl<T> Clone for HierarchyEditGrant<T> {
     ///
     /// Panics if the number of active edit grants for the tree will exceed
     /// `isize::MAX`.
+    #[inline]
     fn clone(&self) -> Self {
         self.try_clone()
             .expect("[precondition] too many hierarchy edit grants are active")
@@ -324,9 +343,6 @@ impl<T> HierarchyEditGrant<T> {
     }
 
     /// Returns true if the grant is valid for the tree the given node belongs to.
-    ///
-    /// A grant can be created by [`Tree::grant_hierarchy_edit`] or
-    /// [`HotNode::extract_hierarchy_edit_grant`].
     ///
     /// # Examples
     ///

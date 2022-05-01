@@ -1,5 +1,7 @@
 //! Node edit algorithms.
 
+use core::cmp::Ordering;
+
 use alloc::rc::Rc;
 
 use crate::anchor::{AdoptAs, InsertAs};
@@ -43,6 +45,7 @@ impl<'a, T> OrphanRoot<'a, T> {
             next_sibling: Default::default(),
             prev_sibling_cyclic: Default::default(),
             membership: membership.downgrade(),
+            num_children: 0,
         }
         .build_link();
         let node = Node::with_link_and_membership(intra_link, membership);
@@ -91,6 +94,11 @@ impl<'a, T> OrphanRoot<'a, T> {
             if node_to_unlink.is_first_sibling() {
                 parent.replace_first_child(next_sibling.clone());
             }
+            debug_assert!(
+                parent.num_children_cell().get() > 0,
+                "parent should have a child"
+            );
+            parent.num_children_sub(1);
         }
         if let Some(prev_sibling) = prev_sibling {
             prev_sibling.replace_next_sibling(next_sibling.clone());
@@ -118,6 +126,7 @@ impl<'a, T> OrphanRoot<'a, T> {
     }
 
     /// Make the orphan subtree a new independent tree.
+    #[inline]
     fn create_new_tree(self) {
         let tree_core = TreeCore::new_rc(self.link.clone());
         self.set_tree_core(&tree_core)
@@ -204,6 +213,9 @@ impl<'a, T> OrphanRoot<'a, T> {
         self.link.replace_parent(parent.downgrade());
         parent.replace_first_child(Some(self.link.clone()));
 
+        // Update the number of children.
+        parent.num_children_add(1);
+
         Ok(())
     }
 
@@ -233,6 +245,9 @@ impl<'a, T> OrphanRoot<'a, T> {
             parent.replace_first_child(Some(self.link.clone()));
         }
         self.link.replace_parent(parent.downgrade());
+
+        // Update the number of children.
+        parent.num_children_add(1);
 
         Ok(())
     }
@@ -309,10 +324,14 @@ impl<'a, T> OrphanRoot<'a, T> {
         self.link.replace_next_sibling(next_sibling_owned);
         let prev_sibling_weak = next_sibling.replace_prev_sibling_cyclic(self.link.downgrade());
         self.link.replace_prev_sibling_cyclic(prev_sibling_weak);
+
+        // Update the number of children.
+        parent.num_children_add(1);
     }
 }
 
 /// Detaches the node and its descendant from the current tree, and let it be another tree.
+#[inline]
 pub(super) fn detach_subtree<T>(this: &IntraTreeLink<T>) {
     if this.is_root() {
         // Detaching entire tree is meaningless.
@@ -326,6 +345,7 @@ pub(super) fn detach_subtree<T>(this: &IntraTreeLink<T>) {
 
 /// Detaches the node and its descendant from the current parent, and inserts to other place in the
 /// same tree.
+#[inline]
 pub(super) fn detach_and_move_inside_same_tree<T>(
     this: &IntraTreeLink<T>,
     dest: InsertAs<&IntraTreeLink<T>>,
@@ -607,6 +627,15 @@ pub(super) fn try_replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<()
                 }
             }
         }
+
+        // Update the number of children of `parent`.
+        // All child nodes of `this` are added, and `this` itself is removed.
+        debug_assert!(
+            parent_link.num_children_cell().get() > 0,
+            "[consistency] `parent` has a child `this`"
+        );
+        parent_link.num_children_sub(1);
+        parent_link.num_children_add(this.num_children_cell().get());
     } else {
         // `this` is the root.
         debug_assert!(
@@ -615,16 +644,13 @@ pub(super) fn try_replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<()
         );
 
         // Get the only child.
-        let child_link = match first_child_link {
-            Some(first_child_link) => {
-                if first_child_link.next_sibling_link().is_some() {
-                    // The root node has more than two children.
-                    return Err(HierarchyError::SiblingsWithoutParent);
-                }
-                first_child_link
-            }
+        let child_link = match this.num_children_cell().get().cmp(&1) {
             // The root has no children.
-            None => return Err(HierarchyError::EmptyTree),
+            Ordering::Less => return Err(HierarchyError::EmptyTree),
+            // The root node has just one child.
+            Ordering::Equal => first_child_link.expect("[consistency] the parent node has a child"),
+            // The root node has more than two children.
+            Ordering::Greater => return Err(HierarchyError::SiblingsWithoutParent),
         };
 
         // Disconnect the child from `this`.
@@ -637,6 +663,10 @@ pub(super) fn try_replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<()
     let this_weak = this.downgrade();
     this.replace_prev_sibling_cyclic(this_weak);
     this.replace_next_sibling(None);
+
+    // Update the number of children of `this`.
+    // All nodes are detached from `this`, so set to 0.
+    this.num_children_cell().set(0);
 
     // Create a new tree core for `this`.
     let tree_core_rc = TreeCore::new_rc(this.clone());
@@ -691,4 +721,75 @@ where
                 unreachable!("[validity] subtree should be consistently serializable")
             }
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::HotNode;
+
+    #[test]
+    fn num_children_after_replace_with_children() {
+        let root = HotNode::new_tree("root");
+        let child0 = root.create_as_last_child("0");
+        let child1 = root.create_as_last_child("1");
+        let child1_0 = child1.create_as_last_child("1-0");
+        let child1_1 = child1.create_as_last_child("1-1");
+        let child1_2 = child1.create_as_last_child("1-2");
+        let child2 = root.create_as_last_child("2");
+        //  root
+        //  |-- 0
+        //  |-- 1
+        //  |   |-- 1-0
+        //  |   |-- 1-1
+        //  |   `-- 1-2
+        //  `-- 2
+
+        assert_eq!(root.num_children(), 3);
+        assert_eq!(child0.num_children(), 0);
+        assert_eq!(child1.num_children(), 3);
+        assert_eq!(child1_0.num_children(), 0);
+        assert_eq!(child1_1.num_children(), 0);
+        assert_eq!(child1_2.num_children(), 0);
+        assert_eq!(child2.num_children(), 0);
+
+        child1.replace_with_children();
+
+        assert_eq!(root.num_children(), 5);
+        assert_eq!(child0.num_children(), 0);
+        assert_eq!(child1_0.num_children(), 0);
+        assert_eq!(child1_1.num_children(), 0);
+        assert_eq!(child1_2.num_children(), 0);
+        assert_eq!(child2.num_children(), 0);
+
+        assert_eq!(child1.num_children(), 0);
+    }
+
+    #[test]
+    fn num_children_after_replace_root_with_children() {
+        let root = HotNode::new_tree("root");
+        let child0 = root.create_as_last_child("0");
+        let child0_0 = child0.create_as_last_child("0-0");
+        let child0_1 = child0.create_as_last_child("0-1");
+        let child0_2 = child0.create_as_last_child("0-2");
+        //  root
+        //  `-- 0
+        //      |-- 0-0
+        //      |-- 0-1
+        //      `-- 0-2
+
+        assert_eq!(root.num_children(), 1);
+        assert_eq!(child0.num_children(), 3);
+        assert_eq!(child0_0.num_children(), 0);
+        assert_eq!(child0_1.num_children(), 0);
+        assert_eq!(child0_2.num_children(), 0);
+
+        child0.replace_with_children();
+
+        assert_eq!(root.num_children(), 3);
+        assert_eq!(child0_0.num_children(), 0);
+        assert_eq!(child0_1.num_children(), 0);
+        assert_eq!(child0_2.num_children(), 0);
+
+        assert_eq!(child0.num_children(), 0);
+    }
 }

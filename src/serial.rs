@@ -5,6 +5,7 @@ use core::fmt;
 
 use crate::node::{FrozenNode, HotNode, Node};
 use crate::traverse::{self, DftEvent};
+use crate::tree::Tree;
 
 /// An event to build tree.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -17,6 +18,7 @@ pub enum Event<T> {
 
 impl<T> Event<T> {
     /// Converts the internal open value.
+    #[inline]
     pub fn map<F, U>(self, f: F) -> Event<U>
     where
         F: FnOnce(T) -> U,
@@ -88,12 +90,11 @@ impl<T> FromIterator<Event<T>> for Result<FrozenNode<T>, TreeBuildError> {
     where
         I: IntoIterator<Item = Event<T>>,
     {
-        let mut builder = TreeBuilder::new();
-        builder.push_events(iter)?;
-        builder.finish().map(|root| {
-            root.bundle_new_hierarchy_edit_prohibition()
-                .expect("[validity] brand-new tree must be lockable")
-        })
+        let root = iter.into_iter().collect::<Result<Node<T>, _>>()?;
+        let frozen = root
+            .bundle_new_hierarchy_edit_prohibition()
+            .expect("[validity] brand-new tree must be lockable");
+        Ok(frozen)
     }
 }
 
@@ -102,12 +103,22 @@ impl<T> FromIterator<Event<T>> for Result<HotNode<T>, TreeBuildError> {
     where
         I: IntoIterator<Item = Event<T>>,
     {
-        let mut builder = TreeBuilder::new();
-        builder.push_events(iter)?;
-        builder.finish().map(|root| {
-            root.bundle_new_hierarchy_edit_grant()
-                .expect("[validity] brand-new tree must be lockable")
-        })
+        let root = iter.into_iter().collect::<Result<Node<T>, _>>()?;
+        let hot = root
+            .bundle_new_hierarchy_edit_grant()
+            .expect("[validity] brand-new tree must be lockable");
+        Ok(hot)
+    }
+}
+
+impl<T> FromIterator<Event<T>> for Result<Tree<T>, TreeBuildError> {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = Event<T>>,
+    {
+        iter.into_iter()
+            .collect::<Result<Node<T>, _>>()
+            .map(|root| root.tree())
     }
 }
 
@@ -625,6 +636,7 @@ impl<T> TreeBuilder<T> {
     /// ])?;
     /// # Ok::<_, dendron::serial::TreeBuildError>(())
     /// ```
+    #[inline]
     pub fn push_events<I>(&mut self, events: I) -> Result<(), TreeBuildError>
     where
         I: IntoIterator<Item = Event<T>>,
@@ -671,6 +683,7 @@ impl<T> TreeBuilder<T> {
     /// builder.push_dft_event(DftEvent::Close(src))?;
     /// # Ok::<_, dendron::serial::TreeBuildError>(())
     /// ```
+    #[inline]
     pub fn push_dft_event(&mut self, ev: DftEvent<Node<T>>) -> Result<(), TreeBuildError>
     where
         T: Clone,

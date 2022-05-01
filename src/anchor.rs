@@ -2,7 +2,7 @@
 
 use crate::node::{HierarchyError, HotNode};
 
-/// Relation of the node being `adopt`ed.
+/// Relation of the node being adopted.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AdoptAs {
     /// As the first child.
@@ -68,6 +68,7 @@ impl<T> InsertAs<T> {
     }
 
     /// Returns the corresponding `AdoptAs` value.
+    #[inline]
     #[must_use]
     pub(super) fn to_adopt_as(&self) -> AdoptAs {
         match self {
@@ -90,6 +91,7 @@ impl<T> InsertAs<T> {
     ///     InsertAs::FirstChildOf(&'\n'),
     /// );
     /// ```
+    #[inline]
     #[must_use]
     pub fn as_ref(&self) -> InsertAs<&T> {
         match self {

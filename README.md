@@ -4,6 +4,27 @@
 
 Generic tree data structure.
 
+## Yet another tree structure?
+
+See [the comparison of crates](docs/comparison.md).
+
+| feature | `dendron` | `rctree` | `indextree` |
+|:--------|----------:|---------:|------------:|
+| root node does not have siblings | yes | no | no |
+| reference to any node preserves entire tree | yes | no | no |
+| no "strong invalid node reference" | yes | yes | no |
+| multithreading support | partial | no | yes |
+| efficient indexed access to a child | no | no | yes |
+
+In short, you will prefer `dendron` especially when you are manipulating
+DOM-like structure, for example:
+
+* detaching subtree as independent tree,
+* joining multiple trees into single tree,
+* detaching subtree and transplanting it to another place,
+* iterating nodes, and/or
+* navigating to parent, adjacent siblings, and children.
+
 ## License
 
 Licensed under either of

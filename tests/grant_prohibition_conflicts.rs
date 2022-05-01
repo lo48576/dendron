@@ -1,7 +1,8 @@
 //! Tests to ensure that grants and prohibitions conflict expectedly.
 
 mod prohibition_first {
-    use dendron::{HierarchyEditGrantError, Node};
+    use dendron::tree::HierarchyEditGrantError;
+    use dendron::Node;
 
     #[test]
     fn frozen_node_prevents_hot_node_creation() {
@@ -113,7 +114,8 @@ mod prohibition_first {
 }
 
 mod grant_first {
-    use dendron::{HierarchyEditProhibitionError, Node};
+    use dendron::tree::HierarchyEditProhibitionError;
+    use dendron::Node;
 
     #[test]
     fn hot_node_prevents_frozen_node_creation() {
