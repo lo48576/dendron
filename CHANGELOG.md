@@ -11,9 +11,11 @@
 * Implement better and various debug formatting.
     + Add `debug_print_local` and `debug_print_subtree` methods to node types.
     + Add `debug_print_local` and `debug_print` methods to `Tree` type.
+    + Add `debug_pretty_print` method to `Tree` type.
     + Add related debug-printable types:
         - `node::DebugPrintNodeLocal`
         - `node::DebugPrintSubtree`
+        - `tree::DebugPrettyPrint`
         - `tree::DebugPrint`
         - `tree::DebugPrintLocal`
     + Make debug formatting of node types and `Tree` simpler and easier to read.
