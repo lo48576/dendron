@@ -6,6 +6,8 @@
 * Implement better and various debug formatting.
 * Implement events-to-tree conversion.
 * Add weak reference types.
+* Add constant-time `num_children` methods to node types.
+* Deprecate O(N) methods to count children.
 
 ### Added
 * Implement better and various debug formatting.
@@ -26,6 +28,13 @@
 * Implement events-to-tree conversion.
     + Add trait implementation
       `FromIterator<serial::Event<T>> for Result<Tree<T>, TreeBuilderError>`.
+* Add constant-time `num_children` methods to node types.
+    + Now nodes caches the number of its children, so `num_children` is O(1)
+      operaiton.
+    + Deprecate O(N) methods to count children in favor of `num_children`.
+        + `count_children()` is now equivalent to `num_children()`.
+        + `has_multiple_children()` is now equivalent to `num_children() > 1`.
+        + `has_one_child()` is now equivalent to `num_children() == 1`.
 
 ### Non-breaking changes
 * Reorganize some modules.
@@ -40,6 +49,13 @@
     + in favor of the new path `tree::HierarchyEditGrantError`.
 * `crate::HierarchyEditProhibitionError` is deprecated
     + in favor of the new path `tree::HierarchyEditProhibitionError`.
+* `count_children` method of node types are deprecated
+    + in favor of the new name `num_children`.
+* `has_multiple_children` method of node types are deprecated
+    + in favor of another method `num_children`.
+* `has_one_child` method of node types are deprecated
+    + in favor of another method `num_children`.
+
 
 ## [0.0.1]
 

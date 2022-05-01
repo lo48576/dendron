@@ -8,7 +8,7 @@ use alloc::rc::Rc;
 use crate::anchor::{AdoptAs, InsertAs};
 use crate::membership::{Membership, MembershipWithEditGrant};
 use crate::node::debug_print::{DebugPrettyPrint, DebugPrintNodeLocal, DebugPrintSubtree};
-use crate::node::{edit, HierarchyError, IntraTreeLink, Node, NumChildren};
+use crate::node::{edit, HierarchyError, IntraTreeLink, Node};
 use crate::serial;
 use crate::traverse;
 use crate::tree::{HierarchyEditGrant, HierarchyEditGrantError, Tree, TreeCore};
@@ -553,31 +553,51 @@ impl<T> HotNode<T> {
         self.intra_link.has_children()
     }
 
+    /// Returns the number of children.
+    ///
+    /// This is `O(1)` operation.
+    ///
+    /// See [`Node::num_children`] for usage examples.
+    #[inline]
+    #[must_use]
+    pub fn num_children(&self) -> usize {
+        self.intra_link.num_children_cell().get()
+    }
+
     /// Returns true if the node has just one child.
+    ///
+    /// Use [`num_children`][`Self::num_children`] method instead, i.e. use
+    /// `self.num_children() == 1`.
     ///
     /// See [`Node::has_one_child`] for usage examples.
     #[inline]
     #[must_use]
+    #[deprecated(since = "0.1.1", note = "use `HotNode::num_children`")]
     pub fn has_one_child(&self) -> bool {
-        self.intra_link.num_children_rough() == NumChildren::One
+        self.num_children() == 1
     }
 
     /// Returns true if the node has two or more children.
     ///
+    /// Use [`num_children`][`Self::num_children`] method instead, i.e. use
+    /// `self.num_children() > 1`.
+    ///
     /// See [`Node::has_multiple_children`] for usage examples.
     #[inline]
     #[must_use]
+    #[deprecated(since = "0.1.1", note = "use `HotNode::num_children`")]
     pub fn has_multiple_children(&self) -> bool {
-        self.intra_link.num_children_rough() == NumChildren::TwoOrMore
+        self.num_children() > 1
     }
 
     /// Returns the number of children.
     ///
-    /// Note that this is O(N) operation.
+    /// Use [`num_children`][`Self::num_children`] method instead.
     ///
     /// See [`Node::count_children`] for usage examples.
     #[inline]
     #[must_use]
+    #[deprecated(since = "0.1.1", note = "use `HotNode::num_children`")]
     pub fn count_children(&self) -> usize {
         self.intra_link.count_children()
     }

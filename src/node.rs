@@ -15,7 +15,7 @@ pub use self::debug_print::{DebugPrettyPrint, DebugPrintNodeLocal, DebugPrintSub
 pub use self::frozen::FrozenNode;
 pub use self::hot::HotNode;
 pub(crate) use self::internal::IntraTreeLink;
-use self::internal::{IntraTreeLinkWeak, NodeBuilder, NumChildren};
+use self::internal::{IntraTreeLinkWeak, NodeBuilder};
 pub use self::plain::{Node, NodeWeak};
 
 /// Hierarchy modification error.
