@@ -198,20 +198,20 @@ pub use self::tree::{HierarchyEditGrant, HierarchyEditProhibition, Tree, TreeWea
 /// Deprecated re-export of [`node::DebugPrettyPrint`].
 // `#[deprecated] cannot be used for `use` statement. See
 // <https://github.com/rust-lang/rust/issues/30827>.
-#[deprecated(since = "0.2.0", note = "use `node::DebugPrettyPrint` instead")]
+#[deprecated(since = "0.1.1", note = "use `node::DebugPrettyPrint` instead")]
 pub type DebugPrettyPrint<'a, T> = self::node::DebugPrettyPrint<'a, T>;
 
 /// Deprecated re-export of [`tree::HierarchyEditGrantError`].
 // `#[deprecated] cannot be used for `use` statement. See
 // <https://github.com/rust-lang/rust/issues/30827>.
-#[deprecated(since = "0.2.0", note = "use `tree::HierarchyEditGrantError` instead")]
+#[deprecated(since = "0.1.1", note = "use `tree::HierarchyEditGrantError` instead")]
 pub type HierarchyEditGrantError = self::tree::HierarchyEditGrantError;
 
 /// Deprecated re-export of [`tree::HierarchyEditProhibitionError`].
 // `#[deprecated] cannot be used for `use` statement. See
 // <https://github.com/rust-lang/rust/issues/30827>.
 #[deprecated(
-    since = "0.2.0",
+    since = "0.1.1",
     note = "use `tree::HierarchyEditProhibitionError` instead"
 )]
 pub type HierarchyEditProhibitionError = self::tree::HierarchyEditProhibitionError;
