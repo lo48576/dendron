@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+* Add `belongs_to` methods to node types.
+
+### Added
+* Add `belongs_to` methods to node types.
+
+
 ## [0.1.1]
 
 * Reorganize some modules (in non-breaking way).
