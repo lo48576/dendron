@@ -32,7 +32,7 @@ these points of view.
 
 By definition, a tree tree should have no siblings.
 
-```
+```rust
 // dendron v0.1.1
 use dendron::HotNode;
 
@@ -45,7 +45,7 @@ fn main() {
 
 `rctree` allows a root node to have siblings.
 
-```
+```rust
 // rctree v0.4.0
 use rctree::Node;
 
@@ -59,7 +59,7 @@ fn main() {
 
 `indextree` also allows a root node to have siblings.
 
-```
+```rust
 // indextree v4.4.0
 use indextree::Arena;
 
@@ -78,7 +78,7 @@ fn main() {
 Using `dendron`, you can preserve and access entire tree only using a reference
 to a descendant node.
 
-```
+```rust
 // dendron v0.1.1
 use dendron::{HotNode, Node};
 
@@ -112,7 +112,7 @@ ends up in dropped neighbors (see <https://github.com/RazrFalcon/rctree/issues/1
 If you want to move a tree like this, you should also bring the root node around
 as if the root node is "arena".
 
-```
+```rust
 // rctree v0.4.0
 use rctree::Node;
 
@@ -150,7 +150,7 @@ fn main() {
 `indextree` uses arena to manage actual nodes data, so carrying only `NodeId` of
 a descendant you cannot access to a tree.
 
-```
+```rust
 // indextree v4.4.0
 use indextree::{Arena, NodeId};
 
@@ -191,7 +191,7 @@ mismatching pairs are used, they can silently success with unintentional result.
 Additionally, every node reference can fail since they are possibly mismatched
 but cannot validated at compile time.
 
-```
+```rust
 // indextree v4.4.0
 use indextree::Arena;
 
@@ -219,7 +219,7 @@ the internal node data, so this kind of problems are not present.
 Additionally, it supports read-only shared access to an arena from multiple
 threads.
 
-```
+```rust
 // indextree v0.4.0
 use indextree::{Arena, NodeId};
 
@@ -250,7 +250,7 @@ explicit serialization and deserialization.
 Read-only shared access from multiple threads are not supported (since `dendron`
 internally uses `Rc`).
 
-```
+```rust
 // dendron v0.1.1
 use dendron::serial::Event;
 use dendron::{tree_node, Node};
