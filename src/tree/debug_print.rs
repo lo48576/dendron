@@ -5,6 +5,44 @@ use core::fmt;
 use crate::node::DebugPrintSubtreeDescendant;
 use crate::tree::{Tree, TreeCore};
 
+/// Tree printer for debugging.
+///
+/// This is provided mainly for debugging purpose. Node that the output format
+/// is not guaranteed to be stable, and any format changes won't be considered
+/// as breaking changes.
+///
+/// For usage and output examples, see
+/// [`Node::debug_pretty_print`][`crate::Node::debug_pretty_print`] method.
+#[derive(Clone, Copy)]
+pub struct DebugPrettyPrint<'a, T> {
+    /// Tree core.
+    core: &'a TreeCore<T>,
+}
+
+impl<'a, T> DebugPrettyPrint<'a, T> {
+    /// Creates a new `DebugPrint` object for the node.
+    #[inline]
+    pub(super) fn new(core: &'a TreeCore<T>) -> Self {
+        Self { core }
+    }
+}
+
+impl<'a, T: fmt::Display> fmt::Display for DebugPrettyPrint<'a, T> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let root = self.core.root_link();
+        crate::node::DebugPrettyPrint::new(&root).fmt(f)
+    }
+}
+
+impl<'a, T: fmt::Debug> fmt::Debug for DebugPrettyPrint<'a, T> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let root = self.core.root_link();
+        crate::node::DebugPrettyPrint::new(&root).fmt(f)
+    }
+}
+
 /// A wrapper to make a tree debug-printable without printing nodes.
 #[derive(Clone, Copy)]
 pub struct DebugPrintTreeLocal<'a, T> {
