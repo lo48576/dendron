@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.1.1]
+
 * Reorganize some modules (in non-breaking way).
 * Implement better and various debug formatting.
 * Implement events-to-tree conversion.
@@ -61,5 +63,6 @@
 
 Initial release.
 
-[Unreleased]: <https://gitlab.com/nop_thread/dendron/-/compare/v0.1.0...develop>
+[Unreleased]: <https://gitlab.com/nop_thread/dendron/-/compare/v0.1.1...develop>
+[0.1.1]: <https://gitlab.com/nop_thread/dendron/-/tags/v0.1.1>
 [0.1.0]: <https://gitlab.com/nop_thread/dendron/-/tags/v0.1.0>
