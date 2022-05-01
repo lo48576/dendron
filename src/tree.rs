@@ -6,7 +6,7 @@ mod lock;
 use core::cell::{BorrowError, RefCell};
 use core::fmt;
 
-use alloc::rc::Rc;
+use alloc::rc::{Rc, Weak};
 
 use crate::node::{IntraTreeLink, Node};
 use crate::traverse::DftEvent;
@@ -401,6 +401,26 @@ impl<T> Tree<T> {
         self.try_clone_tree()
             .expect("[precondition] data associated to nodes should be borrowable")
     }
+
+    /// Downgrades the reference to a weak one.
+    ///
+    /// ```
+    /// use dendron::tree;
+    ///
+    /// let tree = tree!("root");
+    /// let tree_weak = tree.downgrade();
+    /// assert!(tree_weak.upgrade().is_some());
+    ///
+    /// drop(tree);
+    /// assert!(tree_weak.upgrade().is_none());
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn downgrade(&self) -> TreeWeak<T> {
+        TreeWeak {
+            core: Rc::downgrade(&self.core),
+        }
+    }
 }
 
 /// Debug printing.
@@ -420,5 +440,42 @@ impl<T> Tree<T> {
         T: fmt::Debug,
     {
         DebugPrintTree::new(self)
+    }
+}
+
+/// A weak reference to the tree, without ownership.
+pub struct TreeWeak<T> {
+    /// A weak reference to the tree core.
+    core: Weak<TreeCore<T>>,
+}
+
+impl<T> fmt::Debug for TreeWeak<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.upgrade() {
+            Some(tree) => tree.debug_print_local().fmt(f),
+            None => f.write_str("TreeWeak(<dropped>)"),
+        }
+    }
+}
+
+impl<T> TreeWeak<T> {
+    /// Attempts to upgrade the weak reference of a tree to a `Tree`.
+    ///
+    /// Returns `None` if the target tree is already dropped.
+    ///
+    /// ```
+    /// use dendron::tree;
+    ///
+    /// let tree = tree!("root");
+    /// let tree_weak = tree.downgrade();
+    /// assert!(tree_weak.upgrade().is_some());
+    ///
+    /// drop(tree);
+    /// assert!(tree_weak.upgrade().is_none());
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn upgrade(&self) -> Option<Tree<T>> {
+        Weak::upgrade(&self.core).map(|core| Tree { core })
     }
 }

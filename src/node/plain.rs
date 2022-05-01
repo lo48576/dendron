@@ -9,7 +9,7 @@ use crate::anchor::{AdoptAs, InsertAs};
 use crate::membership::{Membership, WeakMembership};
 use crate::node::debug_print::{DebugPrettyPrint, DebugPrintNodeLocal, DebugPrintSubtree};
 use crate::node::edit;
-use crate::node::internal::{IntraTreeLink, NodeBuilder, NumChildren};
+use crate::node::internal::{IntraTreeLink, IntraTreeLinkWeak, NodeBuilder, NumChildren};
 use crate::node::{FrozenNode, HierarchyError, HotNode};
 use crate::serial::{self, TreeBuildError};
 use crate::traverse;
@@ -183,6 +183,26 @@ impl<T> Node<T> {
         Self {
             intra_link,
             membership,
+        }
+    }
+
+    /// Downgrades the reference to a weak one.
+    ///
+    /// ```
+    /// use dendron::Node;
+    ///
+    /// let root = Node::new_tree("root");
+    /// let root_weak = root.downgrade();
+    /// assert!(root_weak.upgrade().is_some());
+    ///
+    /// drop(root);
+    /// assert!(root_weak.upgrade().is_none());
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn downgrade(&self) -> NodeWeak<T> {
+        NodeWeak {
+            intra_link: self.intra_link.downgrade(),
         }
     }
 }
@@ -2607,5 +2627,63 @@ impl<T> Node<T> {
     #[must_use]
     pub fn debug_print_subtree(&self) -> DebugPrintSubtree<'_, T> {
         DebugPrintSubtree::new_plain(&self.intra_link, &self.membership)
+    }
+}
+
+/// A shared weak reference to a node.
+pub struct NodeWeak<T> {
+    /// Target node core.
+    // Node core contains `WeakMembership` internally, so no need to have a
+    // copy of it.
+    intra_link: IntraTreeLinkWeak<T>,
+}
+
+impl<T> Clone for NodeWeak<T> {
+    fn clone(&self) -> Self {
+        Self {
+            intra_link: self.intra_link.clone(),
+        }
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for NodeWeak<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.upgrade() {
+            Some(node) => f
+                .debug_tuple("NodeWeak")
+                .field(&node.debug_print_local())
+                .finish(),
+            None => f.write_str("NodeWeak(<dropped>)"),
+        }
+    }
+}
+
+impl<T> NodeWeak<T> {
+    /// Attempts to upgrade the weak reference of a node to a `Node`.
+    ///
+    /// Returns `None` if the target node is already dropped.
+    ///
+    /// ```
+    /// use dendron::Node;
+    ///
+    /// let root = Node::new_tree("root");
+    /// let root_weak = root.downgrade();
+    /// assert!(root_weak.upgrade().is_some());
+    ///
+    /// drop(root);
+    /// assert!(root_weak.upgrade().is_none());
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn upgrade(&self) -> Option<Node<T>> {
+        let intra_link = self.intra_link.upgrade()?;
+        let membership = intra_link.membership().upgrade().expect(
+            "[consistency] the membership must be alive since \
+             the corresponding node link is alive",
+        );
+        Some(Node {
+            intra_link,
+            membership,
+        })
     }
 }

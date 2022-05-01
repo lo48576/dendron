@@ -4,6 +4,7 @@
 
 * Reorganize some modules (in non-breaking way).
 * Implement better and various debug formatting.
+* Add weak reference types.
 
 ### Added
 * Implement better and various debug formatting.
@@ -15,6 +16,10 @@
         - `tree::DebugPrint`
         - `tree::DebugPrintLocal`
     + Make debug formatting of node types and `Tree` simpler and easier to read.
+* Add weak reference types.
+    + Add `TreeWeak` and `NodeWeak` types.
+    + They can be upgradable to `Tree` and `Node` respectively if the target
+      tree or node is still alive.
 
 ### Non-breaking changes
 * Reorganize some modules.
