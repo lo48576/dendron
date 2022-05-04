@@ -31,16 +31,20 @@ fn replace_root_with_single_child() {
     //  `-- child
     assert!(root.is_root());
     assert!(root.belongs_to(&old_tree));
+    assert!(root.tree().root().ptr_eq(&root.plain()));
     assert!(!child.is_root());
     assert!(child.belongs_to(&old_tree));
+    assert!(!child.tree().root().ptr_eq(&child.plain()));
 
     //  root
     //  child
     assert!(root.try_replace_with_children().is_ok());
     assert!(root.is_root());
     assert!(!root.belongs_to(&old_tree));
+    assert!(root.tree().root().ptr_eq(&root.plain()));
     assert!(child.is_root());
     assert!(child.belongs_to(&old_tree));
+    assert!(child.tree().root().ptr_eq(&child.plain()));
 }
 
 #[test]
@@ -156,8 +160,10 @@ fn replace_non_root() {
                 let old_tree = root.tree();
                 assert!(root.is_root());
                 assert!(root.belongs_to(&old_tree));
+                assert!(root.tree().root().ptr_eq(&root.plain()));
                 assert!(!target.is_root(), "config={config:?}");
                 assert!(target.belongs_to(&old_tree));
+                assert!(!target.tree().root().ptr_eq(&target.plain()));
 
                 assert!(
                     target.try_replace_with_children().is_ok(),
@@ -168,11 +174,13 @@ fn replace_non_root() {
                     "root must be still root (config={config:?})"
                 );
                 assert!(root.belongs_to(&old_tree));
+                assert!(root.tree().root().ptr_eq(&root.plain()));
                 assert!(
                     target.is_root(),
                     "target must be a root (config={config:?})"
                 );
                 assert!(!target.belongs_to(&old_tree));
+                assert!(target.tree().root().ptr_eq(&target.plain()));
 
                 assert_eq!(
                     serialize_subtree(&root),
