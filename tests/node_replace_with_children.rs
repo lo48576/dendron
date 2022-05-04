@@ -25,17 +25,22 @@ fn replace_root_without_children() {
 #[test]
 fn replace_root_with_single_child() {
     let root = HotNode::new_tree("root");
+    let old_tree = root.tree();
     let child = root.create_as_last_child("child");
     //  root
     //  `-- child
     assert!(root.is_root());
+    assert!(root.belongs_to(&old_tree));
     assert!(!child.is_root());
+    assert!(child.belongs_to(&old_tree));
 
     //  root
     //  child
     assert!(root.try_replace_with_children().is_ok());
     assert!(root.is_root());
+    assert!(!root.belongs_to(&old_tree));
     assert!(child.is_root());
+    assert!(child.belongs_to(&old_tree));
 }
 
 #[test]
@@ -148,8 +153,11 @@ fn replace_non_root() {
                 };
                 dbg!(&config);
                 let (root, target) = create_source_tree_with_params(config);
+                let old_tree = root.tree();
                 assert!(root.is_root());
+                assert!(root.belongs_to(&old_tree));
                 assert!(!target.is_root(), "config={config:?}");
+                assert!(target.belongs_to(&old_tree));
 
                 assert!(
                     target.try_replace_with_children().is_ok(),
@@ -159,10 +167,12 @@ fn replace_non_root() {
                     root.is_root(),
                     "root must be still root (config={config:?})"
                 );
+                assert!(root.belongs_to(&old_tree));
                 assert!(
                     target.is_root(),
                     "target must be a root (config={config:?})"
                 );
+                assert!(!target.belongs_to(&old_tree));
 
                 assert_eq!(
                     serialize_subtree(&root),
