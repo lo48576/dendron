@@ -517,6 +517,75 @@ pub(super) fn try_create_as_next_sibling<T>(
     })
 }
 
+/// Inserts a new node between `this` and its parent, and returns the new node.
+///
+/// If `this` is the root, then the new node will become the new root, i.e. the
+/// parent of `this`.
+pub(super) fn create_as_interrupting_parent<T>(
+    this: &IntraTreeLink<T>,
+    tree_core: Rc<TreeCore<T>>,
+    data: T,
+) -> Node<T> {
+    OrphanRoot::create_and_process(data, tree_core.clone(), |new| {
+        if let Some(parent) = this.parent_link() {
+            // Insert the new node after `this`.
+            let new_link = new.link;
+            if let Some(next_sib) = this.next_sibling_link() {
+                new.insert_between(&parent, this, &next_sib);
+            } else {
+                new.insert_as_last_child_of(&parent)
+                    .expect("[validity] newly created node won't make no loop");
+            }
+            // Move `this` and its subtree under the new node.
+            detach_and_move_inside_same_tree(this, InsertAs::LastChildOf(new_link))
+                .expect("[validity] the new node is neither ancestor nor descendant of `this`");
+        } else {
+            let new_downgraded = new.link.downgrade();
+            // `this` is the current root, and the new node is the new root.
+            tree_core.replace_root(new.link.clone());
+            // The new node has no siblings.
+            new.link.replace_prev_sibling_cyclic(new_downgraded.clone());
+            // Connect between the new node and `this`.
+            new.link.replace_first_child(Some(this.clone()));
+            this.replace_parent(new_downgraded);
+            new.link.num_children_add(1);
+        }
+        Ok::<_, core::convert::Infallible>(())
+    })
+    .expect("[validity] the operation is infallible")
+}
+
+/// Inserts a new node as a child of `this`, and moves old chlidren of `this` under the new node.
+pub(super) fn create_as_interrupting_child<T>(
+    this: &IntraTreeLink<T>,
+    tree_core: Rc<TreeCore<T>>,
+    data: T,
+) -> Node<T> {
+    OrphanRoot::create_and_process(data, tree_core, |new| {
+        // Connect the new node and `this`.
+        let first_child = this.replace_first_child(Some(new.link.clone()));
+        new.link.replace_parent(this.downgrade());
+        // Move children under the new node.
+        {
+            new.link.replace_first_child(first_child.clone());
+            let mut child_next = first_child;
+            while let Some(child) = &child_next {
+                child.replace_parent(new.link.downgrade());
+
+                child_next = child.next_sibling_link();
+            }
+        }
+        // The new node now has children that are previously children of `this`.
+        new.link
+            .num_children_cell()
+            .set(this.num_children_cell().get());
+        // `this` has now only the new node as a child.
+        this.num_children_cell().set(1);
+        Ok::<_, core::convert::Infallible>(())
+    })
+    .expect("[validity] the operation is infallible")
+}
+
 /// Inserts the children at the position of the node, and detach the node.
 ///
 /// `this` will become the root of a new single-node tree.

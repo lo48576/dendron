@@ -908,6 +908,82 @@ impl<T> HotNode<T> {
             .expect("[precondition] hierarchy to be created should be valid")
     }
 
+    /// Creates a new node that interrupts between `self` and the parent.
+    ///
+    /// If `self` was the root, the new node will become a new root of the tree
+    /// and `self` will be only child of the new root.
+    ///
+    /// Before:
+    ///
+    /// ```text
+    /// root
+    /// `-- this
+    ///     |-- child0
+    ///     |-- child1
+    ///     `-- child2
+    /// ```
+    ///
+    /// After `self.create_as_interrupting_parent`:
+    ///
+    /// ```text
+    /// root
+    /// `-- new
+    ///     `-- this
+    ///         |-- child0
+    ///         |-- child1
+    ///         `-- child2
+    /// ```
+    ///
+    /// See [`create_as_interrupting_parent`][`Self::create_as_interrupting_parent`]
+    /// method.
+    #[inline]
+    pub fn create_as_interrupting_parent(&self, data: T) -> Self {
+        let new = edit::create_as_interrupting_parent(
+            &self.intra_link,
+            self.membership.as_inner().tree_core(),
+            data,
+        );
+        Self::from_node(new).expect("[validity] a new node can be locked")
+    }
+
+    /// Creates a new node that interrupts between `self` and the children.
+    ///
+    /// The children of `self` will be moved under the new node, and the new
+    /// node will be the only child of `self`.
+    ///
+    /// Before:
+    ///
+    /// ```text
+    /// root
+    /// `-- this
+    ///     |-- child0
+    ///     |-- child1
+    ///     `-- child2
+    /// ```
+    ///
+    /// After `self.create_as_interrupting_parent`:
+    ///
+    /// ```text
+    /// root
+    /// `-- this
+    ///     `-- new
+    ///         |-- child0
+    ///         |-- child1
+    ///         `-- child2
+    /// ```
+    ///
+    /// See [`create_as_interrupting_child`][`Self::create_as_interrupting_child`]
+    /// method.
+    #[inline]
+    pub fn create_as_interrupting_child(&self, data: T) -> Self {
+        let new = edit::create_as_interrupting_child(
+            &self.intra_link,
+            self.membership.as_inner().tree_core(),
+            data,
+        );
+        Self::from_node(new).expect("[validity] a new node can be locked")
+    }
+
     /// Inserts the children at the position of the node, and detach the node.
     ///
     /// `self` will become the root of a new single-node tree.
