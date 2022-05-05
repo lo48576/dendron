@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.1.2]
+
 * Add `belongs_to` methods to node types.
 * Make `Tree` track the new root when `replace_with_children()` is called on the root.
 * Add `insert_as_interrupting_{parent,child}` methods to editable node types.
@@ -80,6 +82,7 @@
 
 Initial release.
 
-[Unreleased]: <https://gitlab.com/nop_thread/dendron/-/compare/v0.1.1...develop>
+[Unreleased]: <https://gitlab.com/nop_thread/dendron/-/compare/v0.1.2...develop>
+[0.1.2]: <https://gitlab.com/nop_thread/dendron/-/tags/v0.1.2>
 [0.1.1]: <https://gitlab.com/nop_thread/dendron/-/tags/v0.1.1>
 [0.1.0]: <https://gitlab.com/nop_thread/dendron/-/tags/v0.1.0>
