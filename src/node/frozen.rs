@@ -371,6 +371,14 @@ impl<T> FrozenNode<T> {
     #[inline]
     #[must_use]
     pub fn is_root(&self) -> bool {
+        debug_assert_eq!(
+            self.intra_link.is_root(),
+            self.membership
+                .as_inner()
+                .tree_core_ref()
+                .root_link()
+                .ptr_eq(&self.intra_link),
+        );
         // The node is a root if and only if the node has no parent.
         self.intra_link.is_root()
     }

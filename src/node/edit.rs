@@ -554,7 +554,10 @@ pub(super) fn try_create_as_next_sibling<T>(
 ///     + In this case, [`HierarchyError::SiblingsWithoutParent`] error is returned.
 /// * the node is the root and has no children.
 ///     + In this case, [`HierarchyError::EmptyTree`] error is returned.
-pub(super) fn try_replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<(), HierarchyError> {
+pub(super) fn try_replace_with_children<T>(
+    this: &IntraTreeLink<T>,
+    tree_core: &Rc<TreeCore<T>>,
+) -> Result<(), HierarchyError> {
     let first_child_link = this.first_child_link();
 
     if let Some(parent_link) = this.parent_link() {
@@ -655,6 +658,9 @@ pub(super) fn try_replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<()
 
         // Disconnect the child from `this`.
         child_link.replace_parent(IntraTreeLinkWeak::default());
+
+        // Make `child_link` the root of the tree.
+        tree_core.replace_root(child_link);
     }
 
     // Disconnect `this` from neighbors.

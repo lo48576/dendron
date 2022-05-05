@@ -3,9 +3,13 @@
 ## [Unreleased]
 
 * Add `belongs_to` methods to node types.
+* Make `Tree` track the new root when `replace_with_children()` is called on the root.
 
 ### Added
 * Add `belongs_to` methods to node types.
+
+### Fixed
+* Make `Tree` track the new root when `replace_with_children()` is called on the root.
 
 
 ## [0.1.1]
