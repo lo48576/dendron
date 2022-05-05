@@ -2117,7 +2117,7 @@ impl<T> Node<T> {
     ) -> Result<(), HierarchyError> {
         grant.panic_if_invalid_for_node(self);
 
-        edit::try_replace_with_children(&self.intra_link)
+        edit::try_replace_with_children(&self.intra_link, &self.membership.tree_core())
     }
 
     /// Inserts the children at the position of the node, and detach the node.

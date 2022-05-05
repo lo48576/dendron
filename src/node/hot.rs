@@ -949,7 +949,7 @@ impl<T> HotNode<T> {
     ///     + In this case, [`HierarchyError::EmptyTree`] error is returned.
     #[inline]
     pub fn try_replace_with_children(&self) -> Result<(), HierarchyError> {
-        edit::try_replace_with_children(&self.intra_link)
+        edit::try_replace_with_children(&self.intra_link, &self.membership.as_inner().tree_core())
     }
 
     /// Inserts the children at the position of the node, and detach the node.
