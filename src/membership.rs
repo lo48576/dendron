@@ -7,7 +7,7 @@ use core::num::NonZeroUsize;
 use alloc::rc::{Rc, Weak};
 
 use crate::tree::{
-    HierarchyEditGrantError, HierarchyEditProhibitionError, LockAggregatorForNode, TreeCore,
+    HierarchyEditGrantError, HierarchyEditProhibitionError, LockAggregatorForNode, Tree, TreeCore,
 };
 
 /// A membership of a node to a tree.
@@ -166,6 +166,13 @@ impl<T> Membership<T> {
     #[must_use]
     pub(crate) fn ptr_eq_weak(&self, other: &WeakMembership<T>) -> bool {
         Rc::ptr_eq(&self.inner, &other.inner)
+    }
+
+    /// Returns true if the node belong to the given tree.
+    #[inline]
+    #[must_use]
+    pub(crate) fn belongs_to(&self, tree: &Tree<T>) -> bool {
+        tree.ptr_eq_core(&*self.tree_core_ref())
     }
 
     /// Returns true if the given node belong to the same tree.

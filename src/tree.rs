@@ -5,6 +5,7 @@ mod lock;
 
 use core::cell::{BorrowError, RefCell};
 use core::fmt;
+use core::mem;
 
 use alloc::rc::{Rc, Weak};
 
@@ -66,6 +67,15 @@ impl<T> TreeCore<T> {
     ) -> Result<(), ()> {
         self.lock_manager
             .transfer_single_lock_to(&dest.lock_manager)
+    }
+
+    /// Makes the tree track another node as a root.
+    pub fn replace_root(&self, new_root: IntraTreeLink<T>) -> IntraTreeLink<T> {
+        let mut root = self
+            .root
+            .try_borrow_mut()
+            .expect("[consistency] `TreeCore::root` should not be borrowed nestedly");
+        mem::replace(&mut *root, new_root)
     }
 }
 
@@ -271,6 +281,13 @@ impl<T> Tree<T> {
     #[must_use]
     pub fn ptr_eq(&self, other: &Self) -> bool {
         Rc::ptr_eq(&self.core, &other.core)
+    }
+
+    /// Returns `true` if the given `Rc<TreeCore>` point to the same allocation as `self`.
+    #[inline]
+    #[must_use]
+    pub(crate) fn ptr_eq_core(&self, other: &Rc<TreeCore<T>>) -> bool {
+        Rc::ptr_eq(&self.core, other)
     }
 
     /// Compares two trees.

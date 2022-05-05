@@ -371,8 +371,39 @@ impl<T> FrozenNode<T> {
     #[inline]
     #[must_use]
     pub fn is_root(&self) -> bool {
+        debug_assert_eq!(
+            self.intra_link.is_root(),
+            self.membership
+                .as_inner()
+                .tree_core_ref()
+                .root_link()
+                .ptr_eq(&self.intra_link),
+        );
         // The node is a root if and only if the node has no parent.
         self.intra_link.is_root()
+    }
+
+    /// Returns true if the node belongs to the given tree.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::Node;
+    ///
+    /// let frozen1 = Node::new_tree("root")
+    ///     .bundle_new_hierarchy_edit_prohibition()
+    ///     .expect("no hierarchy edit grant exist");
+    /// let frozen2 = Node::new_tree("root")
+    ///     .bundle_new_hierarchy_edit_prohibition()
+    ///     .expect("no hierarchy edit grant exist");
+    ///
+    /// assert!(frozen1.belongs_to(&frozen1.tree()));
+    /// assert!(!frozen1.belongs_to(&frozen2.tree()));
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn belongs_to(&self, tree: &Tree<T>) -> bool {
+        self.membership.as_ref().belongs_to(tree)
     }
 
     /// Returns true if the given node belong to the same tree.

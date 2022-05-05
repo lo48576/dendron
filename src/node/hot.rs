@@ -366,8 +366,41 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn is_root(&self) -> bool {
+        debug_assert_eq!(
+            self.intra_link.is_root(),
+            self.membership
+                .as_inner()
+                .tree_core_ref()
+                .root_link()
+                .ptr_eq(&self.intra_link),
+        );
         // The node is a root if and only if the node has no parent.
         self.intra_link.is_root()
+    }
+
+    /// Returns true if the node belongs to the given tree.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::HotNode;
+    ///
+    /// let root = HotNode::new_tree("root");
+    /// let child = root.create_as_last_child("child");
+    /// //  root
+    /// //  `-- child
+    ///
+    /// let other_node = HotNode::new_tree("other");
+    ///
+    /// assert!(root.belongs_to(&root.tree()));
+    /// assert!(child.belongs_to(&root.tree()));
+    ///
+    /// assert!(!root.belongs_to(&other_node.tree()));
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn belongs_to(&self, tree: &Tree<T>) -> bool {
+        self.membership.as_ref().belongs_to(tree)
     }
 
     /// Returns true if the given node belong to the same tree.
@@ -875,6 +908,82 @@ impl<T> HotNode<T> {
             .expect("[precondition] hierarchy to be created should be valid")
     }
 
+    /// Creates a new node that interrupts between `self` and the parent.
+    ///
+    /// If `self` was the root, the new node will become a new root of the tree
+    /// and `self` will be only child of the new root.
+    ///
+    /// Before:
+    ///
+    /// ```text
+    /// root
+    /// `-- this
+    ///     |-- child0
+    ///     |-- child1
+    ///     `-- child2
+    /// ```
+    ///
+    /// After `self.create_as_interrupting_parent`:
+    ///
+    /// ```text
+    /// root
+    /// `-- new
+    ///     `-- this
+    ///         |-- child0
+    ///         |-- child1
+    ///         `-- child2
+    /// ```
+    ///
+    /// See [`create_as_interrupting_parent`][`Self::create_as_interrupting_parent`]
+    /// method.
+    #[inline]
+    pub fn create_as_interrupting_parent(&self, data: T) -> Self {
+        let new = edit::create_as_interrupting_parent(
+            &self.intra_link,
+            self.membership.as_inner().tree_core(),
+            data,
+        );
+        Self::from_node(new).expect("[validity] a new node can be locked")
+    }
+
+    /// Creates a new node that interrupts between `self` and the children.
+    ///
+    /// The children of `self` will be moved under the new node, and the new
+    /// node will be the only child of `self`.
+    ///
+    /// Before:
+    ///
+    /// ```text
+    /// root
+    /// `-- this
+    ///     |-- child0
+    ///     |-- child1
+    ///     `-- child2
+    /// ```
+    ///
+    /// After `self.create_as_interrupting_parent`:
+    ///
+    /// ```text
+    /// root
+    /// `-- this
+    ///     `-- new
+    ///         |-- child0
+    ///         |-- child1
+    ///         `-- child2
+    /// ```
+    ///
+    /// See [`create_as_interrupting_child`][`Self::create_as_interrupting_child`]
+    /// method.
+    #[inline]
+    pub fn create_as_interrupting_child(&self, data: T) -> Self {
+        let new = edit::create_as_interrupting_child(
+            &self.intra_link,
+            self.membership.as_inner().tree_core(),
+            data,
+        );
+        Self::from_node(new).expect("[validity] a new node can be locked")
+    }
+
     /// Inserts the children at the position of the node, and detach the node.
     ///
     /// `self` will become the root of a new single-node tree.
@@ -916,7 +1025,7 @@ impl<T> HotNode<T> {
     ///     + In this case, [`HierarchyError::EmptyTree`] error is returned.
     #[inline]
     pub fn try_replace_with_children(&self) -> Result<(), HierarchyError> {
-        edit::try_replace_with_children(&self.intra_link)
+        edit::try_replace_with_children(&self.intra_link, &self.membership.as_inner().tree_core())
     }
 
     /// Inserts the children at the position of the node, and detach the node.

@@ -455,6 +455,33 @@ impl<T> Node<T> {
         Tree::from_core_rc(self.membership.tree_core())
     }
 
+    /// Returns true if the node belongs to the given tree.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::Node;
+    ///
+    /// let root = Node::new_tree("root");
+    /// let grant = root.tree().grant_hierarchy_edit()?;
+    /// let child = root.create_as_last_child(&grant, "child");
+    /// //  root
+    /// //  `-- child
+    ///
+    /// let other_node = Node::new_tree("other");
+    ///
+    /// assert!(root.belongs_to(&root.tree()));
+    /// assert!(child.belongs_to(&root.tree()));
+    ///
+    /// assert!(!root.belongs_to(&other_node.tree()));
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn belongs_to(&self, tree: &Tree<T>) -> bool {
+        self.membership.belongs_to(tree)
+    }
+
     /// Returns true if the given node belong to the same tree.
     ///
     /// # Examples
@@ -502,6 +529,13 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn is_root(&self) -> bool {
+        debug_assert_eq!(
+            self.intra_link.is_root(),
+            self.membership
+                .tree_core_ref()
+                .root_link()
+                .ptr_eq(&self.intra_link),
+        );
         // The node is a root if and only if the node has no parent.
         self.intra_link.is_root()
     }
@@ -2035,6 +2069,197 @@ impl<T> Node<T> {
             .expect("[precondition] hierarchy to be created should be valid")
     }
 
+    /// Creates a new node that interrupts between `self` and the parent.
+    ///
+    /// If `self` was the root, the new node will become a new root of the tree
+    /// and `self` will be only child of the new root.
+    ///
+    /// Before:
+    ///
+    /// ```text
+    /// root
+    /// `-- this
+    ///     |-- child0
+    ///     |-- child1
+    ///     `-- child2
+    /// ```
+    ///
+    /// After `self.create_as_interrupting_parent`:
+    ///
+    /// ```text
+    /// root
+    /// `-- this
+    ///     `-- new
+    ///         |-- child0
+    ///         |-- child1
+    ///         `-- child2
+    /// ```
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::{tree_node, Node};
+    ///
+    /// let root = Node::new_tree("root");
+    /// let grant = root.tree().grant_hierarchy_edit()?;
+    /// let _prev = root.create_as_last_child(&grant, "prev");
+    /// let this = root.create_as_last_child(&grant, "this");
+    /// let _child0 = this.create_as_last_child(&grant, "child0");
+    /// let _child1 = this.create_as_last_child(&grant, "child1");
+    /// let _child2 = this.create_as_last_child(&grant, "child2");
+    /// let _next = root.create_as_last_child(&grant, "next");
+    /// //  root
+    /// //  |-- prev
+    /// //  |-- this
+    /// //  |   |-- child0
+    /// //  |   |-- child1
+    /// //  |   `-- child2
+    /// //  `-- next
+    ///
+    /// let new = this.create_as_interrupting_parent(&grant, "new");
+    ///
+    /// //  root
+    /// //  |-- prev
+    /// //  |-- new
+    /// //  |   `-- this
+    /// //  |       |-- child0
+    /// //  |       |-- child1
+    /// //  |       `-- child2
+    /// //  `-- next
+    /// let expected = tree_node! {
+    ///     "root", [
+    ///         "prev",
+    ///         /("new", [
+    ///             /("this", [
+    ///                 "child0",
+    ///                 "child1",
+    ///                 "child2",
+    ///             ]),
+    ///         ]),
+    ///         "next",
+    ///     ]
+    /// };
+    ///
+    /// assert_eq!(root, expected);
+    /// assert!(root.root().ptr_eq(&root));
+    ///
+    /// assert!(new.first_child().unwrap().ptr_eq(&this));
+    /// assert!(this.parent().unwrap().ptr_eq(&new));
+    ///
+    /// assert_eq!(new.num_children(), 1, "`this`");
+    /// assert_eq!(this.num_children(), 3, "`child0`, `child1`, and `child2`");
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
+    /// ```
+    ///
+    /// If `self` is a root:
+    ///
+    /// ```
+    /// use dendron::{tree_node, Node};
+    ///
+    /// let this = Node::new_tree("this");
+    /// let grant = this.tree().grant_hierarchy_edit()?;
+    /// let _child0 = this.create_as_last_child(&grant, "child0");
+    /// let _child1 = this.create_as_last_child(&grant, "child1");
+    /// //  this
+    /// //  |-- child0
+    /// //  `-- child1
+    ///
+    /// let new = this.create_as_interrupting_parent(&grant, "new");
+    ///
+    /// //  new
+    /// //  `-- this
+    /// //      |-- child0
+    /// //      `-- child1
+    /// let expected = tree_node! {
+    ///     "new", [
+    ///         /("this", [
+    ///             "child0",
+    ///             "child1",
+    ///         ]),
+    ///     ]
+    /// };
+    ///
+    /// assert_eq!(new, expected);
+    /// assert!(this.root().ptr_eq(&new));
+    ///
+    /// assert!(new.first_child().unwrap().ptr_eq(&this));
+    /// assert!(this.parent().unwrap().ptr_eq(&new));
+    ///
+    /// assert_eq!(new.num_children(), 1, "`this`");
+    /// assert_eq!(this.num_children(), 2, "`child0` and `child1`");
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
+    /// ```
+    #[inline]
+    pub fn create_as_interrupting_parent(&self, grant: &HierarchyEditGrant<T>, data: T) -> Self {
+        grant.panic_if_invalid_for_node(self);
+
+        edit::create_as_interrupting_parent(&self.intra_link, self.membership.tree_core(), data)
+    }
+
+    /// Creates a new node that interrupts between `self` and the children.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use dendron::{tree_node, Node};
+    ///
+    /// let root = Node::new_tree("root");
+    /// let grant = root.tree().grant_hierarchy_edit()?;
+    /// let _prev = root.create_as_last_child(&grant, "prev");
+    /// let this = root.create_as_last_child(&grant, "this");
+    /// let _child0 = this.create_as_last_child(&grant, "child0");
+    /// let _child1 = this.create_as_last_child(&grant, "child1");
+    /// let _child2 = this.create_as_last_child(&grant, "child2");
+    /// let _next = root.create_as_last_child(&grant, "next");
+    /// //  root
+    /// //  |-- prev
+    /// //  |-- this
+    /// //  |   |-- child0
+    /// //  |   |-- child1
+    /// //  |   `-- child2
+    /// //  `-- next
+    ///
+    /// let new = this.create_as_interrupting_child(&grant, "new");
+    ///
+    /// //  root
+    /// //  |-- prev
+    /// //  |-- this
+    /// //  |   `-- new
+    /// //  |       |-- child0
+    /// //  |       |-- child1
+    /// //  |       `-- child2
+    /// //  `-- next
+    /// let expected = tree_node! {
+    ///     "root", [
+    ///         "prev",
+    ///         /("this", [
+    ///             /("new", [
+    ///                 "child0",
+    ///                 "child1",
+    ///                 "child2",
+    ///             ]),
+    ///         ]),
+    ///         "next",
+    ///     ]
+    /// };
+    ///
+    /// assert_eq!(root, expected);
+    /// assert!(root.root().ptr_eq(&root));
+    ///
+    /// assert!(this.first_child().unwrap().ptr_eq(&new));
+    /// assert!(new.parent().unwrap().ptr_eq(&this));
+    ///
+    /// assert_eq!(new.num_children(), 3, "`child0`, `child1`, and `child2`");
+    /// assert_eq!(this.num_children(), 1, "`new`");
+    /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
+    /// ```
+    #[inline]
+    pub fn create_as_interrupting_child(&self, grant: &HierarchyEditGrant<T>, data: T) -> Self {
+        grant.panic_if_invalid_for_node(self);
+
+        edit::create_as_interrupting_child(&self.intra_link, self.membership.tree_core(), data)
+    }
+
     /// Inserts the children at the position of the node, and detach the node.
     ///
     /// `self` will become the root of a new single-node tree.
@@ -2083,7 +2308,7 @@ impl<T> Node<T> {
     ) -> Result<(), HierarchyError> {
         grant.panic_if_invalid_for_node(self);
 
-        edit::try_replace_with_children(&self.intra_link)
+        edit::try_replace_with_children(&self.intra_link, &self.membership.tree_core())
     }
 
     /// Inserts the children at the position of the node, and detach the node.
