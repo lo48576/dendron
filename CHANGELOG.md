@@ -4,9 +4,16 @@
 
 * Add `belongs_to` methods to node types.
 * Make `Tree` track the new root when `replace_with_children()` is called on the root.
+* Add `insert_as_interrupting_{parent,child}` methods to editable node types.
 
 ### Added
 * Add `belongs_to` methods to node types.
+* Add `insert_as_interrupting_{parent,child}` methods to editable node types.
+    + Add methods:
+        - `Node::insert_as_interrupting_parent`
+        - `Node::insert_as_interrupting_child`
+        - `HotNode::insert_as_interrupting_parent`
+        - `HotNode::insert_as_interrupting_child`
 
 ### Fixed
 * Make `Tree` track the new root when `replace_with_children()` is called on the root.
