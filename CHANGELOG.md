@@ -1,6 +1,11 @@
 # Change Log
 
 ## [Unreleased]
+* Implement `Clone` for `Tree<T>` and `TreeWeak<T>`.
+
+### Added
+* Implement `Clone` for `Tree<T>` and `TreeWeak<T>`.
+
 
 ## [0.1.2]
 
