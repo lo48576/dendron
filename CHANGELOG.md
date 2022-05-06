@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.1.3]
+* Implement `Clone` for `Tree<T>` and `TreeWeak<T>`.
+
+### Added
+* Implement `Clone` for `Tree<T>` and `TreeWeak<T>`.
+
+
 ## [0.1.2]
 
 * Add `belongs_to` methods to node types.
@@ -82,7 +89,8 @@
 
 Initial release.
 
-[Unreleased]: <https://gitlab.com/nop_thread/dendron/-/compare/v0.1.2...develop>
+[Unreleased]: <https://gitlab.com/nop_thread/dendron/-/compare/v0.1.3...develop>
+[0.1.3]: <https://gitlab.com/nop_thread/dendron/-/tags/v0.1.3>
 [0.1.2]: <https://gitlab.com/nop_thread/dendron/-/tags/v0.1.2>
 [0.1.1]: <https://gitlab.com/nop_thread/dendron/-/tags/v0.1.1>
 [0.1.0]: <https://gitlab.com/nop_thread/dendron/-/tags/v0.1.0>

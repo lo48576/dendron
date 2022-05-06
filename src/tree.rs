@@ -138,6 +138,15 @@ pub struct Tree<T> {
     core: Rc<TreeCore<T>>,
 }
 
+impl<T> Clone for Tree<T> {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self {
+            core: self.core.clone(),
+        }
+    }
+}
+
 impl<T> fmt::Debug for Tree<T> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -527,6 +536,15 @@ impl<T> Tree<T> {
 pub struct TreeWeak<T> {
     /// A weak reference to the tree core.
     core: Weak<TreeCore<T>>,
+}
+
+impl<T> Clone for TreeWeak<T> {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self {
+            core: self.core.clone(),
+        }
+    }
 }
 
 impl<T> fmt::Debug for TreeWeak<T> {
