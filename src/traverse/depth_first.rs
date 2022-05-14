@@ -109,6 +109,22 @@ macro_rules! impl_dft_event_methods_for_node {
                 Some(next)
             }
 
+            /// Skips forward until the close of the current node, and returns the closed node.
+            ///
+            /// Returns `None` if there are no nodes to close (i.e. the
+            /// iteration has already been finished).
+            #[must_use]
+            pub fn close_current(&self) -> Option<$ty_node<T>> {
+                let mut depth = 0_usize;
+                loop {
+                    match self.next()? {
+                        Self::Open(_) => depth += 1,
+                        Self::Close(node) if depth == 0 => return Some(node),
+                        Self::Close(_) => depth -= 1,
+                    }
+                }
+            }
+
             /// Returns the previous (backward direction) event.
             #[must_use]
             pub fn prev(&self) -> Option<Self> {
