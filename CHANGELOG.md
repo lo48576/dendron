@@ -1,6 +1,18 @@
 # Change Log
 
 ## [Unreleased]
+* Add `close_current` method for depth first traversals.
+
+### Added
+* Add `close_current` method for depth first traversals.
+    + Add methods:
+        - `traverse::DftEvent::<Node<T>>::close_current`
+        - `traverse::DftEvent::<FrozenNode<T>>::close_current`
+        - `traverse::DftEvent::<HotNode<T>>::close_current`
+        - `traverse::DepthFirstTraverser::close_current`
+        - `traverse::StableDepthFirstTraverser::close_current`
+        - `traverse::StableShallowDepthFirstTraverser::close_current`
+
 
 ## [0.1.3]
 * Implement `Clone` for `Tree<T>` and `TreeWeak<T>`.
