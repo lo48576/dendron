@@ -1,6 +1,9 @@
 # Change Log
 
 ## [Unreleased]
+
+
+## [0.1.4]
 * Add `close_current` method for depth first traversals.
 
 ### Added
@@ -101,7 +104,8 @@
 
 Initial release.
 
-[Unreleased]: <https://gitlab.com/nop_thread/dendron/-/compare/v0.1.3...develop>
+[Unreleased]: <https://gitlab.com/nop_thread/dendron/-/compare/v0.1.4...develop>
+[0.1.4]: <https://gitlab.com/nop_thread/dendron/-/tags/v0.1.4>
 [0.1.3]: <https://gitlab.com/nop_thread/dendron/-/tags/v0.1.3>
 [0.1.2]: <https://gitlab.com/nop_thread/dendron/-/tags/v0.1.2>
 [0.1.1]: <https://gitlab.com/nop_thread/dendron/-/tags/v0.1.1>
