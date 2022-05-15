@@ -109,6 +109,22 @@ macro_rules! impl_dft_event_methods_for_node {
                 Some(next)
             }
 
+            /// Skips forward until the close of the current node, and returns the closed node.
+            ///
+            /// Returns `None` if there are no nodes to close (i.e. the
+            /// iteration has already been finished).
+            #[must_use]
+            pub fn close_current(&self) -> Option<$ty_node<T>> {
+                let mut depth = 0_usize;
+                loop {
+                    match self.next()? {
+                        Self::Open(_) => depth += 1,
+                        Self::Close(node) if depth == 0 => return Some(node),
+                        Self::Close(_) => depth -= 1,
+                    }
+                }
+            }
+
             /// Returns the previous (backward direction) event.
             #[must_use]
             pub fn prev(&self) -> Option<Self> {
@@ -178,6 +194,21 @@ impl<T> DepthFirstTraverser<T> {
     #[must_use]
     pub fn peek(&self) -> Option<&DftEvent<Node<T>>> {
         self.next.as_ref().map(|(ev, _node)| ev)
+    }
+
+    /// Skips until the close of the current node, and returns the closed node.
+    ///
+    /// Returns `None` if there are no nodes to close (i.e. the iteration has
+    /// already been finished).
+    pub fn close_current(&mut self) -> Option<Node<T>> {
+        let mut depth = 0_usize;
+        loop {
+            match self.next()? {
+                DftEvent::Open(_) => depth += 1,
+                DftEvent::Close(node) if depth == 0 => return Some(node),
+                DftEvent::Close(_) => depth -= 1,
+            }
+        }
     }
 }
 
@@ -338,6 +369,21 @@ impl<T> StableDepthFirstTraverser<T> {
     pub fn peek_back(&self) -> Option<&DftEvent<FrozenNode<T>>> {
         self.next.as_ref().map(|(_next, next_back)| next_back)
     }
+
+    /// Skips until the close of the current node, and returns the closed node.
+    ///
+    /// Returns `None` if there are no nodes to close (i.e. the iteration has
+    /// already been finished).
+    pub fn close_current(&mut self) -> Option<FrozenNode<T>> {
+        let mut depth = 0_usize;
+        loop {
+            match self.next()? {
+                DftEvent::Open(_) => depth += 1,
+                DftEvent::Close(node) if depth == 0 => return Some(node),
+                DftEvent::Close(_) => depth -= 1,
+            }
+        }
+    }
 }
 
 impl<T> Iterator for StableDepthFirstTraverser<T> {
@@ -440,6 +486,21 @@ impl<T> StableShallowDepthFirstTraverser<T> {
     pub fn max_depth(&self) -> usize {
         self.depth_ignore
             .map_or(usize::MAX, |ignore| ignore.get() - 1)
+    }
+
+    /// Skips until the close of the current node, and returns the closed node and its depth.
+    ///
+    /// Returns `None` if there are no nodes to close (i.e. the iteration has
+    /// already been finished).
+    pub fn close_current(&mut self) -> Option<(FrozenNode<T>, usize)> {
+        let mut depth = 0_usize;
+        loop {
+            match self.next()? {
+                DftEvent::Open(_) => depth += 1,
+                DftEvent::Close(v) if depth == 0 => return Some(v),
+                DftEvent::Close(_) => depth -= 1,
+            }
+        }
     }
 
     /// Returns the next forward event of the next forward event.
