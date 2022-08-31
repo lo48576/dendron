@@ -83,7 +83,7 @@ struct IndentWriter<'a, 'b> {
 }
 
 impl<'a, 'b> IndentWriter<'a, 'b> {
-    /// Creates a new `PadAdapter`.
+    /// Creates a new `IndentWriter`.
     #[inline]
     fn new(fmt: &'b mut fmt::Formatter<'a>) -> Self {
         Self {
@@ -225,7 +225,7 @@ pub struct DebugPrettyPrint<'a, T> {
 }
 
 impl<'a, T> DebugPrettyPrint<'a, T> {
-    /// Creates a new `DebugPrint` object for the node.
+    /// Creates a new `DebugPrettyPrint` object for the node.
     #[inline]
     pub(crate) fn new(link: &'a IntraTreeLink<T>) -> Self {
         Self { link }
