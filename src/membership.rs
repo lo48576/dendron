@@ -132,7 +132,7 @@ impl<T> Membership<T> {
             .inner
             .try_borrow()
             .expect("[consistency] membership core should never borrowed nestedly");
-        Ref::map(membership_core, |membership_core| match &*membership_core {
+        Ref::map(membership_core, |membership_core| match membership_core {
             MembershipCore::Weak { .. } => unreachable!("[validity] `self` has a strong reference"),
             MembershipCore::Strong { tree_core, .. } => tree_core,
         })
