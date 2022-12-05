@@ -14,7 +14,7 @@ See [the comparison of crates](docs/comparison.md).
 | reference to any node preserves entire tree | yes | no | no |
 | no "strong invalid node reference" | yes | yes | no |
 | multithreading support | partial | no | yes |
-| efficient indexed access to a child | no | no | yes |
+| efficient indexed access to a child | no | no | no |
 
 In short, you will prefer `dendron` especially when you are manipulating
 DOM-like structure, for example:

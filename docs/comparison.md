@@ -26,7 +26,7 @@ these points of view.
 | reference to any node preserves entire tree | yes | no | no |
 | no "strong invalid node reference" | yes | yes | no |
 | multithreading support | partial | no | yes |
-| efficient indexed access to a child | no | no | yes |
+| efficient indexed access to a child | no | no | no |
 
 ## Root node does not have siblings
 
