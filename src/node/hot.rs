@@ -804,7 +804,7 @@ impl<T> HotNode<T> {
         edit::detach_subtree(&self.intra_link);
     }
 
-    /// Creates a node as the next sibling of `self`, and returns the new node.
+    /// Creates a node as the specified neighbor of `self`, and returns the new node.
     ///
     /// See [`Node::try_create_node_as`] for usage examples.
     #[inline]
@@ -813,7 +813,7 @@ impl<T> HotNode<T> {
             .map(|node| Self::from_node(node).expect("[validity] a new node can be locked"))
     }
 
-    /// Creates a node as the next sibling of `self`, and returns the new node.
+    /// Creates a node as the specified neighbor of `self`, and returns the new node.
     ///
     /// See [`Node::create_node_as`] for usage examples.
     ///
