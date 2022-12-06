@@ -1703,7 +1703,7 @@ impl<T> Node<T> {
         edit::detach_subtree(&self.intra_link);
     }
 
-    /// Creates a node as the next sibling of `self`, and returns the new node.
+    /// Creates a node as the specified neighbor of `self`, and returns the new node.
     ///
     /// # Failures
     ///
@@ -1843,7 +1843,7 @@ impl<T> Node<T> {
         edit::try_create_node_as(&self.intra_link, self.membership.tree_core(), data, dest)
     }
 
-    /// Creates a node as the next sibling of `self`, and returns the new node.
+    /// Creates a node as the specified neighbor of `self`, and returns the new node.
     ///
     /// See [`try_create_node_as`][`Self::try_create_node_as`] for usage
     /// examples.
