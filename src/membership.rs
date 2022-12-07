@@ -18,7 +18,7 @@ use crate::tree::{
 enum MembershipCore<T> {
     /// Non-owning reference to the tree core.
     ///
-    /// If there are no `Node<T>`s for the node, the membreship will stay in
+    /// If there are no `Node<T>`s for the node, the membership will stay in
     /// this state.
     Weak {
         /// A weak reference to the tree core.
