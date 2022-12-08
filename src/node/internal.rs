@@ -7,7 +7,7 @@ use core::num::NonZeroUsize;
 
 use alloc::rc::{Rc, Weak};
 
-use crate::membership::{MembershipCore, WeakMembership};
+use crate::membership::{Membership, MembershipCore, WeakMembership};
 use crate::traverse::DftEvent;
 use crate::tree::{HierarchyEditGrantError, HierarchyEditProhibitionError, TreeCore};
 
@@ -45,50 +45,6 @@ struct Neighbors<T> {
     /// accessible outside the node. In other words, this is allowed to be
     /// dangling reference only during the node itself is being constructed.
     prev_sibling_cyclic: IntraTreeLinkWeak<T>,
-}
-
-/// Node builder.
-pub(super) struct NodeBuilder<T> {
-    /// Data associated to the node.
-    pub(super) data: T,
-    /// Parent.
-    pub(super) parent: IntraTreeLinkWeak<T>,
-    /// First child.
-    pub(super) first_child: Option<IntraTreeLink<T>>,
-    /// Next sibling.
-    pub(super) next_sibling: Option<IntraTreeLink<T>>,
-    /// Previous sibling.
-    pub(super) prev_sibling_cyclic: IntraTreeLinkWeak<T>,
-    /// Membership to a tree.
-    pub(super) membership: WeakMembership<T>,
-    /// Number of children.
-    pub(super) num_children: usize,
-}
-
-impl<T> NodeBuilder<T> {
-    /// Builds a node core.
-    #[must_use]
-    fn build_core_rc(self) -> Rc<NodeCore<T>> {
-        Rc::new(NodeCore {
-            data: RefCell::new(self.data),
-            neighbors: RefCell::new(Neighbors {
-                parent: self.parent,
-                first_child: self.first_child,
-                next_sibling: self.next_sibling,
-                prev_sibling_cyclic: self.prev_sibling_cyclic,
-            }),
-            membership: self.membership,
-            num_children: Cell::new(self.num_children),
-        })
-    }
-
-    /// Builds a node core.
-    #[inline]
-    #[must_use]
-    pub fn build_link(self) -> IntraTreeLink<T> {
-        let core = self.build_core_rc();
-        IntraTreeLink { core }
-    }
 }
 
 /// An intra-tree owning reference to a node.
@@ -716,6 +672,33 @@ impl<T> NodeLink<T> {
         // Note that this should be alive until `Self::new()` is done, or else it
         // will release the tree before `Self::new()` as no strong references exist.
         let _membership_strong = membership.initialize_membership(tree_core_rc);
+
+        Self::new(core).expect("[consistency] the node is just created and is alive")
+    }
+
+    /// Creates an orphan node for the tree.
+    ///
+    /// Note that the orphan state should be resolved before any kind of
+    /// references to the node is exposed to the user.
+    pub(super) fn new_orphan(data: T, tree_core: Rc<TreeCore<T>>) -> Self {
+        let membership = Membership::create_new_membership(tree_core);
+        let core = IntraTreeLink {
+            core: Rc::new(NodeCore {
+                data: RefCell::new(data),
+                neighbors: RefCell::new(Neighbors {
+                    parent: Default::default(),
+                    first_child: Default::default(),
+                    next_sibling: Default::default(),
+                    prev_sibling_cyclic: Default::default(),
+                }),
+                membership: membership.downgrade(),
+                num_children: Cell::new(0),
+            }),
+        };
+
+        // Initialize `prev_sibling_cyclic`.
+        let weak = core.downgrade();
+        core.replace_prev_sibling_cyclic(weak);
 
         Self::new(core).expect("[consistency] the node is just created and is alive")
     }
