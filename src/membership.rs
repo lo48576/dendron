@@ -6,16 +6,14 @@ use core::num::NonZeroUsize;
 
 use alloc::rc::{Rc, Weak};
 
-use crate::tree::{
-    HierarchyEditGrantError, HierarchyEditProhibitionError, LockAggregatorForNode, Tree, TreeCore,
-};
+use crate::tree::{LockAggregatorForNode, Tree, TreeCore};
 
 /// A membership of a node to a tree.
 ///
 /// Note that nodes may change its affiliation to another tree. In this case,
 /// membership should also be changed for all `Node` objects referring to the
 /// node, so this will be usually shared as `Rc<RefCell<<T>>>`.
-enum MembershipCore<T> {
+pub(crate) enum MembershipCore<T> {
     /// Non-owning reference to the tree core.
     ///
     /// If there are no `Node<T>`s for the node, the membership will stay in
@@ -91,7 +89,7 @@ impl<'a, T> From<&'a WeakMembership<T>> for MembershipCoreWrap<'a, T> {
 #[derive(Debug)]
 pub(crate) struct Membership<T> {
     /// Target membership core.
-    inner: Rc<RefCell<MembershipCore<T>>>,
+    pub(crate) inner: Rc<RefCell<MembershipCore<T>>>,
 }
 
 impl<T> Drop for Membership<T> {
@@ -207,78 +205,6 @@ impl<T> Membership<T> {
         let other_ptr = Rc::as_ptr(&*other.tree_core_ref());
         self_ptr == other_ptr
     }
-
-    /// Decrements aggregated lock count.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the aggregated lock count is zero.
-    fn decrement_edit_lock_count(&self) {
-        let mut membership_core = self
-            .inner
-            .try_borrow_mut()
-            .expect("[consistency] `Membership::inner` should never borrowed nestedly");
-        match &mut *membership_core {
-            MembershipCore::Weak { .. } => unreachable!("[validity] `self` has a strong reference"),
-            MembershipCore::Strong {
-                tree_core,
-                lock_aggregator,
-                ..
-            } => {
-                lock_aggregator.decrement_count(tree_core);
-            }
-        }
-    }
-
-    /// Increments hierarchy edit lock count, assuming the count is nonzero.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the aggregated lock count is zero or `usize::MAX`.
-    fn increment_nonzero_edit_lock_count(&self) {
-        let mut membership_core = self
-            .inner
-            .try_borrow_mut()
-            .expect("[consistency] `Membership::inner` should never borrowed nestedly");
-        match &mut *membership_core {
-            MembershipCore::Weak { .. } => unreachable!("[validity] `self` has a strong reference"),
-            MembershipCore::Strong {
-                lock_aggregator, ..
-            } => lock_aggregator.increment_nonzero_count(),
-        }
-    }
-
-    /// Acquires hierarchy edit prohibition.
-    pub(crate) fn acquire_edit_prohibition(&self) -> Result<(), HierarchyEditProhibitionError> {
-        let mut membership_core = self
-            .inner
-            .try_borrow_mut()
-            .expect("[consistency] `Membership::inner` should never borrowed nestedly");
-        match &mut *membership_core {
-            MembershipCore::Weak { .. } => unreachable!("[validity] `self` has a strong reference"),
-            MembershipCore::Strong {
-                tree_core,
-                lock_aggregator,
-                ..
-            } => lock_aggregator.acquire_edit_prohibition(tree_core),
-        }
-    }
-
-    /// Acquires hierarchy edit grant.
-    pub(crate) fn acquire_edit_grant(&self) -> Result<(), HierarchyEditGrantError> {
-        let mut membership_core = self
-            .inner
-            .try_borrow_mut()
-            .expect("[consistency] `Membership::inner` should never borrowed nestedly");
-        match &mut *membership_core {
-            MembershipCore::Weak { .. } => unreachable!("[validity] `self` has a strong reference"),
-            MembershipCore::Strong {
-                tree_core,
-                lock_aggregator,
-                ..
-            } => lock_aggregator.acquire_edit_grant(tree_core),
-        }
-    }
 }
 
 /// A reference to the membership of a node, without ownership of a tree.
@@ -287,7 +213,7 @@ impl<T> Membership<T> {
 #[derive(Debug)]
 pub(crate) struct WeakMembership<T> {
     /// Target membership core.
-    inner: Rc<RefCell<MembershipCore<T>>>,
+    pub(crate) inner: Rc<RefCell<MembershipCore<T>>>,
 }
 
 impl<T> Clone for WeakMembership<T> {
@@ -428,118 +354,5 @@ impl<T> WeakMembership<T> {
     #[must_use]
     pub(crate) fn core_wrap(&self) -> MembershipCoreWrap<'_, T> {
         self.into()
-    }
-}
-
-/// Membership with tree hierarchy edit prohibition.
-#[derive(Debug)]
-pub(crate) struct MembershipWithEditProhibition<T> {
-    /// Plain membership.
-    inner: Membership<T>,
-}
-
-impl<T> Drop for MembershipWithEditProhibition<T> {
-    #[inline]
-    fn drop(&mut self) {
-        self.inner.decrement_edit_lock_count();
-    }
-}
-
-impl<T> Clone for MembershipWithEditProhibition<T> {
-    /// Clones the membership and the prohibition.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the aggregated lock count is `usize::MAX`.
-    #[inline]
-    fn clone(&self) -> Self {
-        self.inner.increment_nonzero_edit_lock_count();
-        Self {
-            inner: self.inner.clone(),
-        }
-    }
-}
-
-impl<T> MembershipWithEditProhibition<T> {
-    /// Clones a membership and bundles a hierarchy edit prohibition.
-    #[inline]
-    pub(crate) fn new(inner: Membership<T>) -> Result<Self, HierarchyEditProhibitionError> {
-        inner.acquire_edit_prohibition()?;
-        Ok(Self { inner })
-    }
-
-    /// Returns a reference to the inner [`Membership`].
-    #[inline]
-    #[must_use]
-    pub(crate) fn as_inner(&self) -> &Membership<T> {
-        &self.inner
-    }
-
-    /// Returns true if the given node belong to the same tree.
-    #[inline]
-    #[must_use]
-    pub(crate) fn belongs_to_same_tree(&self, other: &Self) -> bool {
-        self.inner.belongs_to_same_tree(&other.inner)
-    }
-}
-
-impl<T> AsRef<Membership<T>> for MembershipWithEditProhibition<T> {
-    #[inline]
-    fn as_ref(&self) -> &Membership<T> {
-        &self.inner
-    }
-}
-
-/// Membership with tree hierarchy edit grant.
-#[derive(Debug)]
-pub(crate) struct MembershipWithEditGrant<T> {
-    /// Plain membership.
-    inner: Membership<T>,
-}
-
-impl<T> Drop for MembershipWithEditGrant<T> {
-    #[inline]
-    fn drop(&mut self) {
-        self.inner.decrement_edit_lock_count();
-    }
-}
-
-impl<T> Clone for MembershipWithEditGrant<T> {
-    /// Clones the membership and the grant.
-    #[inline]
-    fn clone(&self) -> Self {
-        self.inner.increment_nonzero_edit_lock_count();
-        Self {
-            inner: self.inner.clone(),
-        }
-    }
-}
-
-impl<T> MembershipWithEditGrant<T> {
-    /// Clones a membership and bundles a hierarchy edit grant.
-    pub(crate) fn new(inner: Membership<T>) -> Result<Self, HierarchyEditGrantError> {
-        inner.acquire_edit_grant()?;
-        Ok(Self { inner })
-    }
-
-    /// Returns a reference to the inner [`Membership`].
-    #[inline]
-    #[must_use]
-    pub(crate) fn as_inner(&self) -> &Membership<T> {
-        &self.inner
-    }
-
-    /// Returns true if the given node belong to the same tree.
-    #[inline]
-    #[must_use]
-    pub(crate) fn belongs_to_same_tree(&self, other: &Self) -> bool {
-        self.inner.belongs_to_same_tree(&other.inner)
-    }
-}
-
-impl<T> AsRef<Membership<T>> for MembershipWithEditGrant<T> {
-    #[inline]
-    fn as_ref(&self) -> &Membership<T> {
-        &self.inner
     }
 }

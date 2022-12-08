@@ -3,12 +3,13 @@
 use core::cell::{BorrowError, BorrowMutError, Cell, Ref, RefCell, RefMut};
 use core::iter;
 use core::mem;
+use core::num::NonZeroUsize;
 
 use alloc::rc::{Rc, Weak};
 
-use crate::membership::WeakMembership;
+use crate::membership::{MembershipCore, WeakMembership};
 use crate::traverse::DftEvent;
-use crate::tree::TreeCore;
+use crate::tree::{HierarchyEditGrantError, HierarchyEditProhibitionError, TreeCore};
 
 /// Internal node data.
 struct NodeCore<T> {
@@ -448,6 +449,17 @@ impl<T> IntraTreeLink<T> {
     where
         T: PartialEq<U>,
     {
+        // It is safe to assume that the node cores with the same allocation are
+        // identical, since `NodeCore<T>` is not intended to be transmutable
+        // to `NodeCore<U>` (where `U` is not `T`).
+        if core::ptr::eq(
+            Rc::as_ptr(&self.core) as *const (),
+            Rc::as_ptr(&other.core) as *const (),
+        ) {
+            // Same address, identical node.
+            return Ok(true);
+        }
+
         // NOTE: `Iterator::eq_by` is not yet stabilized (as of Rust 1.60).
         let mut self_iter = self.depth_first_traverse();
         let mut other_iter = other.depth_first_traverse();
@@ -599,5 +611,301 @@ impl<T> IntraTreeLinkWeak<T> {
     #[must_use]
     fn is_unavailable(&self) -> bool {
         self.core.strong_count() == 0
+    }
+}
+
+/// A reference to a node that guarantees the node to be alive.
+pub(crate) struct NodeLink<T> {
+    /// Link to the node core.
+    core: IntraTreeLink<T>,
+}
+
+impl<T> Drop for NodeLink<T> {
+    fn drop(&mut self) {
+        let mut membership_core = self
+            .core
+            .core
+            .membership
+            .inner
+            .try_borrow_mut()
+            .expect("[consistency] membership core should never be borrowed nestedly");
+        // Decrement refcount.
+        match &mut *membership_core {
+            MembershipCore::Weak { .. } => {
+                unreachable!("[validity] `self` has an incoming strong reference");
+            }
+            MembershipCore::Strong {
+                tree_core,
+                tree_refcount,
+                lock_aggregator,
+            } => {
+                // This subtraction never overflows.
+                let decremented = NonZeroUsize::new(tree_refcount.get() - 1);
+                match decremented {
+                    Some(new_count) => *tree_refcount = new_count,
+                    None => {
+                        assert!(
+                            !lock_aggregator.has_lock(),
+                            "[consistency] locks can be acquired only from strong node references"
+                        );
+                        let weak_core = Rc::downgrade(tree_core);
+                        *membership_core = MembershipCore::Weak {
+                            tree_core: weak_core,
+                        };
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl<T> Clone for NodeLink<T> {
+    fn clone(&self) -> Self {
+        let mut membership_core = self
+            .core
+            .core
+            .membership
+            .inner
+            .try_borrow_mut()
+            .expect("[consistency] membership core should never be borrowed nestedly");
+        // Increment refcount.
+        match &mut *membership_core {
+            MembershipCore::Weak { .. } => {
+                unreachable!("[validity] `self` has an incoming strong reference")
+            }
+            MembershipCore::Strong { tree_refcount, .. } => {
+                let incremented = tree_refcount
+                    .checked_add(1)
+                    .expect("[limitation] the memory cannot have `usize::MAX` references");
+                *tree_refcount = incremented;
+            }
+        }
+
+        Self {
+            core: self.core.clone(),
+        }
+    }
+}
+
+/// Internal functions and helpers.
+impl<T> NodeLink<T> {
+    /// Creates a node link from the node core link.
+    ///
+    /// Returns when the target tree is already dead.
+    // FIXME: Is it really possible that the tree referred from `IntraTreeLink` is dead?
+    pub(super) fn new(core: IntraTreeLink<T>) -> Option<Self> {
+        let mut membership_core = core
+            .core
+            .membership
+            .inner
+            .try_borrow_mut()
+            .expect("[consistency] membership core should never be borrowed nestedly");
+        // Increment refcount.
+        match &mut *membership_core {
+            MembershipCore::Weak { tree_core } => {
+                let tree_refcount = NonZeroUsize::new(1).expect("[consistency] 1 is nonzero");
+                let tree_core = tree_core.upgrade()?;
+                *membership_core = MembershipCore::Strong {
+                    tree_core,
+                    tree_refcount,
+                    lock_aggregator: Default::default(),
+                };
+            }
+            MembershipCore::Strong { tree_refcount, .. } => {
+                let incremented = tree_refcount
+                    .checked_add(1)
+                    .expect("[limitation] the memory cannot have `usize::MAX` references");
+                *tree_refcount = incremented;
+            }
+        }
+        drop(membership_core);
+
+        Some(Self { core })
+    }
+
+    /// Returns the temporary reference to the tree core.
+    fn tree_core_ref(&self) -> Ref<'_, Rc<TreeCore<T>>> {
+        let membership_core = self
+            .core
+            .core
+            .membership
+            .inner
+            .try_borrow()
+            .expect("[consistency] membership core should never be borrowed nestedly");
+        Ref::map(membership_core, |membership_core| match membership_core {
+            MembershipCore::Weak { .. } => {
+                unreachable!("[validity] `self` has an incoming strong reference")
+            }
+            MembershipCore::Strong { tree_core, .. } => tree_core,
+        })
+    }
+
+    /// Returns a reference to the tree core.
+    pub(super) fn tree_core(&self) -> Rc<TreeCore<T>> {
+        self.tree_core_ref().clone()
+    }
+
+    /// Decrements the aggregated lock count.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the aggregated lock count is zero.
+    pub(super) fn decrement_edit_lock_count(&self) {
+        let mut membership_core = self
+            .core
+            .core
+            .membership
+            .inner
+            .try_borrow_mut()
+            .expect("[consistency] membership core should never be borrowed nestedly");
+        match &mut *membership_core {
+            MembershipCore::Weak { .. } => unreachable!("[validity] `self` has a strong reference"),
+            MembershipCore::Strong {
+                tree_core,
+                lock_aggregator,
+                ..
+            } => {
+                lock_aggregator.decrement_count(tree_core);
+            }
+        }
+    }
+
+    /// Increments hierarchy edit lock count, assuming the count is nonzero.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the aggregated lock count is zero or `usize::MAX`.
+    pub(super) fn increment_nonzero_edit_lock_count(&self) {
+        let mut membership_core = self
+            .core
+            .core
+            .membership
+            .inner
+            .try_borrow_mut()
+            .expect("[consistency] membership core should never be borrowed nestedly");
+        match &mut *membership_core {
+            MembershipCore::Weak { .. } => unreachable!("[validity] `self` has a strong reference"),
+            MembershipCore::Strong {
+                lock_aggregator, ..
+            } => lock_aggregator.increment_nonzero_count(),
+        }
+    }
+
+    /// Acquires hierarchy edit prohibition.
+    pub(super) fn acquire_edit_prohibition(&self) -> Result<(), HierarchyEditProhibitionError> {
+        let mut membership_core = self
+            .core
+            .core
+            .membership
+            .inner
+            .try_borrow_mut()
+            .expect("[consistency] membership core should never be borrowed nestedly");
+        match &mut *membership_core {
+            MembershipCore::Weak { .. } => {
+                unreachable!("[validity] `self` has an incoming strong reference")
+            }
+            MembershipCore::Strong {
+                tree_core,
+                lock_aggregator,
+                ..
+            } => lock_aggregator.acquire_edit_prohibition(tree_core),
+        }
+    }
+
+    /// Acquires hierarchy edit grant.
+    pub(crate) fn acquire_edit_grant(&self) -> Result<(), HierarchyEditGrantError> {
+        let mut membership_core = self
+            .core
+            .core
+            .membership
+            .inner
+            .try_borrow_mut()
+            .expect("[consistency] membership core should never be borrowed nestedly");
+        match &mut *membership_core {
+            MembershipCore::Weak { .. } => {
+                unreachable!("[validity] `self` has an incoming strong reference")
+            }
+            MembershipCore::Strong {
+                tree_core,
+                lock_aggregator,
+                ..
+            } => lock_aggregator.acquire_edit_grant(tree_core),
+        }
+    }
+}
+
+/// Functions for outer modules.
+impl<T> NodeLink<T> {
+    /// Returns true if the node belongs to the given tree.
+    pub(super) fn belongs_to(&self, tree_core: &Rc<TreeCore<T>>) -> bool {
+        Rc::ptr_eq(tree_core, &*self.tree_core_ref())
+    }
+
+    /// Returns true if the given node belong to the same tree.
+    #[must_use]
+    pub(super) fn belongs_to_same_tree(&self, other: &Self) -> bool {
+        if core::ptr::eq(self as *const _, other as *const _) {
+            return true;
+        }
+        let self_tree_ptr = Rc::as_ptr(&self.tree_core_ref());
+        let other_tree_ptr = Rc::as_ptr(&other.tree_core_ref());
+        self_tree_ptr == other_tree_ptr
+    }
+
+    /// Compares two subtrees.
+    ///
+    /// Returns `Ok(true)` if the two subtree are equal, even if they are stored
+    /// in different allocation.
+    ///
+    /// # Failures
+    ///
+    /// May return `Err(_)` if associated data of some nodes are already
+    /// borrowed exclusively (i.e. mutably).
+    pub(super) fn try_eq<U>(&self, other: &NodeLink<U>) -> Result<bool, BorrowError>
+    where
+        T: PartialEq<U>,
+    {
+        // It may be safe to assume that the node cores with the same allocation
+        // are identical, since `NodeCore<T>` is not intended to be transmutable
+        // to `NodeCore<U>` (where `U` is not `T`).
+        if core::ptr::eq(
+            Rc::as_ptr(&self.core.core) as *const (),
+            Rc::as_ptr(&other.core.core) as *const (),
+        ) {
+            // Getting type ID requires `T: 'static, U: 'static`.
+            //assert_eq!(
+            //    core::any::TypeId::of::<T>(),
+            //    core::any::TypeId::of::<U>(),
+            //    "[validity] `NodeCore<T>` is not intended to be transmutable to `NodeCore<U>`"
+            //);
+            // Same address, identical node.
+            return Ok(true);
+        }
+
+        // NOTE: `Iterator::eq_by` is not yet stabilized (as of Rust 1.60).
+        let mut self_iter = self.core.depth_first_traverse();
+        let mut other_iter = other.core.depth_first_traverse();
+        loop {
+            match (self_iter.next(), other_iter.next()) {
+                (None, None) => return Ok(true),
+                (Some(l), Some(r)) => match (l, r) {
+                    (DftEvent::Open(l), DftEvent::Open(r)) => {
+                        if *l.try_borrow_data()? != *r.try_borrow_data()? {
+                            return Ok(false);
+                        }
+                    }
+                    (DftEvent::Close(_), DftEvent::Close(_)) => {}
+                    _ => return Ok(false),
+                },
+                _ => return Ok(false),
+            }
+        }
+    }
+
+    /// Returns a reference to the node core.
+    #[inline]
+    #[must_use]
+    pub(super) fn core(&self) -> &IntraTreeLink<T> {
+        &self.core
     }
 }

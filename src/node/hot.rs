@@ -6,9 +6,8 @@ use core::fmt;
 use alloc::rc::Rc;
 
 use crate::anchor::{AdoptAs, InsertAs};
-use crate::membership::{Membership, MembershipWithEditGrant};
 use crate::node::debug_print::{DebugPrettyPrint, DebugPrintNodeLocal, DebugPrintSubtree};
-use crate::node::{edit, HierarchyError, IntraTreeLink, Node};
+use crate::node::{edit, HierarchyError, IntraTreeLink, Node, NodeLink};
 use crate::serial;
 use crate::traverse;
 use crate::tree::{HierarchyEditGrant, HierarchyEditGrantError, Tree, TreeCore};
@@ -23,18 +22,23 @@ use crate::tree::{HierarchyEditGrant, HierarchyEditGrantError, Tree, TreeCore};
 /// Panics if the number of active edit grants through this node is
 /// `usize::MAX`. This is very unlikely to happen without leaking grants.
 pub struct HotNode<T> {
-    /// Target node core.
-    pub(super) intra_link: IntraTreeLink<T>,
-    /// Membership of a node with ownership of the tree.
-    membership: MembershipWithEditGrant<T>,
+    /// Node.
+    link: NodeLink<T>,
+}
+
+impl<T> Drop for HotNode<T> {
+    #[inline]
+    fn drop(&mut self) {
+        self.link.decrement_edit_lock_count();
+    }
 }
 
 impl<T> Clone for HotNode<T> {
     #[inline]
     fn clone(&self) -> Self {
+        self.link.increment_nonzero_edit_lock_count();
         Self {
-            intra_link: self.intra_link.clone(),
-            membership: self.membership.clone(),
+            link: self.link.clone(),
         }
     }
 }
@@ -68,7 +72,7 @@ where
     /// See the documentation for [`Node::try_eq`] method.
     #[inline]
     fn eq(&self, other: &HotNode<U>) -> bool {
-        self.intra_link.try_eq(&other.intra_link).expect(
+        self.link.try_eq(&other.link).expect(
             "[precondition] data associated to the nodes in both trees should be borrowable",
         )
     }
@@ -80,15 +84,11 @@ impl<T> HotNode<T> {
     /// Creates a new `HotNode` from the given plain node.
     #[inline]
     pub(super) fn from_node(node: Node<T>) -> Result<Self, HierarchyEditGrantError> {
-        let Node {
-            intra_link,
-            membership,
-        } = node;
-        let membership = MembershipWithEditGrant::new(membership)?;
-        Ok(Self {
-            intra_link,
-            membership,
-        })
+        let Node { intra_link, .. } = node;
+        let link =
+            NodeLink::new(intra_link).expect("[validity] node referred by `Node<T>` is alive");
+        link.acquire_edit_grant()?;
+        Ok(Self { link })
     }
 
     /// Creates a new `HotNode` from the given plain node and the grant.
@@ -102,60 +102,43 @@ impl<T> HotNode<T> {
     pub(super) fn from_node_and_grant(node: Node<T>, grant: &HierarchyEditGrant<T>) -> Self {
         grant.panic_if_invalid_for_node(&node);
 
-        let Node {
-            intra_link,
-            membership,
-        } = node;
-        let membership = MembershipWithEditGrant::new(membership)
+        let Node { intra_link, .. } = node;
+        let link =
+            NodeLink::new(intra_link).expect("[validity] node referred by `Node<T>` is alive");
+        link.acquire_edit_grant()
             .expect("[validity] a valid grant already exists for the tree");
-        Self {
-            intra_link,
-            membership,
-        }
+        Self { link }
     }
 
     /// Creates a node from the internal values.
     ///
     /// # Panics
     ///
-    /// Panics if the membership field of the node link is not set up.
-    ///
     /// Panics if a reference to the tree core is not valid.
     ///
     /// Panics if the tree is granted to be edited.
     #[must_use]
     pub(crate) fn from_node_link_with_grant(intra_link: IntraTreeLink<T>) -> Self {
-        let membership = intra_link.membership().upgrade().expect(
-            "[consistency] the membership must be alive since the corresponding node link is alive",
-        );
-        let membership = MembershipWithEditGrant::new(membership)
+        let link =
+            NodeLink::new(intra_link).expect("[validity] node referred by `Node<T>` is alive");
+        link.acquire_edit_grant()
             .expect("[consistency] there should have already been tree hierarchy edit grant");
 
-        Self {
-            intra_link,
-            membership,
-        }
+        Self { link }
     }
 
-    /// Returns the intra-tree link.
+    /// Returns a reference to the node core.
     #[inline]
     #[must_use]
-    pub(super) fn intra_link(&self) -> &IntraTreeLink<T> {
-        &self.intra_link
-    }
-
-    /// Returns a reference to the plain membership.
-    #[inline]
-    #[must_use]
-    pub(super) fn plain_membership(&self) -> &Membership<T> {
-        self.membership.as_inner()
+    pub(super) fn node_core(&self) -> &IntraTreeLink<T> {
+        self.link.core()
     }
 
     /// Returns the tree core.
     #[inline]
     #[must_use]
     pub(super) fn tree_core(&self) -> Rc<TreeCore<T>> {
-        self.intra_link.tree_core()
+        self.link.tree_core()
     }
 
     /// Creates a plain node reference for the node.
@@ -171,7 +154,13 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn plain(&self) -> Node<T> {
-        Node::with_link_and_membership(self.intra_link.clone(), self.membership.as_inner().clone())
+        let membership = self
+            .link
+            .core()
+            .membership()
+            .upgrade()
+            .expect("[validity] node referred by `HotNode` is alive");
+        Node::with_link_and_membership(self.link.core().clone(), membership)
     }
 }
 
@@ -223,7 +212,7 @@ impl<T> HotNode<T> {
     /// ```
     #[inline]
     pub fn try_borrow_data(&self) -> Result<Ref<'_, T>, BorrowError> {
-        self.intra_link.try_borrow_data()
+        self.link.core().try_borrow_data()
     }
 
     /// Returns a reference to the data associated to the node.
@@ -243,7 +232,7 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn borrow_data(&self) -> Ref<'_, T> {
-        self.intra_link.borrow_data()
+        self.link.core().borrow_data()
     }
 
     /// Returns a mutable reference to the data associated to the node.
@@ -262,7 +251,7 @@ impl<T> HotNode<T> {
     /// ```
     #[inline]
     pub fn try_borrow_data_mut(&self) -> Result<RefMut<'_, T>, BorrowMutError> {
-        self.intra_link.try_borrow_data_mut()
+        self.link.core().try_borrow_data_mut()
     }
 
     /// Returns a mutable reference to the data associated to the node.
@@ -284,7 +273,7 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn borrow_data_mut(&self) -> RefMut<'_, T> {
-        self.intra_link.borrow_data_mut()
+        self.link.core().borrow_data_mut()
     }
 
     /// Returns `true` if the two `HotNode`s point to the same allocation.
@@ -308,7 +297,7 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn ptr_eq(&self, other: &Self) -> bool {
-        IntraTreeLink::ptr_eq(&self.intra_link, &other.intra_link)
+        IntraTreeLink::ptr_eq(self.link.core(), other.link.core())
     }
 
     /// Returns `true` if `self` and the given `Node` point to the same allocation.
@@ -324,7 +313,7 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn ptr_eq_plain(&self, other: &Node<T>) -> bool {
-        IntraTreeLink::ptr_eq(&self.intra_link, &other.intra_link)
+        IntraTreeLink::ptr_eq(self.link.core(), other.node_core())
     }
 }
 
@@ -367,14 +356,11 @@ impl<T> HotNode<T> {
     #[must_use]
     pub fn is_root(&self) -> bool {
         debug_assert_eq!(
-            self.intra_link.is_root(),
-            self.intra_link
-                .tree_core()
-                .root_link()
-                .ptr_eq(&self.intra_link),
+            self.link.core().is_root(),
+            self.link.tree_core().root_link().ptr_eq(self.link.core()),
         );
         // The node is a root if and only if the node has no parent.
-        self.intra_link.is_root()
+        self.link.core().is_root()
     }
 
     /// Returns true if the node belongs to the given tree.
@@ -399,7 +385,14 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn belongs_to(&self, tree: &Tree<T>) -> bool {
-        self.membership.as_ref().belongs_to(tree)
+        self.link.belongs_to(tree.core())
+    }
+
+    /// Returns true if the node belongs to the given tree.
+    #[inline]
+    #[must_use]
+    pub(super) fn belongs_to_tree_core(&self, tree_core: &Rc<TreeCore<T>>) -> bool {
+        self.link.belongs_to(tree_core)
     }
 
     /// Returns true if the given node belong to the same tree.
@@ -424,7 +417,7 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn belongs_to_same_tree(&self, other: &Self) -> bool {
-        self.membership.belongs_to_same_tree(&other.membership)
+        self.link.belongs_to_same_tree(&other.link)
     }
 
     /// Returns the hot root node.
@@ -450,7 +443,8 @@ impl<T> HotNode<T> {
     /// See [`Node::parent`] for usage examples.
     #[must_use]
     pub fn parent(&self) -> Option<Self> {
-        self.intra_link
+        self.link
+            .core()
             .parent_link()
             .map(Self::from_node_link_with_grant)
     }
@@ -460,7 +454,8 @@ impl<T> HotNode<T> {
     /// See [`Node::prev_sibling`] for usage examples.
     #[must_use]
     pub fn prev_sibling(&self) -> Option<Self> {
-        self.intra_link
+        self.link
+            .core()
             .prev_sibling_link()
             .map(Self::from_node_link_with_grant)
     }
@@ -470,7 +465,8 @@ impl<T> HotNode<T> {
     /// See [`Node::next_sibling`] for usage examples.
     #[must_use]
     pub fn next_sibling(&self) -> Option<Self> {
-        self.intra_link
+        self.link
+            .core()
             .next_sibling_link()
             .map(Self::from_node_link_with_grant)
     }
@@ -480,7 +476,7 @@ impl<T> HotNode<T> {
     /// See [`Node::first_sibling`] for usage examples.
     #[must_use]
     pub fn first_sibling(&self) -> Self {
-        if let Some(parent_link) = self.intra_link.parent_link() {
+        if let Some(parent_link) = self.link.core().parent_link() {
             let first_child_link = parent_link
                 .first_child_link()
                 .expect("[validity] the parent must have at least one child (`self`)");
@@ -496,7 +492,7 @@ impl<T> HotNode<T> {
     /// See [`Node::last_sibling`] for usage examples.
     #[must_use]
     pub fn last_sibling(&self) -> Self {
-        if let Some(parent_link) = self.intra_link.parent_link() {
+        if let Some(parent_link) = self.link.core().parent_link() {
             let last_child_lin = parent_link
                 .last_child_link()
                 .expect("[validity] the parent must have at least one child (`self`)");
@@ -512,7 +508,7 @@ impl<T> HotNode<T> {
     /// See [`Node::first_last_sibling`] for usage examples.
     #[must_use]
     pub fn first_last_sibling(&self) -> (Self, Self) {
-        if let Some(parent_link) = self.intra_link.parent_link() {
+        if let Some(parent_link) = self.link.core().parent_link() {
             let (first_child_link, last_child_link) = parent_link
                 .first_last_child_link()
                 .expect("[validity] the parent must have at least one child (`self`)");
@@ -531,7 +527,8 @@ impl<T> HotNode<T> {
     /// See [`Node::first_child`] for usage examples.
     #[must_use]
     pub fn first_child(&self) -> Option<Self> {
-        self.intra_link
+        self.link
+            .core()
             .first_child_link()
             .map(Self::from_node_link_with_grant)
     }
@@ -541,7 +538,8 @@ impl<T> HotNode<T> {
     /// See [`Node::last_child`] for usage examples.
     #[must_use]
     pub fn last_child(&self) -> Option<Self> {
-        self.intra_link
+        self.link
+            .core()
             .last_child_link()
             .map(Self::from_node_link_with_grant)
     }
@@ -551,7 +549,7 @@ impl<T> HotNode<T> {
     /// See [`Node::first_last_child`] for usage examples.
     #[must_use]
     pub fn first_last_child(&self) -> Option<(Self, Self)> {
-        let (first_link, last_link) = self.intra_link.first_last_child_link()?;
+        let (first_link, last_link) = self.link.core().first_last_child_link()?;
         Some((
             Self::from_node_link_with_grant(first_link),
             Self::from_node_link_with_grant(last_link),
@@ -564,7 +562,7 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn has_prev_sibling(&self) -> bool {
-        self.intra_link.has_prev_sibling()
+        self.link.core().has_prev_sibling()
     }
 
     /// Returns true if the next sibling exists.
@@ -573,7 +571,7 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn has_next_sibling(&self) -> bool {
-        self.intra_link.has_next_sibling()
+        self.link.core().has_next_sibling()
     }
 
     /// Returns true if the node has any children.
@@ -582,7 +580,7 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn has_children(&self) -> bool {
-        self.intra_link.has_children()
+        self.link.core().has_children()
     }
 
     /// Returns the number of children.
@@ -593,7 +591,7 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn num_children(&self) -> usize {
-        self.intra_link.num_children_cell().get()
+        self.link.core().num_children_cell().get()
     }
 
     /// Returns true if the node has just one child.
@@ -631,7 +629,7 @@ impl<T> HotNode<T> {
     #[must_use]
     #[deprecated(since = "0.1.1", note = "use `HotNode::num_children`")]
     pub fn count_children(&self) -> usize {
-        self.intra_link.count_children()
+        self.link.core().count_children()
     }
 
     /// Returns the number of preceding siblings.
@@ -642,7 +640,7 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn count_preceding_siblings(&self) -> usize {
-        self.intra_link.count_preceding_siblings()
+        self.link.core().count_preceding_siblings()
     }
 
     /// Returns the number of following siblings.
@@ -653,7 +651,7 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn count_following_siblings(&self) -> usize {
-        self.intra_link.count_following_siblings()
+        self.link.core().count_following_siblings()
     }
 
     /// Returns the number of ancestors.
@@ -664,7 +662,7 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn count_ancestors(&self) -> usize {
-        self.intra_link.count_ancestors()
+        self.link.core().count_ancestors()
     }
 }
 
@@ -800,7 +798,7 @@ impl<T> HotNode<T> {
     /// See [`Node::detach_subtree`] for usage examples.
     #[inline]
     pub fn detach_subtree(&self) {
-        edit::detach_subtree(&self.intra_link);
+        edit::detach_subtree(self.link.core());
     }
 
     /// Creates a node as the specified neighbor of `self`, and returns the new node.
@@ -808,7 +806,7 @@ impl<T> HotNode<T> {
     /// See [`Node::try_create_node_as`] for usage examples.
     #[inline]
     pub fn try_create_node_as(&self, data: T, dest: AdoptAs) -> Result<Self, HierarchyError> {
-        edit::try_create_node_as(&self.intra_link, self.tree_core(), data, dest)
+        edit::try_create_node_as(self.link.core(), self.tree_core(), data, dest)
             .map(|node| Self::from_node(node).expect("[validity] a new node can be locked"))
     }
 
@@ -832,7 +830,7 @@ impl<T> HotNode<T> {
     #[inline]
     pub fn create_as_first_child(&self, data: T) -> Self {
         Self::from_node(edit::create_as_first_child(
-            &self.intra_link,
+            self.link.core(),
             self.tree_core(),
             data,
         ))
@@ -845,7 +843,7 @@ impl<T> HotNode<T> {
     #[inline]
     pub fn create_as_last_child(&self, data: T) -> Self {
         Self::from_node(edit::create_as_last_child(
-            &self.intra_link,
+            self.link.core(),
             self.tree_core(),
             data,
         ))
@@ -862,7 +860,7 @@ impl<T> HotNode<T> {
     /// is a root node.
     #[inline]
     pub fn try_create_as_prev_sibling(&self, data: T) -> Result<Self, HierarchyError> {
-        edit::try_create_as_prev_sibling(&self.intra_link, self.tree_core(), data)
+        edit::try_create_as_prev_sibling(self.link.core(), self.tree_core(), data)
             .map(|node| Self::from_node(node).expect("[validity] a new node can be locked"))
     }
 
@@ -889,7 +887,7 @@ impl<T> HotNode<T> {
     /// is a root node.
     #[inline]
     pub fn try_create_as_next_sibling(&self, data: T) -> Result<Self, HierarchyError> {
-        edit::try_create_as_next_sibling(&self.intra_link, self.tree_core(), data)
+        edit::try_create_as_next_sibling(self.link.core(), self.tree_core(), data)
             .map(|node| Self::from_node(node).expect("[validity] a new node can be locked"))
     }
 
@@ -937,7 +935,7 @@ impl<T> HotNode<T> {
     /// method.
     #[inline]
     pub fn create_as_interrupting_parent(&self, data: T) -> Self {
-        let new = edit::create_as_interrupting_parent(&self.intra_link, data);
+        let new = edit::create_as_interrupting_parent(self.link.core(), data);
         Self::from_node(new).expect("[validity] a new node can be locked")
     }
 
@@ -971,7 +969,7 @@ impl<T> HotNode<T> {
     /// method.
     #[inline]
     pub fn create_as_interrupting_child(&self, data: T) -> Self {
-        let new = edit::create_as_interrupting_child(&self.intra_link, data);
+        let new = edit::create_as_interrupting_child(self.link.core(), data);
         Self::from_node(new).expect("[validity] a new node can be locked")
     }
 
@@ -1016,7 +1014,7 @@ impl<T> HotNode<T> {
     ///     + In this case, [`HierarchyError::EmptyTree`] error is returned.
     #[inline]
     pub fn try_replace_with_children(&self) -> Result<(), HierarchyError> {
-        edit::try_replace_with_children(&self.intra_link)
+        edit::try_replace_with_children(self.link.core())
     }
 
     /// Inserts the children at the position of the node, and detach the node.
@@ -1136,17 +1134,14 @@ impl<T> HotNode<T> {
         &self,
         dest: InsertAs<&HotNode<T>>,
     ) -> Result<(), HierarchyError> {
-        if self
-            .plain_membership()
-            .belongs_to_same_tree(dest.anchor().plain_membership())
-        {
+        if self.link.belongs_to_same_tree(&dest.anchor().link) {
             // The source and the destination belong to the same tree.
-            edit::detach_and_move_inside_same_tree(&self.intra_link, dest.map(HotNode::intra_link))
+            edit::detach_and_move_inside_same_tree(self.link.core(), dest.map(HotNode::node_core))
         } else {
             // The source and the destination belong to the different tree.
             edit::detach_and_move_to_another_tree(
-                &self.intra_link,
-                dest.map(HotNode::intra_link),
+                self.link.core(),
+                dest.map(HotNode::node_core),
                 &dest.anchor().tree_core(),
             )
         }
@@ -1194,7 +1189,7 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn debug_pretty_print(&self) -> DebugPrettyPrint<'_, T> {
-        DebugPrettyPrint::new(&self.intra_link)
+        DebugPrettyPrint::new(self.link.core())
     }
 
     /// Returns a debug-printable proxy that does not dump neighbor nodes.
@@ -1207,7 +1202,7 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn debug_print_local(&self) -> DebugPrintNodeLocal<'_, T> {
-        DebugPrintNodeLocal::new_hot(&self.intra_link)
+        DebugPrintNodeLocal::new_hot(self.link.core())
     }
 
     /// Returns a debug-printable proxy that also dumps descendants recursively.
@@ -1220,6 +1215,6 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn debug_print_subtree(&self) -> DebugPrintSubtree<'_, T> {
-        DebugPrintSubtree::new_hot(&self.intra_link)
+        DebugPrintSubtree::new_hot(self.link.core())
     }
 }

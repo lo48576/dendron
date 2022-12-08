@@ -14,7 +14,7 @@ pub(crate) use self::debug_print::DebugPrintSubtreeDescendant;
 pub use self::debug_print::{DebugPrettyPrint, DebugPrintNodeLocal, DebugPrintSubtree};
 pub use self::frozen::FrozenNode;
 pub use self::hot::HotNode;
-pub(crate) use self::internal::IntraTreeLink;
+pub(crate) use self::internal::{IntraTreeLink, NodeLink};
 use self::internal::{IntraTreeLinkWeak, NodeBuilder};
 pub use self::plain::{Node, NodeWeak};
 
