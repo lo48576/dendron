@@ -197,7 +197,7 @@ impl<T> Membership<T> {
     #[inline]
     #[must_use]
     pub(crate) fn belongs_to(&self, tree: &Tree<T>) -> bool {
-        tree.ptr_eq_core(&*self.tree_core_ref())
+        Rc::ptr_eq(tree.core(), &*self.tree_core_ref())
     }
 
     /// Returns true if the given node belong to the same tree.

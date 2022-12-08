@@ -191,6 +191,13 @@ impl<T> Tree<T> {
         Self { core }
     }
 
+    /// Returns a reference to the tree core.
+    #[inline]
+    #[must_use]
+    pub(crate) fn core(&self) -> &Rc<TreeCore<T>> {
+        &self.core
+    }
+
     /// Returns the root node.
     ///
     /// # Examples
@@ -290,13 +297,6 @@ impl<T> Tree<T> {
     #[must_use]
     pub fn ptr_eq(&self, other: &Self) -> bool {
         Rc::ptr_eq(&self.core, &other.core)
-    }
-
-    /// Returns `true` if the given `Rc<TreeCore>` point to the same allocation as `self`.
-    #[inline]
-    #[must_use]
-    pub(crate) fn ptr_eq_core(&self, other: &Rc<TreeCore<T>>) -> bool {
-        Rc::ptr_eq(&self.core, other)
     }
 
     /// Compares two trees.
