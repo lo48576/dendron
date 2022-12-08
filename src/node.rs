@@ -5,6 +5,7 @@ mod edit;
 mod frozen;
 mod hot;
 mod internal;
+mod membership;
 mod plain;
 
 use core::cell::BorrowError;
