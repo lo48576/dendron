@@ -6,9 +6,8 @@ use core::fmt;
 use alloc::rc::Rc;
 
 use crate::anchor::InsertAs;
-use crate::membership::MembershipWithEditProhibition;
 use crate::node::debug_print::{DebugPrettyPrint, DebugPrintNodeLocal, DebugPrintSubtree};
-use crate::node::{edit, HierarchyError, HotNode, IntraTreeLink, Node};
+use crate::node::{edit, HierarchyError, HotNode, IntraTreeLink, Node, NodeLink};
 use crate::serial;
 use crate::traverse;
 use crate::tree::{HierarchyEditProhibition, HierarchyEditProhibitionError, Tree, TreeCore};
@@ -23,18 +22,23 @@ use crate::tree::{HierarchyEditProhibition, HierarchyEditProhibitionError, Tree,
 /// Panics if the number of active edit prohibitions through this node is
 /// `usize::MAX`. This is very unlikely to happen without leaking prohibitions.
 pub struct FrozenNode<T> {
-    /// Target node core.
-    pub(super) intra_link: IntraTreeLink<T>,
-    /// Membership of a node with ownership of the tree.
-    membership: MembershipWithEditProhibition<T>,
+    /// Node.
+    link: NodeLink<T>,
+}
+
+impl<T> Drop for FrozenNode<T> {
+    #[inline]
+    fn drop(&mut self) {
+        self.link.decrement_edit_lock_count();
+    }
 }
 
 impl<T> Clone for FrozenNode<T> {
     #[inline]
     fn clone(&self) -> Self {
+        self.link.increment_nonzero_edit_lock_count();
         Self {
-            intra_link: self.intra_link.clone(),
-            membership: self.membership.clone(),
+            link: self.link.clone(),
         }
     }
 }
@@ -68,7 +72,7 @@ where
     /// See the documentation for [`Node::try_eq`] method.
     #[inline]
     fn eq(&self, other: &FrozenNode<U>) -> bool {
-        self.intra_link.try_eq(&other.intra_link).expect(
+        self.link.try_eq(&other.link).expect(
             "[precondition] data associated to the nodes in both trees should be borrowable",
         )
     }
@@ -80,15 +84,11 @@ impl<T> FrozenNode<T> {
     /// Creates a new `FrozenNode` from the given plain node.
     #[inline]
     pub(super) fn from_node(node: Node<T>) -> Result<Self, HierarchyEditProhibitionError> {
-        let Node {
-            intra_link,
-            membership,
-        } = node;
-        let membership = MembershipWithEditProhibition::new(membership)?;
-        Ok(Self {
-            intra_link,
-            membership,
-        })
+        let Node { intra_link, .. } = node;
+        let link =
+            NodeLink::new(intra_link).expect("[validity] node referred by `Node<T>` is alive");
+        link.acquire_edit_prohibition()?;
+        Ok(Self { link })
     }
 
     /// Creates a new `FrozenNode` from the given plain node and the prohibition.
@@ -105,46 +105,36 @@ impl<T> FrozenNode<T> {
     ) -> Self {
         prohibition.panic_if_invalid_for_node(&node);
 
-        let Node {
-            intra_link,
-            membership,
-        } = node;
-        let membership = MembershipWithEditProhibition::new(membership)
+        let Node { intra_link, .. } = node;
+        let link =
+            NodeLink::new(intra_link).expect("[validity] node referred by `Node<T>` is alive");
+        link.acquire_edit_prohibition()
             .expect("[validity] a valid prohibition already exists for the tree");
-        Self {
-            intra_link,
-            membership,
-        }
+        Self { link }
     }
 
     /// Creates a node from the internal values.
     ///
     /// # Panics
     ///
-    /// Panics if the membership field of the node link is not set up.
-    ///
     /// Panics if a reference to the tree core is not valid.
     ///
     /// Panics if the tree is prohibited to be edited.
     #[must_use]
     pub(crate) fn from_node_link_with_prohibition(intra_link: IntraTreeLink<T>) -> Self {
-        let membership = intra_link.membership().upgrade().expect(
-            "[consistency] the membership must be alive since the corresponding node link is alive",
-        );
-        let membership = MembershipWithEditProhibition::new(membership)
+        let link =
+            NodeLink::new(intra_link).expect("[validity] node referred by `Node<T>` is alive");
+        link.acquire_edit_prohibition()
             .expect("[consistency] there should have already been tree hierarchy edit prohibition");
 
-        Self {
-            intra_link,
-            membership,
-        }
+        Self { link }
     }
 
     /// Returns the tree core.
     #[inline]
     #[must_use]
     fn tree_core(&self) -> Rc<TreeCore<T>> {
-        self.intra_link.tree_core()
+        self.link.tree_core()
     }
 
     /// Creates a plain node reference for the node.
@@ -163,7 +153,20 @@ impl<T> FrozenNode<T> {
     #[inline]
     #[must_use]
     pub fn plain(&self) -> Node<T> {
-        Node::with_link_and_membership(self.intra_link.clone(), self.membership.as_inner().clone())
+        let membership = self
+            .link
+            .core()
+            .membership()
+            .upgrade()
+            .expect("[validity] node referred by `FrozenNode` is alive");
+        Node::with_link_and_membership(self.link.core().clone(), membership)
+    }
+
+    /// Returns a reference to the node core.
+    #[inline]
+    #[must_use]
+    pub(super) fn node_core(&self) -> &IntraTreeLink<T> {
+        self.link.core()
     }
 }
 
@@ -225,7 +228,7 @@ impl<T> FrozenNode<T> {
     /// ```
     #[inline]
     pub fn try_borrow_data(&self) -> Result<Ref<'_, T>, BorrowError> {
-        self.intra_link.try_borrow_data()
+        self.link.core().try_borrow_data()
     }
 
     /// Returns a reference to the data associated to the node.
@@ -248,7 +251,7 @@ impl<T> FrozenNode<T> {
     #[inline]
     #[must_use]
     pub fn borrow_data(&self) -> Ref<'_, T> {
-        self.intra_link.borrow_data()
+        self.link.core().borrow_data()
     }
 
     /// Returns a mutable reference to the data associated to the node.
@@ -270,7 +273,7 @@ impl<T> FrozenNode<T> {
     /// ```
     #[inline]
     pub fn try_borrow_data_mut(&self) -> Result<RefMut<'_, T>, BorrowMutError> {
-        self.intra_link.try_borrow_data_mut()
+        self.link.core().try_borrow_data_mut()
     }
 
     /// Returns a mutable reference to the data associated to the node.
@@ -294,7 +297,7 @@ impl<T> FrozenNode<T> {
     #[inline]
     #[must_use]
     pub fn borrow_data_mut(&self) -> RefMut<'_, T> {
-        self.intra_link.borrow_data_mut()
+        self.link.core().borrow_data_mut()
     }
 
     /// Returns `true` if the two `FrozenNode`s point to the same allocation.
@@ -322,7 +325,7 @@ impl<T> FrozenNode<T> {
     #[inline]
     #[must_use]
     pub fn ptr_eq(&self, other: &Self) -> bool {
-        IntraTreeLink::ptr_eq(&self.intra_link, &other.intra_link)
+        IntraTreeLink::ptr_eq(self.link.core(), other.link.core())
     }
 }
 
@@ -365,14 +368,11 @@ impl<T> FrozenNode<T> {
     #[must_use]
     pub fn is_root(&self) -> bool {
         debug_assert_eq!(
-            self.intra_link.is_root(),
-            self.intra_link
-                .tree_core()
-                .root_link()
-                .ptr_eq(&self.intra_link),
+            self.link.core().is_root(),
+            self.link.tree_core().root_link().ptr_eq(self.link.core()),
         );
         // The node is a root if and only if the node has no parent.
-        self.intra_link.is_root()
+        self.link.core().is_root()
     }
 
     /// Returns true if the node belongs to the given tree.
@@ -395,7 +395,7 @@ impl<T> FrozenNode<T> {
     #[inline]
     #[must_use]
     pub fn belongs_to(&self, tree: &Tree<T>) -> bool {
-        self.membership.as_ref().belongs_to(tree)
+        self.link.belongs_to(tree.core())
     }
 
     /// Returns true if the given node belong to the same tree.
@@ -417,7 +417,7 @@ impl<T> FrozenNode<T> {
     #[inline]
     #[must_use]
     pub fn belongs_to_same_tree(&self, other: &Self) -> bool {
-        self.membership.belongs_to_same_tree(&other.membership)
+        self.link.belongs_to_same_tree(&other.link)
     }
 
     /// Returns the hot root node.
@@ -444,7 +444,8 @@ impl<T> FrozenNode<T> {
     /// See [`Node::parent`] for usage examples.
     #[must_use]
     pub fn parent(&self) -> Option<Self> {
-        self.intra_link
+        self.link
+            .core()
             .parent_link()
             .map(Self::from_node_link_with_prohibition)
     }
@@ -454,7 +455,8 @@ impl<T> FrozenNode<T> {
     /// See [`Node::prev_sibling`] for usage examples.
     #[must_use]
     pub fn prev_sibling(&self) -> Option<Self> {
-        self.intra_link
+        self.link
+            .core()
             .prev_sibling_link()
             .map(Self::from_node_link_with_prohibition)
     }
@@ -464,7 +466,8 @@ impl<T> FrozenNode<T> {
     /// See [`Node::next_sibling`] for usage examples.
     #[must_use]
     pub fn next_sibling(&self) -> Option<Self> {
-        self.intra_link
+        self.link
+            .core()
             .next_sibling_link()
             .map(Self::from_node_link_with_prohibition)
     }
@@ -474,7 +477,7 @@ impl<T> FrozenNode<T> {
     /// See [`Node::first_sibling`] for usage examples.
     #[must_use]
     pub fn first_sibling(&self) -> Self {
-        if let Some(parent_link) = self.intra_link.parent_link() {
+        if let Some(parent_link) = self.link.core().parent_link() {
             let first_child_link = parent_link
                 .first_child_link()
                 .expect("[validity] the parent must have at least one child (`self`)");
@@ -490,7 +493,7 @@ impl<T> FrozenNode<T> {
     /// See [`Node::last_sibling`] for usage examples.
     #[must_use]
     pub fn last_sibling(&self) -> Self {
-        if let Some(parent_link) = self.intra_link.parent_link() {
+        if let Some(parent_link) = self.link.core().parent_link() {
             let last_child_lin = parent_link
                 .last_child_link()
                 .expect("[validity] the parent must have at least one child (`self`)");
@@ -506,7 +509,7 @@ impl<T> FrozenNode<T> {
     /// See [`Node::first_last_sibling`] for usage examples.
     #[must_use]
     pub fn first_last_sibling(&self) -> (Self, Self) {
-        if let Some(parent_link) = self.intra_link.parent_link() {
+        if let Some(parent_link) = self.link.core().parent_link() {
             let (first_child_link, last_child_link) = parent_link
                 .first_last_child_link()
                 .expect("[validity] the parent must have at least one child (`self`)");
@@ -525,7 +528,8 @@ impl<T> FrozenNode<T> {
     /// See [`Node::first_child`] for usage examples.
     #[must_use]
     pub fn first_child(&self) -> Option<Self> {
-        self.intra_link
+        self.link
+            .core()
             .first_child_link()
             .map(Self::from_node_link_with_prohibition)
     }
@@ -535,7 +539,8 @@ impl<T> FrozenNode<T> {
     /// See [`Node::last_child`] for usage examples.
     #[must_use]
     pub fn last_child(&self) -> Option<Self> {
-        self.intra_link
+        self.link
+            .core()
             .last_child_link()
             .map(Self::from_node_link_with_prohibition)
     }
@@ -545,7 +550,7 @@ impl<T> FrozenNode<T> {
     /// See [`Node::first_last_child`] for usage examples.
     #[must_use]
     pub fn first_last_child(&self) -> Option<(Self, Self)> {
-        let (first_link, last_link) = self.intra_link.first_last_child_link()?;
+        let (first_link, last_link) = self.link.core().first_last_child_link()?;
         Some((
             Self::from_node_link_with_prohibition(first_link),
             Self::from_node_link_with_prohibition(last_link),
@@ -558,7 +563,7 @@ impl<T> FrozenNode<T> {
     #[inline]
     #[must_use]
     pub fn has_prev_sibling(&self) -> bool {
-        self.intra_link.has_prev_sibling()
+        self.link.core().has_prev_sibling()
     }
 
     /// Returns true if the next sibling exists.
@@ -567,7 +572,7 @@ impl<T> FrozenNode<T> {
     #[inline]
     #[must_use]
     pub fn has_next_sibling(&self) -> bool {
-        self.intra_link.has_next_sibling()
+        self.link.core().has_next_sibling()
     }
 
     /// Returns true if the node has any children.
@@ -576,7 +581,7 @@ impl<T> FrozenNode<T> {
     #[inline]
     #[must_use]
     pub fn has_children(&self) -> bool {
-        self.intra_link.has_children()
+        self.link.core().has_children()
     }
 
     /// Returns the number of children.
@@ -587,7 +592,7 @@ impl<T> FrozenNode<T> {
     #[inline]
     #[must_use]
     pub fn num_children(&self) -> usize {
-        self.intra_link.num_children_cell().get()
+        self.link.core().num_children_cell().get()
     }
 
     /// Returns true if the node has just one child.
@@ -625,7 +630,7 @@ impl<T> FrozenNode<T> {
     #[must_use]
     #[deprecated(since = "0.1.1", note = "use `HotNode::num_children`")]
     pub fn count_children(&self) -> usize {
-        self.intra_link.count_children()
+        self.link.core().count_children()
     }
 
     /// Returns the number of preceding siblings.
@@ -636,7 +641,7 @@ impl<T> FrozenNode<T> {
     #[inline]
     #[must_use]
     pub fn count_preceding_siblings(&self) -> usize {
-        self.intra_link.count_preceding_siblings()
+        self.link.core().count_preceding_siblings()
     }
 
     /// Returns the number of following siblings.
@@ -647,7 +652,7 @@ impl<T> FrozenNode<T> {
     #[inline]
     #[must_use]
     pub fn count_following_siblings(&self) -> usize {
-        self.intra_link.count_following_siblings()
+        self.link.core().count_following_siblings()
     }
 
     /// Returns the number of ancestors.
@@ -658,7 +663,7 @@ impl<T> FrozenNode<T> {
     #[inline]
     #[must_use]
     pub fn count_ancestors(&self) -> usize {
-        self.intra_link.count_ancestors()
+        self.link.core().count_ancestors()
     }
 }
 
@@ -1211,7 +1216,7 @@ impl<T> FrozenNode<T> {
     #[inline]
     #[must_use]
     pub fn debug_pretty_print(&self) -> DebugPrettyPrint<'_, T> {
-        DebugPrettyPrint::new(&self.intra_link)
+        DebugPrettyPrint::new(self.link.core())
     }
 
     /// Returns a debug-printable proxy that does not dump neighbor nodes.
@@ -1224,7 +1229,7 @@ impl<T> FrozenNode<T> {
     #[inline]
     #[must_use]
     pub fn debug_print_local(&self) -> DebugPrintNodeLocal<'_, T> {
-        DebugPrintNodeLocal::new_frozen(&self.intra_link)
+        DebugPrintNodeLocal::new_frozen(self.link.core())
     }
 
     /// Returns a debug-printable proxy that also dumps descendants recursively.
@@ -1237,6 +1242,6 @@ impl<T> FrozenNode<T> {
     #[inline]
     #[must_use]
     pub fn debug_print_subtree(&self) -> DebugPrintSubtree<'_, T> {
-        DebugPrintSubtree::new_frozen(&self.intra_link)
+        DebugPrintSubtree::new_frozen(self.link.core())
     }
 }

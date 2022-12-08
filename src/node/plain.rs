@@ -136,7 +136,7 @@ macro_rules! impl_cmp_different_node_types {
         /// See the documentation for [`Node::try_eq`] method.
         #[inline]
         fn eq(&self, other: &$ty_rhs) -> bool {
-            self.intra_link.try_eq(&other.intra_link).expect(
+            self.node_core().try_eq(&other.node_core()).expect(
                 "[precondition] data associated to the nodes in both trees should be borrowable",
             )
         }
@@ -147,7 +147,7 @@ impl_cmp_different_node_types!(Node, FrozenNode);
 impl_cmp_different_node_types!(Node, HotNode);
 impl_cmp_different_node_types!(FrozenNode, HotNode);
 
-/// Node object creation.
+/// Node object creation and internals.
 impl<T> Node<T> {
     /// Creates a node from the internal values.
     ///
@@ -206,6 +206,13 @@ impl<T> Node<T> {
         NodeWeak {
             intra_link: self.intra_link.downgrade(),
         }
+    }
+
+    /// Returns a reference to the node core.
+    #[inline]
+    #[must_use]
+    pub(super) fn node_core(&self) -> &IntraTreeLink<T> {
+        &self.intra_link
     }
 }
 
@@ -2610,17 +2617,15 @@ impl<T> Node<T> {
     ) -> Result<(), HierarchyError> {
         grant.panic_if_invalid_for_node(self);
 
-        if self
-            .membership
-            .belongs_to_same_tree(dest.anchor().plain_membership())
-        {
+        // TODO: Avoid using `Self::tree()` once the definition of `Node` is updated.
+        if dest.anchor().belongs_to_tree_core(self.tree().core()) {
             // The source and the destination belong to the same tree.
-            edit::detach_and_move_inside_same_tree(&self.intra_link, dest.map(HotNode::intra_link))
+            edit::detach_and_move_inside_same_tree(&self.intra_link, dest.map(HotNode::node_core))
         } else {
             // The source and the destination belong to the different tree.
             edit::detach_and_move_to_another_tree(
                 &self.intra_link,
-                dest.map(HotNode::intra_link),
+                dest.map(HotNode::node_core),
                 &dest.anchor().tree_core(),
             )
         }
