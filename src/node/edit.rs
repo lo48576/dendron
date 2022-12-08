@@ -375,7 +375,7 @@ fn set_memberships_of_descendants_and_self<T>(
 ) -> Result<(), ()> {
     for current in this.depth_first_traverse() {
         if let DftEvent::Open(link) = current {
-            link.membership().set_tree_core(tree_core_rc)?;
+            link.membership_ref().set_tree_core(tree_core_rc)?;
         }
     }
     Ok(())
