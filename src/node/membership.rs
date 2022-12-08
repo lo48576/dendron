@@ -15,7 +15,7 @@ use crate::tree::{
 /// Note that nodes may change its affiliation to another tree. In this case,
 /// membership should also be changed for all `Node` objects referring to the
 /// node, so this will be usually shared as `Rc<RefCell<<T>>>`.
-pub(crate) enum MembershipCore<T> {
+pub(super) enum MembershipCore<T> {
     /// Weak membership: non-owning reference to the tree core.
     ///
     /// If there are no `Node<T>`s for the node, the membership will stay in
@@ -60,7 +60,7 @@ impl<T> MembershipCore<T> {
     /// Creates a new (weak) `MembershipCore` for the given tree.
     #[inline]
     #[must_use]
-    pub(crate) fn new_for_existing_tree(tree_core: &Rc<TreeCore<T>>) -> Self {
+    pub(super) fn new_for_existing_tree(tree_core: &Rc<TreeCore<T>>) -> Self {
         Self::Weak {
             tree_core: Rc::downgrade(tree_core),
         }
@@ -69,7 +69,7 @@ impl<T> MembershipCore<T> {
     /// Creates a new (weak) `MembershipCore` with the dangling tree reference.
     #[inline]
     #[must_use]
-    pub(crate) fn dangling() -> Self {
+    pub(super) fn dangling() -> Self {
         Self::Weak {
             tree_core: Weak::new(),
         }
@@ -78,13 +78,13 @@ impl<T> MembershipCore<T> {
 
 /// A convenience wrapper for `RefCell<MembershipCore<T>>`.
 #[derive(Clone, Copy)]
-pub(crate) struct MembershipRef<'a, T>(&'a RefCell<MembershipCore<T>>);
+pub(super) struct MembershipRef<'a, T>(&'a RefCell<MembershipCore<T>>);
 
 impl<'a, T> MembershipRef<'a, T> {
     /// Creates a new membership reference.
     #[inline]
     #[must_use]
-    pub(crate) fn new(core: &'a RefCell<MembershipCore<T>>) -> Self {
+    pub(super) fn new(core: &'a RefCell<MembershipCore<T>>) -> Self {
         Self(core)
     }
 
@@ -95,7 +95,7 @@ impl<'a, T> MembershipRef<'a, T> {
     /// Panics if the membership has been already associated to any tree.
     /// The membership should be a one that is unmodified since created by
     /// `MembershipCore::dangling()`.
-    pub(crate) fn initialize_with_tree_and_set_refcount_to_1(self, tree_core: Rc<TreeCore<T>>) {
+    pub(super) fn initialize_with_tree_and_set_refcount_to_1(self, tree_core: Rc<TreeCore<T>>) {
         let mut core = self
             .0
             .try_borrow_mut()
@@ -123,7 +123,7 @@ impl<'a, T> MembershipRef<'a, T> {
 
     /// Returns the temporary reference to the `Rc` of the tree core.
     #[must_use]
-    pub(crate) fn tree_core_strong_ref(self) -> Option<Ref<'a, Rc<TreeCore<T>>>> {
+    pub(super) fn tree_core_strong_ref(self) -> Option<Ref<'a, Rc<TreeCore<T>>>> {
         let core = self
             .0
             .try_borrow()
@@ -137,7 +137,7 @@ impl<'a, T> MembershipRef<'a, T> {
 
     /// Returns the shared owning reference to the tree core.
     #[must_use]
-    pub(crate) fn tree_core_opt(self) -> Option<Rc<TreeCore<T>>> {
+    pub(super) fn tree_core_opt(self) -> Option<Rc<TreeCore<T>>> {
         let core = self
             .0
             .try_borrow()
@@ -153,7 +153,7 @@ impl<'a, T> MembershipRef<'a, T> {
     /// # Failures
     ///
     /// Fails if the tree is already released and unavailable.
-    pub(crate) fn increment_tree_refcount(self) -> Result<(), ()> {
+    pub(super) fn increment_tree_refcount(self) -> Result<(), ()> {
         let mut core = self
             .0
             .try_borrow_mut()
@@ -180,7 +180,7 @@ impl<'a, T> MembershipRef<'a, T> {
     }
 
     /// Increments the reference count of the tree, assuming the refcount is already nonzero.
-    pub(crate) fn increment_nonzero_tree_refcount(self) {
+    pub(super) fn increment_nonzero_tree_refcount(self) {
         let mut core = self
             .0
             .try_borrow_mut()
@@ -200,7 +200,7 @@ impl<'a, T> MembershipRef<'a, T> {
     }
 
     /// Decrements the reference count of the tree.
-    pub(crate) fn decrement_tree_refcount(self) {
+    pub(super) fn decrement_tree_refcount(self) {
         let mut core = self
             .0
             .try_borrow_mut()
@@ -240,7 +240,7 @@ impl<'a, T> MembershipRef<'a, T> {
     ///
     /// Fails if the new tree cannot be locked with the currently active tree
     /// hierarchy edit lock.
-    pub(crate) fn set_tree_core(&self, new_tree_core: &Rc<TreeCore<T>>) -> Result<(), ()> {
+    pub(super) fn set_tree_core(&self, new_tree_core: &Rc<TreeCore<T>>) -> Result<(), ()> {
         let mut core = self
             .0
             .try_borrow_mut()
@@ -263,7 +263,7 @@ impl<'a, T> MembershipRef<'a, T> {
 
     /// Returns true if the membership refers to the same tree core allocation.
     #[must_use]
-    pub(crate) fn ptr_eq_tree_core(&self, tree_core: &Rc<TreeCore<T>>) -> bool {
+    pub(super) fn ptr_eq_tree_core(&self, tree_core: &Rc<TreeCore<T>>) -> bool {
         let core = self
             .0
             .try_borrow()
@@ -352,7 +352,7 @@ impl<'a, T> MembershipRef<'a, T> {
     /// # Panics
     ///
     /// Panics if the the membership is not strong.
-    pub(crate) fn acquire_edit_grant(&self) -> Result<(), HierarchyEditGrantError> {
+    pub(super) fn acquire_edit_grant(&self) -> Result<(), HierarchyEditGrantError> {
         let mut core = self
             .0
             .try_borrow_mut()

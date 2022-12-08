@@ -6,7 +6,7 @@ use core::mem;
 
 use alloc::rc::{Rc, Weak};
 
-use crate::membership::{MembershipCore, MembershipRef};
+use crate::node::membership::{MembershipCore, MembershipRef};
 use crate::traverse::DftEvent;
 use crate::tree::{HierarchyEditGrantError, HierarchyEditProhibitionError, TreeCore};
 
@@ -226,7 +226,7 @@ impl<T> IntraTreeLink<T> {
     /// Returns the membership.
     #[inline]
     #[must_use]
-    pub(crate) fn membership_ref(&self) -> MembershipRef<'_, T> {
+    pub(super) fn membership_ref(&self) -> MembershipRef<'_, T> {
         MembershipRef::new(&self.core.membership)
     }
 
