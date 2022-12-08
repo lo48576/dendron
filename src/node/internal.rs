@@ -81,6 +81,7 @@ impl<T> NodeBuilder<T> {
             num_children: Cell::new(self.num_children),
         })
     }
+
     /// Builds a node core.
     #[inline]
     #[must_use]
@@ -689,6 +690,36 @@ impl<T> Clone for NodeLink<T> {
 
 /// Internal functions and helpers.
 impl<T> NodeLink<T> {
+    /// Creates a root node of a new tree.
+    pub(super) fn new_tree_root(root_data: T) -> Self {
+        let membership = WeakMembership::new();
+        let core = IntraTreeLink {
+            core: Rc::new(NodeCore {
+                data: RefCell::new(root_data),
+                neighbors: RefCell::new(Neighbors {
+                    parent: Default::default(),
+                    first_child: Default::default(),
+                    next_sibling: Default::default(),
+                    prev_sibling_cyclic: Default::default(),
+                }),
+                membership: membership.clone(),
+                num_children: Cell::new(0),
+            }),
+        };
+
+        // Initialize `prev_sibling_cyclic`.
+        let weak = core.downgrade();
+        core.replace_prev_sibling_cyclic(weak);
+
+        // Initialize membership.
+        let tree_core_rc = TreeCore::new_rc(core.clone());
+        // Note that this should be alive until `Self::new()` is done, or else it
+        // will release the tree before `Self::new()` as no strong references exist.
+        let _membership_strong = membership.initialize_membership(tree_core_rc);
+
+        Self::new(core).expect("[consistency] the node is just created and is alive")
+    }
+
     /// Creates a node link from the node core link.
     ///
     /// Returns when the target tree is already dead.

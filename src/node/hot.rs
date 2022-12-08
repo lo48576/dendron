@@ -84,9 +84,8 @@ impl<T> HotNode<T> {
     /// Creates a new `HotNode` from the given plain node.
     #[inline]
     pub(super) fn from_node(node: Node<T>) -> Result<Self, HierarchyEditGrantError> {
-        let Node { intra_link, .. } = node;
-        let link =
-            NodeLink::new(intra_link).expect("[validity] node referred by `Node<T>` is alive");
+        // FIXME: Use `Node` directly instead of cloning the link.
+        let link = node.link().clone();
         link.acquire_edit_grant()?;
         Ok(Self { link })
     }
@@ -102,9 +101,8 @@ impl<T> HotNode<T> {
     pub(super) fn from_node_and_grant(node: Node<T>, grant: &HierarchyEditGrant<T>) -> Self {
         grant.panic_if_invalid_for_node(&node);
 
-        let Node { intra_link, .. } = node;
-        let link =
-            NodeLink::new(intra_link).expect("[validity] node referred by `Node<T>` is alive");
+        // FIXME: Use `Node` directly instead of cloning the link.
+        let link = node.link().clone();
         link.acquire_edit_grant()
             .expect("[validity] a valid grant already exists for the tree");
         Self { link }
@@ -154,13 +152,7 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn plain(&self) -> Node<T> {
-        let membership = self
-            .link
-            .core()
-            .membership()
-            .upgrade()
-            .expect("[validity] node referred by `HotNode` is alive");
-        Node::with_link_and_membership(self.link.core().clone(), membership)
+        Node::with_node_link(self.link.clone())
     }
 }
 

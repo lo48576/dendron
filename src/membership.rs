@@ -1,12 +1,12 @@
 //! Nodes' membership to trees.
 
-use core::cell::{Ref, RefCell};
+use core::cell::RefCell;
 use core::fmt;
 use core::num::NonZeroUsize;
 
 use alloc::rc::{Rc, Weak};
 
-use crate::tree::{LockAggregatorForNode, Tree, TreeCore};
+use crate::tree::{LockAggregatorForNode, TreeCore};
 
 /// A membership of a node to a tree.
 ///
@@ -148,19 +148,6 @@ impl<T> Clone for Membership<T> {
 }
 
 impl<T> Membership<T> {
-    /// Returns a reference to the tree core without cloning `Rc`.
-    #[must_use]
-    fn tree_core_ref(&self) -> Ref<'_, Rc<TreeCore<T>>> {
-        let membership_core = self
-            .inner
-            .try_borrow()
-            .expect("[consistency] membership core should never borrowed nestedly");
-        Ref::map(membership_core, |membership_core| match membership_core {
-            MembershipCore::Weak { .. } => unreachable!("[validity] `self` has a strong reference"),
-            MembershipCore::Strong { tree_core, .. } => tree_core,
-        })
-    }
-
     /// Creates a weakened membership.
     #[inline]
     #[must_use]
@@ -182,28 +169,6 @@ impl<T> Membership<T> {
         Membership {
             inner: Rc::new(RefCell::new(membership)),
         }
-    }
-
-    /// Returns `true` if the two memberships refer to the same core data allocation.
-    #[inline]
-    #[must_use]
-    pub(crate) fn ptr_eq_weak(&self, other: &WeakMembership<T>) -> bool {
-        Rc::ptr_eq(&self.inner, &other.inner)
-    }
-
-    /// Returns true if the node belong to the given tree.
-    #[inline]
-    #[must_use]
-    pub(crate) fn belongs_to(&self, tree: &Tree<T>) -> bool {
-        Rc::ptr_eq(tree.core(), &*self.tree_core_ref())
-    }
-
-    /// Returns true if the given node belong to the same tree.
-    #[must_use]
-    pub(crate) fn belongs_to_same_tree(&self, other: &Self) -> bool {
-        let self_ptr = Rc::as_ptr(&*self.tree_core_ref());
-        let other_ptr = Rc::as_ptr(&*other.tree_core_ref());
-        self_ptr == other_ptr
     }
 }
 
@@ -269,38 +234,6 @@ impl<T> WeakMembership<T> {
         };
         drop(inner);
         Membership { inner: self.inner }
-    }
-
-    /// Upgrade the membership to a strong one.
-    #[must_use]
-    pub(crate) fn upgrade(&self) -> Option<Membership<T>> {
-        // Need to update strong refcount.
-        let mut membership_core = self
-            .inner
-            .try_borrow_mut()
-            .expect("[consistency] membership core should never borrowed nestedly");
-        match &mut *membership_core {
-            MembershipCore::Weak { tree_core } => {
-                let tree_refcount = NonZeroUsize::new(1).expect("[consistency] 1 is nonzero");
-                let tree_core = tree_core.upgrade()?;
-                *membership_core = MembershipCore::Strong {
-                    tree_core,
-                    tree_refcount,
-                    lock_aggregator: Default::default(),
-                };
-            }
-            MembershipCore::Strong { tree_refcount, .. } => {
-                // `NonZeroUsize::checked_add()` is unstable as of Rust 1.59.
-                // See <https://github.com/rust-lang/rust/issues/84186>.
-                let incremented = NonZeroUsize::new(tree_refcount.get().wrapping_add(1))
-                    .expect("[consistency] the memory cannot have `usize::MAX` references");
-                *tree_refcount = incremented;
-            }
-        }
-
-        Some(Membership {
-            inner: self.inner.clone(),
-        })
     }
 
     /// Returns true if the membership refers to the same tree core allocation.

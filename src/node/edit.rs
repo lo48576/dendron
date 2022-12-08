@@ -48,10 +48,10 @@ impl<'a, T> OrphanRoot<'a, T> {
             num_children: 0,
         }
         .build_link();
-        let node = Node::with_link_and_membership(intra_link, membership);
+        let node = Node::with_node_core(intra_link);
 
         process(OrphanRoot {
-            link: &node.intra_link,
+            link: node.node_core(),
             is_newly_created: true,
         })?;
 
