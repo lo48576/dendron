@@ -138,6 +138,15 @@ impl<T> IntraTreeLink<T> {
 
 /// Getters.
 impl<T> IntraTreeLink<T> {
+    /// Returns the tree core.
+    #[must_use]
+    pub(super) fn tree_core(&self) -> Rc<TreeCore<T>> {
+        self.membership()
+            .core_wrap()
+            .tree_core_opt()
+            .expect("[validity] the tree must be alive if a node is alive")
+    }
+
     /// Returns the neighbors.
     #[must_use]
     fn neighbors(&self) -> Ref<'_, Neighbors<T>> {

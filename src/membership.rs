@@ -55,6 +55,38 @@ impl<T: fmt::Debug> fmt::Debug for MembershipCore<T> {
     }
 }
 
+/// A convenience wrapper for `RefCell<MembershipCore<T>>`.
+pub(crate) struct MembershipCoreWrap<'a, T>(&'a RefCell<MembershipCore<T>>);
+
+impl<'a, T> MembershipCoreWrap<'a, T> {
+    /// Returns the shared owning reference to the tree core.
+    #[must_use]
+    pub(crate) fn tree_core_opt(&self) -> Option<Rc<TreeCore<T>>> {
+        let core = self
+            .0
+            .try_borrow()
+            .expect("[consistency] membership core should never be borrowed nestedly");
+        match &*core {
+            MembershipCore::Weak { tree_core } => Weak::upgrade(tree_core),
+            MembershipCore::Strong { tree_core, .. } => Some(tree_core.clone()),
+        }
+    }
+}
+
+impl<'a, T> From<&'a Membership<T>> for MembershipCoreWrap<'a, T> {
+    #[inline]
+    fn from(v: &'a Membership<T>) -> Self {
+        Self(&v.inner)
+    }
+}
+
+impl<'a, T> From<&'a WeakMembership<T>> for MembershipCoreWrap<'a, T> {
+    #[inline]
+    fn from(v: &'a WeakMembership<T>) -> Self {
+        Self(&v.inner)
+    }
+}
+
 /// A reference to the membership of a node, with strong ownership of a tree.
 #[derive(Debug)]
 pub(crate) struct Membership<T> {
@@ -118,16 +150,9 @@ impl<T> Clone for Membership<T> {
 }
 
 impl<T> Membership<T> {
-    /// Returns a reference to the tree core.
-    #[inline]
-    #[must_use]
-    pub(crate) fn tree_core(&self) -> Rc<TreeCore<T>> {
-        self.tree_core_ref().clone()
-    }
-
     /// Returns a reference to the tree core without cloning `Rc`.
     #[must_use]
-    pub(crate) fn tree_core_ref(&self) -> Ref<'_, Rc<TreeCore<T>>> {
+    fn tree_core_ref(&self) -> Ref<'_, Rc<TreeCore<T>>> {
         let membership_core = self
             .inner
             .try_borrow()
@@ -394,6 +419,15 @@ impl<T> WeakMembership<T> {
             }
         }
         Ok(())
+    }
+}
+
+impl<T> WeakMembership<T> {
+    /// Returns the convenience wrapper.
+    #[inline]
+    #[must_use]
+    pub(crate) fn core_wrap(&self) -> MembershipCoreWrap<'_, T> {
+        self.into()
     }
 }
 

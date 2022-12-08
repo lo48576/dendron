@@ -6,7 +6,7 @@ use core::fmt;
 use alloc::rc::Rc;
 
 use crate::anchor::InsertAs;
-use crate::membership::{Membership, MembershipWithEditProhibition};
+use crate::membership::MembershipWithEditProhibition;
 use crate::node::debug_print::{DebugPrettyPrint, DebugPrintNodeLocal, DebugPrintSubtree};
 use crate::node::{edit, HierarchyError, HotNode, IntraTreeLink, Node};
 use crate::serial;
@@ -140,18 +140,11 @@ impl<T> FrozenNode<T> {
         }
     }
 
-    /// Returns a reference to the plain membership.
-    #[inline]
-    #[must_use]
-    fn plain_membership(&self) -> &Membership<T> {
-        self.membership.as_inner()
-    }
-
     /// Returns the tree core.
     #[inline]
     #[must_use]
     fn tree_core(&self) -> Rc<TreeCore<T>> {
-        self.plain_membership().tree_core()
+        self.intra_link.tree_core()
     }
 
     /// Creates a plain node reference for the node.
@@ -373,9 +366,8 @@ impl<T> FrozenNode<T> {
     pub fn is_root(&self) -> bool {
         debug_assert_eq!(
             self.intra_link.is_root(),
-            self.membership
-                .as_inner()
-                .tree_core_ref()
+            self.intra_link
+                .tree_core()
                 .root_link()
                 .ptr_eq(&self.intra_link),
         );
@@ -1232,7 +1224,7 @@ impl<T> FrozenNode<T> {
     #[inline]
     #[must_use]
     pub fn debug_print_local(&self) -> DebugPrintNodeLocal<'_, T> {
-        DebugPrintNodeLocal::new_frozen(&self.intra_link, self.membership.as_ref())
+        DebugPrintNodeLocal::new_frozen(&self.intra_link)
     }
 
     /// Returns a debug-printable proxy that also dumps descendants recursively.
@@ -1245,6 +1237,6 @@ impl<T> FrozenNode<T> {
     #[inline]
     #[must_use]
     pub fn debug_print_subtree(&self) -> DebugPrintSubtree<'_, T> {
-        DebugPrintSubtree::new_frozen(&self.intra_link, self.membership.as_ref())
+        DebugPrintSubtree::new_frozen(&self.intra_link)
     }
 }

@@ -427,11 +427,11 @@ impl<T> Node<T> {
         IntraTreeLink::ptr_eq(&self.intra_link, &other.intra_link)
     }
 
-    /// Returns a reference to the tree core for the node.
+    /// Returns true if the given weak reference to a tree core refers the same tree as this node.
     #[inline]
     #[must_use]
     pub(crate) fn ptr_eq_tree_core_weak(&self, other: &Weak<TreeCore<T>>) -> bool {
-        Rc::as_ptr(&*self.membership.tree_core_ref()) == other.as_ptr()
+        Rc::as_ptr(&self.intra_link.tree_core()) == other.as_ptr()
     }
 }
 
@@ -452,7 +452,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn tree(&self) -> Tree<T> {
-        Tree::from_core_rc(self.membership.tree_core())
+        Tree::from_core_rc(self.intra_link.tree_core())
     }
 
     /// Returns true if the node belongs to the given tree.
@@ -531,8 +531,8 @@ impl<T> Node<T> {
     pub fn is_root(&self) -> bool {
         debug_assert_eq!(
             self.intra_link.is_root(),
-            self.membership
-                .tree_core_ref()
+            self.intra_link
+                .tree_core()
                 .root_link()
                 .ptr_eq(&self.intra_link),
         );
@@ -555,7 +555,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn root(&self) -> Self {
-        Self::with_link(self.membership.tree_core().root_link())
+        Self::with_link(self.intra_link.tree_core().root_link())
     }
 
     /// Returns the parent node.
@@ -1840,7 +1840,7 @@ impl<T> Node<T> {
     ) -> Result<Self, HierarchyError> {
         grant.panic_if_invalid_for_node(self);
 
-        edit::try_create_node_as(&self.intra_link, self.membership.tree_core(), data, dest)
+        edit::try_create_node_as(&self.intra_link, self.intra_link.tree_core(), data, dest)
     }
 
     /// Creates a node as the specified neighbor of `self`, and returns the new node.
@@ -1897,7 +1897,7 @@ impl<T> Node<T> {
     pub fn create_as_first_child(&self, grant: &HierarchyEditGrant<T>, data: T) -> Self {
         grant.panic_if_invalid_for_node(self);
 
-        edit::create_as_first_child(&self.intra_link, self.membership.tree_core(), data)
+        edit::create_as_first_child(&self.intra_link, self.intra_link.tree_core(), data)
     }
 
     /// Creates a node as the last child of `self`.
@@ -1936,7 +1936,7 @@ impl<T> Node<T> {
     pub fn create_as_last_child(&self, grant: &HierarchyEditGrant<T>, data: T) -> Self {
         grant.panic_if_invalid_for_node(self);
 
-        edit::create_as_last_child(&self.intra_link, self.membership.tree_core(), data)
+        edit::create_as_last_child(&self.intra_link, self.intra_link.tree_core(), data)
     }
 
     /// Creates a node as the previous sibling of `self`.
@@ -1985,7 +1985,7 @@ impl<T> Node<T> {
     ) -> Result<Self, HierarchyError> {
         grant.panic_if_invalid_for_node(self);
 
-        edit::try_create_as_prev_sibling(&self.intra_link, self.membership.tree_core(), data)
+        edit::try_create_as_prev_sibling(&self.intra_link, self.intra_link.tree_core(), data)
     }
 
     /// Creates a node as the previous sibling of `self`.
@@ -2049,7 +2049,7 @@ impl<T> Node<T> {
     ) -> Result<Self, HierarchyError> {
         grant.panic_if_invalid_for_node(self);
 
-        edit::try_create_as_next_sibling(&self.intra_link, self.membership.tree_core(), data)
+        edit::try_create_as_next_sibling(&self.intra_link, self.intra_link.tree_core(), data)
     }
 
     /// Creates a node as the next sibling of `self`.
@@ -2193,7 +2193,7 @@ impl<T> Node<T> {
     pub fn create_as_interrupting_parent(&self, grant: &HierarchyEditGrant<T>, data: T) -> Self {
         grant.panic_if_invalid_for_node(self);
 
-        edit::create_as_interrupting_parent(&self.intra_link, self.membership.tree_core(), data)
+        edit::create_as_interrupting_parent(&self.intra_link, data)
     }
 
     /// Creates a new node that interrupts between `self` and the children.
@@ -2257,7 +2257,7 @@ impl<T> Node<T> {
     pub fn create_as_interrupting_child(&self, grant: &HierarchyEditGrant<T>, data: T) -> Self {
         grant.panic_if_invalid_for_node(self);
 
-        edit::create_as_interrupting_child(&self.intra_link, self.membership.tree_core(), data)
+        edit::create_as_interrupting_child(&self.intra_link, data)
     }
 
     /// Inserts the children at the position of the node, and detach the node.
@@ -2308,7 +2308,7 @@ impl<T> Node<T> {
     ) -> Result<(), HierarchyError> {
         grant.panic_if_invalid_for_node(self);
 
-        edit::try_replace_with_children(&self.intra_link, &self.membership.tree_core())
+        edit::try_replace_with_children(&self.intra_link)
     }
 
     /// Inserts the children at the position of the node, and detach the node.
@@ -2867,7 +2867,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn debug_print_local(&self) -> DebugPrintNodeLocal<'_, T> {
-        DebugPrintNodeLocal::new_plain(&self.intra_link, &self.membership)
+        DebugPrintNodeLocal::new_plain(&self.intra_link)
     }
 
     /// Returns a debug-printable proxy that dumps descendant nodes.
@@ -2900,7 +2900,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn debug_print_subtree(&self) -> DebugPrintSubtree<'_, T> {
-        DebugPrintSubtree::new_plain(&self.intra_link, &self.membership)
+        DebugPrintSubtree::new_plain(&self.intra_link)
     }
 }
 

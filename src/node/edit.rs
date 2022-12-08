@@ -521,11 +521,8 @@ pub(super) fn try_create_as_next_sibling<T>(
 ///
 /// If `this` is the root, then the new node will become the new root, i.e. the
 /// parent of `this`.
-pub(super) fn create_as_interrupting_parent<T>(
-    this: &IntraTreeLink<T>,
-    tree_core: Rc<TreeCore<T>>,
-    data: T,
-) -> Node<T> {
+pub(super) fn create_as_interrupting_parent<T>(this: &IntraTreeLink<T>, data: T) -> Node<T> {
+    let tree_core = this.tree_core();
     OrphanRoot::create_and_process(data, tree_core.clone(), |new| {
         if let Some(parent) = this.parent_link() {
             // Insert the new node after `this`.
@@ -556,11 +553,8 @@ pub(super) fn create_as_interrupting_parent<T>(
 }
 
 /// Inserts a new node as a child of `this`, and moves old chlidren of `this` under the new node.
-pub(super) fn create_as_interrupting_child<T>(
-    this: &IntraTreeLink<T>,
-    tree_core: Rc<TreeCore<T>>,
-    data: T,
-) -> Node<T> {
+pub(super) fn create_as_interrupting_child<T>(this: &IntraTreeLink<T>, data: T) -> Node<T> {
+    let tree_core = this.tree_core();
     OrphanRoot::create_and_process(data, tree_core, |new| {
         // Connect the new node and `this`.
         let first_child = this.replace_first_child(Some(new.link.clone()));
@@ -623,10 +617,8 @@ pub(super) fn create_as_interrupting_child<T>(
 ///     + In this case, [`HierarchyError::SiblingsWithoutParent`] error is returned.
 /// * the node is the root and has no children.
 ///     + In this case, [`HierarchyError::EmptyTree`] error is returned.
-pub(super) fn try_replace_with_children<T>(
-    this: &IntraTreeLink<T>,
-    tree_core: &Rc<TreeCore<T>>,
-) -> Result<(), HierarchyError> {
+pub(super) fn try_replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<(), HierarchyError> {
+    let tree_core = this.tree_core();
     let first_child_link = this.first_child_link();
 
     if let Some(parent_link) = this.parent_link() {

@@ -155,7 +155,7 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub(super) fn tree_core(&self) -> Rc<TreeCore<T>> {
-        self.plain_membership().tree_core()
+        self.intra_link.tree_core()
     }
 
     /// Creates a plain node reference for the node.
@@ -368,9 +368,8 @@ impl<T> HotNode<T> {
     pub fn is_root(&self) -> bool {
         debug_assert_eq!(
             self.intra_link.is_root(),
-            self.membership
-                .as_inner()
-                .tree_core_ref()
+            self.intra_link
+                .tree_core()
                 .root_link()
                 .ptr_eq(&self.intra_link),
         );
@@ -938,11 +937,7 @@ impl<T> HotNode<T> {
     /// method.
     #[inline]
     pub fn create_as_interrupting_parent(&self, data: T) -> Self {
-        let new = edit::create_as_interrupting_parent(
-            &self.intra_link,
-            self.membership.as_inner().tree_core(),
-            data,
-        );
+        let new = edit::create_as_interrupting_parent(&self.intra_link, data);
         Self::from_node(new).expect("[validity] a new node can be locked")
     }
 
@@ -976,11 +971,7 @@ impl<T> HotNode<T> {
     /// method.
     #[inline]
     pub fn create_as_interrupting_child(&self, data: T) -> Self {
-        let new = edit::create_as_interrupting_child(
-            &self.intra_link,
-            self.membership.as_inner().tree_core(),
-            data,
-        );
+        let new = edit::create_as_interrupting_child(&self.intra_link, data);
         Self::from_node(new).expect("[validity] a new node can be locked")
     }
 
@@ -1025,7 +1016,7 @@ impl<T> HotNode<T> {
     ///     + In this case, [`HierarchyError::EmptyTree`] error is returned.
     #[inline]
     pub fn try_replace_with_children(&self) -> Result<(), HierarchyError> {
-        edit::try_replace_with_children(&self.intra_link, &self.membership.as_inner().tree_core())
+        edit::try_replace_with_children(&self.intra_link)
     }
 
     /// Inserts the children at the position of the node, and detach the node.
@@ -1216,7 +1207,7 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn debug_print_local(&self) -> DebugPrintNodeLocal<'_, T> {
-        DebugPrintNodeLocal::new_hot(&self.intra_link, self.membership.as_ref())
+        DebugPrintNodeLocal::new_hot(&self.intra_link)
     }
 
     /// Returns a debug-printable proxy that also dumps descendants recursively.
@@ -1229,6 +1220,6 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn debug_print_subtree(&self) -> DebugPrintSubtree<'_, T> {
-        DebugPrintSubtree::new_hot(&self.intra_link, self.membership.as_ref())
+        DebugPrintSubtree::new_hot(&self.intra_link)
     }
 }
