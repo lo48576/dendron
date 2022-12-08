@@ -5,11 +5,12 @@ use core::cmp::Ordering;
 use alloc::rc::Rc;
 
 use crate::anchor::{AdoptAs, InsertAs};
-use crate::membership::Membership;
-use crate::node::{HierarchyError, HotNode, IntraTreeLink, IntraTreeLinkWeak, Node, NodeBuilder};
+use crate::node::{HierarchyError, HotNode, IntraTreeLink, IntraTreeLinkWeak, Node};
 use crate::serial::{TreeBuildError, TreeBuilder};
 use crate::traverse::DftEvent;
 use crate::tree::TreeCore;
+
+use super::NodeLink;
 
 /// A root node of an orphan tree.
 ///
@@ -37,25 +38,14 @@ impl<'a, T> OrphanRoot<'a, T> {
     where
         for<'b> F: FnOnce(OrphanRoot<'b, T>) -> Result<(), E>,
     {
-        let membership = Membership::create_new_membership(tree_core);
-        let intra_link = NodeBuilder {
-            data,
-            parent: Default::default(),
-            first_child: Default::default(),
-            next_sibling: Default::default(),
-            prev_sibling_cyclic: Default::default(),
-            membership: membership.downgrade(),
-            num_children: 0,
-        }
-        .build_link();
-        let node = Node::with_node_core(intra_link);
+        let link = NodeLink::new_orphan(data, tree_core);
 
         process(OrphanRoot {
-            link: node.node_core(),
+            link: link.core(),
             is_newly_created: true,
         })?;
 
-        Ok(node)
+        Ok(Node::with_node_link(link))
     }
 
     /// Unlinks a node from the parent and the siblings.
