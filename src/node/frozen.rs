@@ -84,9 +84,8 @@ impl<T> FrozenNode<T> {
     /// Creates a new `FrozenNode` from the given plain node.
     #[inline]
     pub(super) fn from_node(node: Node<T>) -> Result<Self, HierarchyEditProhibitionError> {
-        let Node { intra_link, .. } = node;
-        let link =
-            NodeLink::new(intra_link).expect("[validity] node referred by `Node<T>` is alive");
+        // FIXME: Use `Node` directly instead of cloning the link.
+        let link = node.link().clone();
         link.acquire_edit_prohibition()?;
         Ok(Self { link })
     }
@@ -105,9 +104,8 @@ impl<T> FrozenNode<T> {
     ) -> Self {
         prohibition.panic_if_invalid_for_node(&node);
 
-        let Node { intra_link, .. } = node;
-        let link =
-            NodeLink::new(intra_link).expect("[validity] node referred by `Node<T>` is alive");
+        // FIXME: Use `Node` directly instead of cloning the link.
+        let link = node.link().clone();
         link.acquire_edit_prohibition()
             .expect("[validity] a valid prohibition already exists for the tree");
         Self { link }
@@ -153,13 +151,7 @@ impl<T> FrozenNode<T> {
     #[inline]
     #[must_use]
     pub fn plain(&self) -> Node<T> {
-        let membership = self
-            .link
-            .core()
-            .membership()
-            .upgrade()
-            .expect("[validity] node referred by `FrozenNode` is alive");
-        Node::with_link_and_membership(self.link.core().clone(), membership)
+        Node::with_node_link(self.link.clone())
     }
 
     /// Returns a reference to the node core.

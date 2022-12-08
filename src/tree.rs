@@ -217,12 +217,8 @@ impl<T> Tree<T> {
     #[must_use]
     pub fn root(&self) -> Node<T> {
         let root_link = self.core.root_link();
-        let membership = root_link
-            .membership()
-            .upgrade()
-            .expect("[validity] the root node must have valid membership since the tree is alive");
 
-        Node::with_link_and_membership(root_link, membership)
+        Node::with_node_core(root_link)
     }
 
     /// Prohibits the tree hierarchy edit.
