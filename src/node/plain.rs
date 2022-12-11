@@ -911,11 +911,11 @@ impl<T> Node<T> {
     /// //  `-- child2
     /// //      `-- child2_0
     ///
-    /// assert_eq!(root.count_children(), 3);
-    /// assert_eq!(child0.count_children(), 0);
-    /// assert_eq!(child1.count_children(), 0);
-    /// assert_eq!(child2.count_children(), 1);
-    /// assert_eq!(child2_0.count_children(), 0);
+    /// assert_eq!(root.num_children(), 3);
+    /// assert_eq!(child0.num_children(), 0);
+    /// assert_eq!(child1.num_children(), 0);
+    /// assert_eq!(child2.num_children(), 1);
+    /// assert_eq!(child2_0.num_children(), 0);
     /// # Ok::<_, dendron::tree::HierarchyEditGrantError>(())
     /// ```
     #[inline]
