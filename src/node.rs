@@ -5,6 +5,7 @@ mod edit;
 mod frozen;
 mod hot;
 mod internal;
+mod membership;
 mod plain;
 
 use core::cell::BorrowError;
@@ -14,8 +15,8 @@ pub(crate) use self::debug_print::DebugPrintSubtreeDescendant;
 pub use self::debug_print::{DebugPrettyPrint, DebugPrintNodeLocal, DebugPrintSubtree};
 pub use self::frozen::FrozenNode;
 pub use self::hot::HotNode;
-pub(crate) use self::internal::IntraTreeLink;
-use self::internal::{IntraTreeLinkWeak, NodeBuilder};
+use self::internal::NodeCoreLinkWeak;
+pub(crate) use self::internal::{NodeCoreLink, NodeLink};
 pub use self::plain::{Node, NodeWeak};
 
 /// Hierarchy modification error.

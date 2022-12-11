@@ -4,7 +4,7 @@ use core::fmt::{self, Write as _};
 
 use alloc::vec::Vec;
 
-use crate::node::internal::{DepthFirstLinkTraverser, IntraTreeLink};
+use crate::node::internal::{DepthFirstLinkTraverser, NodeCoreLink};
 use crate::traverse::DftEvent;
 
 /// State of an indent block.
@@ -83,7 +83,7 @@ struct IndentWriter<'a, 'b> {
 }
 
 impl<'a, 'b> IndentWriter<'a, 'b> {
-    /// Creates a new `PadAdapter`.
+    /// Creates a new `IndentWriter`.
     #[inline]
     fn new(fmt: &'b mut fmt::Formatter<'a>) -> Self {
         Self {
@@ -221,13 +221,13 @@ impl fmt::Write for IndentWriter<'_, '_> {
 #[derive(Clone, Copy)]
 pub struct DebugPrettyPrint<'a, T> {
     /// Root node link of the (sub)tree to print.
-    link: &'a IntraTreeLink<T>,
+    link: &'a NodeCoreLink<T>,
 }
 
 impl<'a, T> DebugPrettyPrint<'a, T> {
-    /// Creates a new `DebugPrint` object for the node.
+    /// Creates a new `DebugPrettyPrint` object for the node.
     #[inline]
-    pub(crate) fn new(link: &'a IntraTreeLink<T>) -> Self {
+    pub(crate) fn new(link: &'a NodeCoreLink<T>) -> Self {
         Self { link }
     }
 }
@@ -312,7 +312,7 @@ impl<'a, T: fmt::Debug> fmt::Debug for DebugPrettyPrint<'a, T> {
 fn prepare_next_node_printing<T>(
     writer: &mut IndentWriter<'_, '_>,
     traverser: &mut DepthFirstLinkTraverser<'_, T>,
-) -> Result<Option<IntraTreeLink<T>>, fmt::Error> {
+) -> Result<Option<NodeCoreLink<T>>, fmt::Error> {
     for ev in traverser {
         let link = match ev {
             DftEvent::Open(link) => link,

@@ -224,7 +224,6 @@ extern crate alloc;
 mod macros;
 
 mod anchor;
-mod membership;
 pub mod node;
 pub mod serial;
 pub mod traverse;

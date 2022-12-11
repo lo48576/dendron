@@ -3,7 +3,15 @@
 ## [Unreleased]
 
 
+## [0.1.5]
+
+* Reduce memory allocation.
+    * An `std::rc::Rc` field is removed for every node!
+    * Size of `{,Frozen,Hot}Node` types are also reduced.
+
+
 ## [0.1.4]
+
 * Add `close_current` method for depth first traversals.
 
 ### Added
@@ -18,6 +26,7 @@
 
 
 ## [0.1.3]
+
 * Implement `Clone` for `Tree<T>` and `TreeWeak<T>`.
 
 ### Added
@@ -104,7 +113,8 @@
 
 Initial release.
 
-[Unreleased]: <https://gitlab.com/nop_thread/dendron/-/compare/v0.1.4...develop>
+[Unreleased]: <https://gitlab.com/nop_thread/dendron/-/compare/v0.1.5...develop>
+[0.1.5]: <https://gitlab.com/nop_thread/dendron/-/tags/v0.1.5>
 [0.1.4]: <https://gitlab.com/nop_thread/dendron/-/tags/v0.1.4>
 [0.1.3]: <https://gitlab.com/nop_thread/dendron/-/tags/v0.1.3>
 [0.1.2]: <https://gitlab.com/nop_thread/dendron/-/tags/v0.1.2>

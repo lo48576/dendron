@@ -9,7 +9,7 @@ use core::mem;
 
 use alloc::rc::{Rc, Weak};
 
-use crate::node::{IntraTreeLink, Node};
+use crate::node::{Node, NodeCoreLink};
 use crate::traverse::DftEvent;
 
 pub use self::debug_print::{DebugPrettyPrint, DebugPrintTree, DebugPrintTreeLocal};
@@ -29,7 +29,7 @@ pub use self::lock::{
 /// referred as `Rc<RefCell<TreeCore<T>>>` or `Weak<RefCell<TreeCore<T>>>`.
 pub(crate) struct TreeCore<T> {
     /// Root node.
-    root: RefCell<IntraTreeLink<T>>,
+    root: RefCell<NodeCoreLink<T>>,
     /// Hierarchy lock manager.
     lock_manager: HierarchyLockManager,
 }
@@ -37,7 +37,7 @@ pub(crate) struct TreeCore<T> {
 impl<T> TreeCore<T> {
     /// Creates a new tree core.
     #[must_use]
-    pub(crate) fn new_rc(root: IntraTreeLink<T>) -> Rc<Self> {
+    pub(crate) fn new_rc(root: NodeCoreLink<T>) -> Rc<Self> {
         Rc::new(Self {
             root: RefCell::new(root),
             lock_manager: Default::default(),
@@ -46,7 +46,7 @@ impl<T> TreeCore<T> {
 
     /// Returns a link to the root node.
     #[must_use]
-    pub(crate) fn root_link(&self) -> IntraTreeLink<T> {
+    pub(crate) fn root_link(&self) -> NodeCoreLink<T> {
         self.root
             .try_borrow()
             .expect("[consistency] `TreeCore::root` should not be borrowed nestedly")
@@ -70,7 +70,7 @@ impl<T> TreeCore<T> {
     }
 
     /// Makes the tree track another node as a root.
-    pub fn replace_root(&self, new_root: IntraTreeLink<T>) -> IntraTreeLink<T> {
+    pub fn replace_root(&self, new_root: NodeCoreLink<T>) -> NodeCoreLink<T> {
         let mut root = self
             .root
             .try_borrow_mut()
@@ -101,7 +101,7 @@ impl<T> Drop for TreeCore<T> {
 
             // Drop the leaf node.
             // It is safe to leave `prev_sibling_cyclic` inconsistent, since
-            // `DftEvent<IntraTreeLink<T>>` is guaranteed to use only
+            // `DftEvent<NodeCoreLink<T>>` is guaranteed to use only
             // `first_child`, `next_sibling`, and `parent` fields, and use once
             // respectively.
             if let Some(parent_link) = close_link.parent_link() {
@@ -191,6 +191,13 @@ impl<T> Tree<T> {
         Self { core }
     }
 
+    /// Returns a reference to the tree core.
+    #[inline]
+    #[must_use]
+    pub(crate) fn core(&self) -> &Rc<TreeCore<T>> {
+        &self.core
+    }
+
     /// Returns the root node.
     ///
     /// # Examples
@@ -210,12 +217,8 @@ impl<T> Tree<T> {
     #[must_use]
     pub fn root(&self) -> Node<T> {
         let root_link = self.core.root_link();
-        let membership = root_link
-            .membership()
-            .upgrade()
-            .expect("[validity] the root node must have valid membership since the tree is alive");
 
-        Node::with_link_and_membership(root_link, membership)
+        Node::with_node_core(root_link)
     }
 
     /// Prohibits the tree hierarchy edit.
@@ -290,13 +293,6 @@ impl<T> Tree<T> {
     #[must_use]
     pub fn ptr_eq(&self, other: &Self) -> bool {
         Rc::ptr_eq(&self.core, &other.core)
-    }
-
-    /// Returns `true` if the given `Rc<TreeCore>` point to the same allocation as `self`.
-    #[inline]
-    #[must_use]
-    pub(crate) fn ptr_eq_core(&self, other: &Rc<TreeCore<T>>) -> bool {
-        Rc::ptr_eq(&self.core, other)
     }
 
     /// Compares two trees.

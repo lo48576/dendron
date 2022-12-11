@@ -6,10 +6,9 @@ use core::fmt;
 use alloc::rc::{Rc, Weak};
 
 use crate::anchor::{AdoptAs, InsertAs};
-use crate::membership::{Membership, WeakMembership};
 use crate::node::debug_print::{DebugPrettyPrint, DebugPrintNodeLocal, DebugPrintSubtree};
 use crate::node::edit;
-use crate::node::internal::{IntraTreeLink, IntraTreeLinkWeak, NodeBuilder};
+use crate::node::internal::{NodeCoreLink, NodeCoreLinkWeak, NodeLink};
 use crate::node::{FrozenNode, HierarchyError, HotNode};
 use crate::serial::{self, TreeBuildError};
 use crate::traverse;
@@ -20,18 +19,15 @@ use crate::tree::{
 
 /// A shared owning reference to a node.
 pub struct Node<T> {
-    /// Target node core.
-    pub(super) intra_link: IntraTreeLink<T>,
-    /// Membership of a node with ownership of the tree.
-    pub(super) membership: Membership<T>,
+    /// Node.
+    link: NodeLink<T>,
 }
 
 impl<T> Clone for Node<T> {
     #[inline]
     fn clone(&self) -> Self {
         Self {
-            intra_link: self.intra_link.clone(),
-            membership: self.membership.clone(),
+            link: self.link.clone(),
         }
     }
 }
@@ -136,7 +132,7 @@ macro_rules! impl_cmp_different_node_types {
         /// See the documentation for [`Node::try_eq`] method.
         #[inline]
         fn eq(&self, other: &$ty_rhs) -> bool {
-            self.intra_link.try_eq(&other.intra_link).expect(
+            self.node_core().try_eq(&other.node_core()).expect(
                 "[precondition] data associated to the nodes in both trees should be borrowable",
             )
         }
@@ -147,45 +143,26 @@ impl_cmp_different_node_types!(Node, FrozenNode);
 impl_cmp_different_node_types!(Node, HotNode);
 impl_cmp_different_node_types!(FrozenNode, HotNode);
 
-/// Node object creation.
+/// Node object creation and internals.
 impl<T> Node<T> {
-    /// Creates a node from the internal values.
+    /// Creates a node from the node link.
+    #[inline]
+    #[must_use]
+    pub(crate) fn with_node_link(link: NodeLink<T>) -> Self {
+        Self { link }
+    }
+
+    /// Creates a node from the reference to a node core.
     ///
     /// # Panics
-    ///
-    /// Panics if the membership field of the node link is not set up.
     ///
     /// Panics if a reference to the tree core is not valid.
     #[must_use]
-    pub(crate) fn with_link(intra_link: IntraTreeLink<T>) -> Self {
-        let membership = intra_link.membership().upgrade().expect(
-            "[consistency] the membership must be alive since the corresponding node link is alive",
-        );
+    pub(crate) fn with_node_core(link: NodeCoreLink<T>) -> Self {
+        let link =
+            NodeLink::new(link).expect("[consistency] the tree for the given node should be alive");
 
-        Self {
-            intra_link,
-            membership,
-        }
-    }
-
-    /// Creates a node from the internal values.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the membership is set up for a node other than the given node.
-    #[must_use]
-    pub(crate) fn with_link_and_membership(
-        intra_link: IntraTreeLink<T>,
-        membership: Membership<T>,
-    ) -> Self {
-        if !Membership::ptr_eq_weak(&membership, intra_link.membership()) {
-            panic!("[precondition] membership should be set up for the node of interest");
-        }
-
-        Self {
-            intra_link,
-            membership,
-        }
+        Self { link }
     }
 
     /// Downgrades the reference to a weak one.
@@ -204,8 +181,22 @@ impl<T> Node<T> {
     #[must_use]
     pub fn downgrade(&self) -> NodeWeak<T> {
         NodeWeak {
-            intra_link: self.intra_link.downgrade(),
+            link: self.link.core().downgrade(),
         }
+    }
+
+    /// Returns a reference to the node core.
+    #[inline]
+    #[must_use]
+    pub(super) fn node_core(&self) -> &NodeCoreLink<T> {
+        self.link.core()
+    }
+
+    /// Returns a reference to the node core.
+    #[inline]
+    #[must_use]
+    pub(super) fn link(&self) -> &NodeLink<T> {
+        &self.link
     }
 }
 
@@ -336,7 +327,7 @@ impl<T> Node<T> {
     /// ```
     #[inline]
     pub fn try_borrow_data(&self) -> Result<Ref<'_, T>, BorrowError> {
-        self.intra_link.try_borrow_data()
+        self.link.core().try_borrow_data()
     }
 
     /// Returns a reference to the data associated to the node.
@@ -356,7 +347,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn borrow_data(&self) -> Ref<'_, T> {
-        self.intra_link.borrow_data()
+        self.link.core().borrow_data()
     }
 
     /// Returns a mutable reference to the data associated to the node.
@@ -379,7 +370,7 @@ impl<T> Node<T> {
     /// ```
     #[inline]
     pub fn try_borrow_data_mut(&self) -> Result<RefMut<'_, T>, BorrowMutError> {
-        self.intra_link.try_borrow_data_mut()
+        self.link.core().try_borrow_data_mut()
     }
 
     /// Returns a mutable reference to the data associated to the node.
@@ -400,7 +391,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn borrow_data_mut(&self) -> RefMut<'_, T> {
-        self.intra_link.borrow_data_mut()
+        self.link.core().borrow_data_mut()
     }
 
     /// Returns `true` if the two `Node`s point to the same allocation.
@@ -424,14 +415,14 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn ptr_eq(&self, other: &Self) -> bool {
-        IntraTreeLink::ptr_eq(&self.intra_link, &other.intra_link)
+        NodeCoreLink::ptr_eq(self.link.core(), other.link.core())
     }
 
-    /// Returns a reference to the tree core for the node.
+    /// Returns true if the given weak reference to a tree core refers the same tree as this node.
     #[inline]
     #[must_use]
     pub(crate) fn ptr_eq_tree_core_weak(&self, other: &Weak<TreeCore<T>>) -> bool {
-        Rc::as_ptr(&*self.membership.tree_core_ref()) == other.as_ptr()
+        Rc::as_ptr(&self.link.core().tree_core()) == other.as_ptr()
     }
 }
 
@@ -452,7 +443,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn tree(&self) -> Tree<T> {
-        Tree::from_core_rc(self.membership.tree_core())
+        Tree::from_core_rc(self.link.core().tree_core())
     }
 
     /// Returns true if the node belongs to the given tree.
@@ -479,7 +470,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn belongs_to(&self, tree: &Tree<T>) -> bool {
-        self.membership.belongs_to(tree)
+        self.link.belongs_to(tree.core())
     }
 
     /// Returns true if the given node belong to the same tree.
@@ -506,7 +497,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn belongs_to_same_tree(&self, other: &Self) -> bool {
-        self.membership.belongs_to_same_tree(&other.membership)
+        self.link.belongs_to_same_tree(&other.link)
     }
 
     /// Returns true if the node is the root.
@@ -530,14 +521,15 @@ impl<T> Node<T> {
     #[must_use]
     pub fn is_root(&self) -> bool {
         debug_assert_eq!(
-            self.intra_link.is_root(),
-            self.membership
-                .tree_core_ref()
+            self.link.core().is_root(),
+            self.link
+                .core()
+                .tree_core()
                 .root_link()
-                .ptr_eq(&self.intra_link),
+                .ptr_eq(self.link.core()),
         );
         // The node is a root if and only if the node has no parent.
-        self.intra_link.is_root()
+        self.link.core().is_root()
     }
 
     /// Returns the root node.
@@ -555,7 +547,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn root(&self) -> Self {
-        Self::with_link(self.membership.tree_core().root_link())
+        Self::with_node_core(self.link.core().tree_core().root_link())
     }
 
     /// Returns the parent node.
@@ -578,7 +570,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn parent(&self) -> Option<Self> {
-        self.intra_link.parent_link().map(Self::with_link)
+        self.link.core().parent_link().map(Self::with_node_core)
     }
 
     /// Returns the previous sibling.
@@ -604,7 +596,10 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn prev_sibling(&self) -> Option<Self> {
-        self.intra_link.prev_sibling_link().map(Self::with_link)
+        self.link
+            .core()
+            .prev_sibling_link()
+            .map(Self::with_node_core)
     }
 
     /// Returns the next sibling.
@@ -630,7 +625,10 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn next_sibling(&self) -> Option<Self> {
-        self.intra_link.next_sibling_link().map(Self::with_link)
+        self.link
+            .core()
+            .next_sibling_link()
+            .map(Self::with_node_core)
     }
 
     /// Returns the first sibling.
@@ -659,11 +657,11 @@ impl<T> Node<T> {
     /// ```
     #[must_use]
     pub fn first_sibling(&self) -> Self {
-        if let Some(parent_link) = self.intra_link.parent_link() {
+        if let Some(parent_link) = self.link.core().parent_link() {
             let first_child_link = parent_link
                 .first_child_link()
                 .expect("[validity] the parent must have at least one child (`self`)");
-            Self::with_link(first_child_link)
+            Self::with_node_core(first_child_link)
         } else {
             // `self` is the root node.
             self.clone()
@@ -696,11 +694,11 @@ impl<T> Node<T> {
     /// ```
     #[must_use]
     pub fn last_sibling(&self) -> Self {
-        if let Some(parent_link) = self.intra_link.parent_link() {
+        if let Some(parent_link) = self.link.core().parent_link() {
             let last_child_lin = parent_link
                 .last_child_link()
                 .expect("[validity] the parent must have at least one child (`self`)");
-            Self::with_link(last_child_lin)
+            Self::with_node_core(last_child_lin)
         } else {
             // `self` is the root node.
             self.clone()
@@ -735,13 +733,13 @@ impl<T> Node<T> {
     /// ```
     #[must_use]
     pub fn first_last_sibling(&self) -> (Self, Self) {
-        if let Some(parent_link) = self.intra_link.parent_link() {
+        if let Some(parent_link) = self.link.core().parent_link() {
             let (first_child_link, last_child_link) = parent_link
                 .first_last_child_link()
                 .expect("[validity] the parent must have at least one child (`self`)");
             (
-                Self::with_link(first_child_link),
-                Self::with_link(last_child_link),
+                Self::with_node_core(first_child_link),
+                Self::with_node_core(last_child_link),
             )
         } else {
             // `self` is the root node.
@@ -771,7 +769,10 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn first_child(&self) -> Option<Self> {
-        self.intra_link.first_child_link().map(Self::with_link)
+        self.link
+            .core()
+            .first_child_link()
+            .map(Self::with_node_core)
     }
 
     /// Returns the last child node.
@@ -796,7 +797,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn last_child(&self) -> Option<Self> {
-        self.intra_link.last_child_link().map(Self::with_link)
+        self.link.core().last_child_link().map(Self::with_node_core)
     }
 
     /// Returns the first and the last child nodes.
@@ -826,8 +827,11 @@ impl<T> Node<T> {
     /// ```
     #[must_use]
     pub fn first_last_child(&self) -> Option<(Self, Self)> {
-        let (first_link, last_link) = self.intra_link.first_last_child_link()?;
-        Some((Self::with_link(first_link), Self::with_link(last_link)))
+        let (first_link, last_link) = self.link.core().first_last_child_link()?;
+        Some((
+            Self::with_node_core(first_link),
+            Self::with_node_core(last_link),
+        ))
     }
 
     /// Returns true if the previous sibling exists.
@@ -853,7 +857,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn has_prev_sibling(&self) -> bool {
-        self.intra_link.has_prev_sibling()
+        self.link.core().has_prev_sibling()
     }
 
     /// Returns true if the next sibling exists.
@@ -879,7 +883,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn has_next_sibling(&self) -> bool {
-        self.intra_link.has_next_sibling()
+        self.link.core().has_next_sibling()
     }
 
     /// Returns the number of children.
@@ -917,7 +921,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn num_children(&self) -> usize {
-        self.intra_link.num_children_cell().get()
+        self.link.core().num_children_cell().get()
     }
 
     /// Returns true if the node has any children.
@@ -1084,7 +1088,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn count_preceding_siblings(&self) -> usize {
-        self.intra_link.count_preceding_siblings()
+        self.link.core().count_preceding_siblings()
     }
 
     /// Returns the number of following siblings.
@@ -1118,7 +1122,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn count_following_siblings(&self) -> usize {
-        self.intra_link.count_following_siblings()
+        self.link.core().count_following_siblings()
     }
 
     /// Returns the number of ancestors.
@@ -1149,7 +1153,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn count_ancestors(&self) -> usize {
-        self.intra_link.count_ancestors()
+        self.link.core().count_ancestors()
     }
 }
 
@@ -1601,27 +1605,8 @@ impl<T> Node<T> {
     /// ```
     #[must_use]
     pub fn new_tree(root_data: T) -> Self {
-        let weak_membership = WeakMembership::new();
-        let intra_link = NodeBuilder {
-            data: root_data,
-            parent: Default::default(),
-            first_child: Default::default(),
-            next_sibling: Default::default(),
-            prev_sibling_cyclic: Default::default(),
-            membership: weak_membership.clone(),
-            num_children: 0,
-        }
-        .build_link();
-
-        let weak_link = intra_link.downgrade();
-        intra_link.replace_prev_sibling_cyclic(weak_link);
-
-        let tree_core_rc = TreeCore::new_rc(intra_link.clone());
-
-        Self::with_link_and_membership(
-            intra_link,
-            weak_membership.initialize_membership(tree_core_rc),
-        )
+        let link = NodeLink::new_tree_root(root_data);
+        Self::with_node_link(link)
     }
 
     /// Detaches the node and its descendant from the current tree, and let it be another tree.
@@ -1700,10 +1685,10 @@ impl<T> Node<T> {
     pub fn detach_subtree(&self, grant: &HierarchyEditGrant<T>) {
         grant.panic_if_invalid_for_node(self);
 
-        edit::detach_subtree(&self.intra_link);
+        edit::detach_subtree(self.link.core());
     }
 
-    /// Creates a node as the next sibling of `self`, and returns the new node.
+    /// Creates a node as the specified neighbor of `self`, and returns the new node.
     ///
     /// # Failures
     ///
@@ -1840,10 +1825,10 @@ impl<T> Node<T> {
     ) -> Result<Self, HierarchyError> {
         grant.panic_if_invalid_for_node(self);
 
-        edit::try_create_node_as(&self.intra_link, self.membership.tree_core(), data, dest)
+        edit::try_create_node_as(self.link.core(), self.link.core().tree_core(), data, dest)
     }
 
-    /// Creates a node as the next sibling of `self`, and returns the new node.
+    /// Creates a node as the specified neighbor of `self`, and returns the new node.
     ///
     /// See [`try_create_node_as`][`Self::try_create_node_as`] for usage
     /// examples.
@@ -1897,7 +1882,7 @@ impl<T> Node<T> {
     pub fn create_as_first_child(&self, grant: &HierarchyEditGrant<T>, data: T) -> Self {
         grant.panic_if_invalid_for_node(self);
 
-        edit::create_as_first_child(&self.intra_link, self.membership.tree_core(), data)
+        edit::create_as_first_child(self.link.core(), self.link.core().tree_core(), data)
     }
 
     /// Creates a node as the last child of `self`.
@@ -1936,7 +1921,7 @@ impl<T> Node<T> {
     pub fn create_as_last_child(&self, grant: &HierarchyEditGrant<T>, data: T) -> Self {
         grant.panic_if_invalid_for_node(self);
 
-        edit::create_as_last_child(&self.intra_link, self.membership.tree_core(), data)
+        edit::create_as_last_child(self.link.core(), self.link.core().tree_core(), data)
     }
 
     /// Creates a node as the previous sibling of `self`.
@@ -1985,7 +1970,7 @@ impl<T> Node<T> {
     ) -> Result<Self, HierarchyError> {
         grant.panic_if_invalid_for_node(self);
 
-        edit::try_create_as_prev_sibling(&self.intra_link, self.membership.tree_core(), data)
+        edit::try_create_as_prev_sibling(self.link.core(), self.link.core().tree_core(), data)
     }
 
     /// Creates a node as the previous sibling of `self`.
@@ -2049,7 +2034,7 @@ impl<T> Node<T> {
     ) -> Result<Self, HierarchyError> {
         grant.panic_if_invalid_for_node(self);
 
-        edit::try_create_as_next_sibling(&self.intra_link, self.membership.tree_core(), data)
+        edit::try_create_as_next_sibling(self.link.core(), self.link.core().tree_core(), data)
     }
 
     /// Creates a node as the next sibling of `self`.
@@ -2193,7 +2178,7 @@ impl<T> Node<T> {
     pub fn create_as_interrupting_parent(&self, grant: &HierarchyEditGrant<T>, data: T) -> Self {
         grant.panic_if_invalid_for_node(self);
 
-        edit::create_as_interrupting_parent(&self.intra_link, self.membership.tree_core(), data)
+        edit::create_as_interrupting_parent(self.link.core(), data)
     }
 
     /// Creates a new node that interrupts between `self` and the children.
@@ -2257,7 +2242,7 @@ impl<T> Node<T> {
     pub fn create_as_interrupting_child(&self, grant: &HierarchyEditGrant<T>, data: T) -> Self {
         grant.panic_if_invalid_for_node(self);
 
-        edit::create_as_interrupting_child(&self.intra_link, self.membership.tree_core(), data)
+        edit::create_as_interrupting_child(self.link.core(), data)
     }
 
     /// Inserts the children at the position of the node, and detach the node.
@@ -2308,7 +2293,7 @@ impl<T> Node<T> {
     ) -> Result<(), HierarchyError> {
         grant.panic_if_invalid_for_node(self);
 
-        edit::try_replace_with_children(&self.intra_link, &self.membership.tree_core())
+        edit::try_replace_with_children(self.link.core())
     }
 
     /// Inserts the children at the position of the node, and detach the node.
@@ -2610,18 +2595,15 @@ impl<T> Node<T> {
     ) -> Result<(), HierarchyError> {
         grant.panic_if_invalid_for_node(self);
 
-        if self
-            .membership
-            .belongs_to_same_tree(dest.anchor().plain_membership())
-        {
+        if self.belongs_to_same_tree(dest.anchor().plain_ref()) {
             // The source and the destination belong to the same tree.
-            edit::detach_and_move_inside_same_tree(&self.intra_link, dest.map(HotNode::intra_link))
+            edit::detach_and_move_inside_same_tree(self.link.core(), dest.map(HotNode::node_core))
         } else {
             // The source and the destination belong to the different tree.
             edit::detach_and_move_to_another_tree(
-                &self.intra_link,
-                dest.map(HotNode::intra_link),
-                &dest.anchor().tree_core(),
+                self.link.core(),
+                dest.map(HotNode::node_core),
+                &dest.anchor().plain_ref().node_core().tree_core(),
             )
         }
     }
@@ -2712,7 +2694,7 @@ impl<T> Node<T> {
     where
         T: PartialEq<U>,
     {
-        self.intra_link.try_eq(&other.intra_link)
+        self.link.core().try_eq(other.link.core())
     }
 }
 
@@ -2834,7 +2816,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn debug_pretty_print(&self) -> DebugPrettyPrint<'_, T> {
-        DebugPrettyPrint::new(&self.intra_link)
+        DebugPrettyPrint::new(self.link.core())
     }
 
     /// Returns a debug-printable proxy that does not dump neighbor nodes.
@@ -2867,7 +2849,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn debug_print_local(&self) -> DebugPrintNodeLocal<'_, T> {
-        DebugPrintNodeLocal::new_plain(&self.intra_link, &self.membership)
+        DebugPrintNodeLocal::new_plain(self.link.core())
     }
 
     /// Returns a debug-printable proxy that dumps descendant nodes.
@@ -2900,23 +2882,21 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn debug_print_subtree(&self) -> DebugPrintSubtree<'_, T> {
-        DebugPrintSubtree::new_plain(&self.intra_link, &self.membership)
+        DebugPrintSubtree::new_plain(self.link.core())
     }
 }
 
 /// A shared weak reference to a node.
 pub struct NodeWeak<T> {
     /// Target node core.
-    // Node core contains `WeakMembership` internally, so no need to have a
-    // copy of it.
-    intra_link: IntraTreeLinkWeak<T>,
+    link: NodeCoreLinkWeak<T>,
 }
 
 impl<T> Clone for NodeWeak<T> {
     #[inline]
     fn clone(&self) -> Self {
         Self {
-            intra_link: self.intra_link.clone(),
+            link: self.link.clone(),
         }
     }
 }
@@ -2950,14 +2930,7 @@ impl<T> NodeWeak<T> {
     /// ```
     #[must_use]
     pub fn upgrade(&self) -> Option<Node<T>> {
-        let intra_link = self.intra_link.upgrade()?;
-        let membership = intra_link.membership().upgrade().expect(
-            "[consistency] the membership must be alive since \
-             the corresponding node link is alive",
-        );
-        Some(Node {
-            intra_link,
-            membership,
-        })
+        let link = self.link.upgrade()?;
+        Some(Node::with_node_core(link))
     }
 }
