@@ -72,7 +72,7 @@ where
     /// See the documentation for [`Node::try_eq`] method.
     #[inline]
     fn eq(&self, other: &FrozenNode<U>) -> bool {
-        self.link().try_eq(other.link()).expect(
+        self.node_core().try_eq(other.node_core()).expect(
             "[precondition] data associated to the nodes in both trees should be borrowable",
         )
     }
