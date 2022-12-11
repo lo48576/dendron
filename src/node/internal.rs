@@ -621,7 +621,6 @@ impl<T> NodeLink<T> {
 
         // Initialize membership.
         let tree_core_rc = TreeCore::new_rc(core.clone());
-        // TODO: No need of incrementing refcount is error-prone?
         core.membership_ref()
             .initialize_with_tree_and_set_refcount_to_1(tree_core_rc);
         Self { core }
