@@ -2595,8 +2595,7 @@ impl<T> Node<T> {
     ) -> Result<(), HierarchyError> {
         grant.panic_if_invalid_for_node(self);
 
-        // TODO: Avoid using `Self::tree()` once the definition of `Node` is updated.
-        if dest.anchor().belongs_to_tree_core(self.tree().core()) {
+        if self.belongs_to_same_tree(dest.anchor().plain_ref()) {
             // The source and the destination belong to the same tree.
             edit::detach_and_move_inside_same_tree(self.link.core(), dest.map(HotNode::node_core))
         } else {

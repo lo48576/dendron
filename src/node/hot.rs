@@ -159,6 +159,13 @@ impl<T> HotNode<T> {
     pub fn plain(&self) -> Node<T> {
         self.inner.clone()
     }
+
+    /// Returns a reference to the internal `Node`.
+    #[inline]
+    #[must_use]
+    pub(super) fn plain_ref(&self) -> &Node<T> {
+        &self.inner
+    }
 }
 
 impl<T> From<HotNode<T>> for Node<T> {
@@ -383,13 +390,6 @@ impl<T> HotNode<T> {
     #[must_use]
     pub fn belongs_to(&self, tree: &Tree<T>) -> bool {
         self.link().belongs_to(tree.core())
-    }
-
-    /// Returns true if the node belongs to the given tree.
-    #[inline]
-    #[must_use]
-    pub(super) fn belongs_to_tree_core(&self, tree_core: &Rc<TreeCore<T>>) -> bool {
-        self.link().belongs_to(tree_core)
     }
 
     /// Returns true if the given node belong to the same tree.
