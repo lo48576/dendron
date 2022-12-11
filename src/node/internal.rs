@@ -701,7 +701,7 @@ impl<T> NodeLink<T> {
     }
 
     /// Acquires hierarchy edit grant.
-    pub(crate) fn acquire_edit_grant(&self) -> Result<(), HierarchyEditGrantError> {
+    pub(super) fn acquire_edit_grant(&self) -> Result<(), HierarchyEditGrantError> {
         self.core.membership_ref().acquire_edit_grant()
     }
 }

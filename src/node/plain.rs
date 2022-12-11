@@ -2603,7 +2603,7 @@ impl<T> Node<T> {
             edit::detach_and_move_to_another_tree(
                 self.link.core(),
                 dest.map(HotNode::node_core),
-                &dest.anchor().tree_core(),
+                &dest.anchor().plain_ref().node_core().tree_core(),
             )
         }
     }

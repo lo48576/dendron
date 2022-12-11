@@ -126,7 +126,7 @@ impl<T> HotNode<T> {
     /// Returns a reference to the node core.
     #[inline]
     #[must_use]
-    pub(super) fn link(&self) -> &NodeLink<T> {
+    fn link(&self) -> &NodeLink<T> {
         self.inner.link()
     }
 
@@ -140,7 +140,7 @@ impl<T> HotNode<T> {
     /// Returns the tree core.
     #[inline]
     #[must_use]
-    pub(super) fn tree_core(&self) -> Rc<TreeCore<T>> {
+    fn tree_core(&self) -> Rc<TreeCore<T>> {
         self.link().tree_core()
     }
 
