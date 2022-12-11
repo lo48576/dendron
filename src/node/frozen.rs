@@ -7,7 +7,7 @@ use alloc::rc::Rc;
 
 use crate::anchor::InsertAs;
 use crate::node::debug_print::{DebugPrettyPrint, DebugPrintNodeLocal, DebugPrintSubtree};
-use crate::node::{edit, HierarchyError, HotNode, IntraTreeLink, Node, NodeLink};
+use crate::node::{edit, HierarchyError, HotNode, Node, NodeCoreLink, NodeLink};
 use crate::serial;
 use crate::traverse;
 use crate::tree::{HierarchyEditProhibition, HierarchyEditProhibitionError, Tree, TreeCore};
@@ -119,9 +119,8 @@ impl<T> FrozenNode<T> {
     ///
     /// Panics if the tree is prohibited to be edited.
     #[must_use]
-    pub(crate) fn from_node_link_with_prohibition(intra_link: IntraTreeLink<T>) -> Self {
-        let link =
-            NodeLink::new(intra_link).expect("[validity] node referred by `Node<T>` is alive");
+    pub(crate) fn from_node_link_with_prohibition(link: NodeCoreLink<T>) -> Self {
+        let link = NodeLink::new(link).expect("[validity] node referred by `Node<T>` is alive");
         link.acquire_edit_prohibition()
             .expect("[consistency] there should have already been tree hierarchy edit prohibition");
 
@@ -157,7 +156,7 @@ impl<T> FrozenNode<T> {
     /// Returns a reference to the node core.
     #[inline]
     #[must_use]
-    pub(super) fn node_core(&self) -> &IntraTreeLink<T> {
+    pub(super) fn node_core(&self) -> &NodeCoreLink<T> {
         self.link.core()
     }
 }
@@ -317,7 +316,7 @@ impl<T> FrozenNode<T> {
     #[inline]
     #[must_use]
     pub fn ptr_eq(&self, other: &Self) -> bool {
-        IntraTreeLink::ptr_eq(self.link.core(), other.link.core())
+        NodeCoreLink::ptr_eq(self.link.core(), other.link.core())
     }
 }
 

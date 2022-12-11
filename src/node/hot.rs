@@ -7,7 +7,7 @@ use alloc::rc::Rc;
 
 use crate::anchor::{AdoptAs, InsertAs};
 use crate::node::debug_print::{DebugPrettyPrint, DebugPrintNodeLocal, DebugPrintSubtree};
-use crate::node::{edit, HierarchyError, IntraTreeLink, Node, NodeLink};
+use crate::node::{edit, HierarchyError, Node, NodeCoreLink, NodeLink};
 use crate::serial;
 use crate::traverse;
 use crate::tree::{HierarchyEditGrant, HierarchyEditGrantError, Tree, TreeCore};
@@ -116,9 +116,8 @@ impl<T> HotNode<T> {
     ///
     /// Panics if the tree is granted to be edited.
     #[must_use]
-    pub(crate) fn from_node_link_with_grant(intra_link: IntraTreeLink<T>) -> Self {
-        let link =
-            NodeLink::new(intra_link).expect("[validity] node referred by `Node<T>` is alive");
+    pub(crate) fn from_node_link_with_grant(link: NodeCoreLink<T>) -> Self {
+        let link = NodeLink::new(link).expect("[validity] node referred by `Node<T>` is alive");
         link.acquire_edit_grant()
             .expect("[consistency] there should have already been tree hierarchy edit grant");
 
@@ -128,7 +127,7 @@ impl<T> HotNode<T> {
     /// Returns a reference to the node core.
     #[inline]
     #[must_use]
-    pub(super) fn node_core(&self) -> &IntraTreeLink<T> {
+    pub(super) fn node_core(&self) -> &NodeCoreLink<T> {
         self.link.core()
     }
 
@@ -289,7 +288,7 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn ptr_eq(&self, other: &Self) -> bool {
-        IntraTreeLink::ptr_eq(self.link.core(), other.link.core())
+        NodeCoreLink::ptr_eq(self.link.core(), other.link.core())
     }
 
     /// Returns `true` if `self` and the given `Node` point to the same allocation.
@@ -305,7 +304,7 @@ impl<T> HotNode<T> {
     #[inline]
     #[must_use]
     pub fn ptr_eq_plain(&self, other: &Node<T>) -> bool {
-        IntraTreeLink::ptr_eq(self.link.core(), other.node_core())
+        NodeCoreLink::ptr_eq(self.link.core(), other.node_core())
     }
 }
 

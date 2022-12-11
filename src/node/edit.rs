@@ -5,7 +5,7 @@ use core::cmp::Ordering;
 use alloc::rc::Rc;
 
 use crate::anchor::{AdoptAs, InsertAs};
-use crate::node::{HierarchyError, HotNode, IntraTreeLink, IntraTreeLinkWeak, Node};
+use crate::node::{HierarchyError, HotNode, Node, NodeCoreLink, NodeCoreLinkWeak};
 use crate::serial::{TreeBuildError, TreeBuilder};
 use crate::traverse::DftEvent;
 use crate::tree::TreeCore;
@@ -21,7 +21,7 @@ use super::NodeLink;
 /// users should consume `self` by any method of this type.
 struct OrphanRoot<'a, T> {
     /// The (possibly temporarily inconsistent) orphan root node.
-    link: &'a IntraTreeLink<T>,
+    link: &'a NodeCoreLink<T>,
     /// Whether the managed node is newly created.
     ///
     /// When this is true, some checks (such as loop detection) can be omitted.
@@ -53,7 +53,7 @@ impl<'a, T> OrphanRoot<'a, T> {
     /// This method does not update the tree core references, so callers are
     /// responsible to set them if necessary.
     #[must_use]
-    fn new_by_unlink(node_to_unlink: &'a IntraTreeLink<T>) -> Self {
+    fn new_by_unlink(node_to_unlink: &'a NodeCoreLink<T>) -> Self {
         if node_to_unlink.is_root() {
             // Has no parent and sibling.
             return Self {
@@ -98,7 +98,7 @@ impl<'a, T> OrphanRoot<'a, T> {
         }
 
         // Update `node_to_unlink`.
-        node_to_unlink.replace_parent(IntraTreeLinkWeak::default());
+        node_to_unlink.replace_parent(NodeCoreLinkWeak::default());
         let link_weak = node_to_unlink.downgrade();
         node_to_unlink.replace_prev_sibling_cyclic(link_weak);
         node_to_unlink.replace_next_sibling(None);
@@ -125,7 +125,7 @@ impl<'a, T> OrphanRoot<'a, T> {
 
     /// Returns true if the given node is an ancestor of `self`.
     #[must_use]
-    fn is_ancestor_of(&self, node: IntraTreeLink<T>) -> bool {
+    fn is_ancestor_of(&self, node: NodeCoreLink<T>) -> bool {
         let mut current = Some(node);
         while let Some(ancestor) = current {
             if self.link.ptr_eq(&ancestor) {
@@ -138,7 +138,7 @@ impl<'a, T> OrphanRoot<'a, T> {
     }
 
     /// Inserts the node into the given destination.
-    fn insert(self, dest: InsertAs<&IntraTreeLink<T>>) -> Result<(), HierarchyError> {
+    fn insert(self, dest: InsertAs<&NodeCoreLink<T>>) -> Result<(), HierarchyError> {
         match dest {
             InsertAs::FirstChildOf(parent) => self.insert_as_first_child_of(parent),
             InsertAs::LastChildOf(parent) => self.insert_as_last_child_of(parent),
@@ -172,7 +172,7 @@ impl<'a, T> OrphanRoot<'a, T> {
     }
 
     /// Inserts the node as the first child of the given node.
-    fn insert_as_first_child_of(self, parent: &IntraTreeLink<T>) -> Result<(), HierarchyError> {
+    fn insert_as_first_child_of(self, parent: &NodeCoreLink<T>) -> Result<(), HierarchyError> {
         if !self.is_newly_created && self.is_ancestor_of(parent.clone()) {
             return Err(HierarchyError::AncestorDescendantLoop);
         }
@@ -193,7 +193,7 @@ impl<'a, T> OrphanRoot<'a, T> {
             self.link
                 .replace_prev_sibling_cyclic(last_child.downgrade());
             // Connect the new first child and the old first child.
-            IntraTreeLink::connect_adjacent_siblings(self.link, old_first_child);
+            NodeCoreLink::connect_adjacent_siblings(self.link, old_first_child);
         } else {
             // No siblings for the new node.
             self.link.replace_prev_sibling_cyclic(self.link.downgrade());
@@ -210,7 +210,7 @@ impl<'a, T> OrphanRoot<'a, T> {
     }
 
     /// Inserts the node as the last child of the given node.
-    fn insert_as_last_child_of(self, parent: &IntraTreeLink<T>) -> Result<(), HierarchyError> {
+    fn insert_as_last_child_of(self, parent: &NodeCoreLink<T>) -> Result<(), HierarchyError> {
         if !self.is_newly_created && self.is_ancestor_of(parent.clone()) {
             return Err(HierarchyError::AncestorDescendantLoop);
         }
@@ -228,7 +228,7 @@ impl<'a, T> OrphanRoot<'a, T> {
             // Connect the first child and the new last child.
             first_child.replace_prev_sibling_cyclic(self.link.downgrade());
             // Connect the old last child and the new last child.
-            IntraTreeLink::connect_adjacent_siblings(&old_last_child, self.link.clone());
+            NodeCoreLink::connect_adjacent_siblings(&old_last_child, self.link.clone());
         } else {
             // No siblings for the new node.
             self.link.replace_prev_sibling_cyclic(self.link.downgrade());
@@ -262,33 +262,33 @@ impl<'a, T> OrphanRoot<'a, T> {
     /// ```
     fn insert_between(
         self,
-        parent: &IntraTreeLink<T>,
-        prev_sibling: &IntraTreeLink<T>,
-        next_sibling: &IntraTreeLink<T>,
+        parent: &NodeCoreLink<T>,
+        prev_sibling: &NodeCoreLink<T>,
+        next_sibling: &NodeCoreLink<T>,
     ) {
         // Check consistency of the given nodes.
         debug_assert!(
             prev_sibling
                 .parent_link()
-                .map_or(false, |p| IntraTreeLink::ptr_eq(&p, parent)),
+                .map_or(false, |p| NodeCoreLink::ptr_eq(&p, parent)),
             "`prev_sibling` must be a child of `parent`"
         );
         debug_assert!(
             next_sibling
                 .parent_link()
-                .map_or(false, |p| IntraTreeLink::ptr_eq(&p, parent)),
+                .map_or(false, |p| NodeCoreLink::ptr_eq(&p, parent)),
             "`next_sibling` must be a child of `parent`"
         );
         debug_assert!(
             prev_sibling
                 .next_sibling_link()
-                .map_or(false, |p| IntraTreeLink::ptr_eq(&p, next_sibling)),
+                .map_or(false, |p| NodeCoreLink::ptr_eq(&p, next_sibling)),
             "`next_sibling` must be the next sibling of `prev_sibling`"
         );
         debug_assert!(
             next_sibling
                 .prev_sibling_link()
-                .map_or(false, |p| IntraTreeLink::ptr_eq(&p, prev_sibling)),
+                .map_or(false, |p| NodeCoreLink::ptr_eq(&p, prev_sibling)),
             "`prev_sibling` must be the previous sibling of `next_sibling`"
         );
 
@@ -306,7 +306,7 @@ impl<'a, T> OrphanRoot<'a, T> {
 
         // Set parent-child relation.
         self.link.replace_parent(parent.downgrade());
-        // You can use `IntraTreeLink::connect_adjacent_siblings`,
+        // You can use `NodeCoreLink::connect_adjacent_siblings`,
         // but manipulate manually to reduce cloning of links.
         //
         // siblings: prev_sibling --> self --> next_sibling
@@ -322,7 +322,7 @@ impl<'a, T> OrphanRoot<'a, T> {
 
 /// Detaches the node and its descendant from the current tree, and let it be another tree.
 #[inline]
-pub(super) fn detach_subtree<T>(this: &IntraTreeLink<T>) {
+pub(super) fn detach_subtree<T>(this: &NodeCoreLink<T>) {
     if this.is_root() {
         // Detaching entire tree is meaningless.
         // Do nothing.
@@ -337,8 +337,8 @@ pub(super) fn detach_subtree<T>(this: &IntraTreeLink<T>) {
 /// same tree.
 #[inline]
 pub(super) fn detach_and_move_inside_same_tree<T>(
-    this: &IntraTreeLink<T>,
-    dest: InsertAs<&IntraTreeLink<T>>,
+    this: &NodeCoreLink<T>,
+    dest: InsertAs<&NodeCoreLink<T>>,
 ) -> Result<(), HierarchyError> {
     if this.is_root() {
         // Detaching entire tree here is meaningless.
@@ -357,8 +357,8 @@ pub(super) fn detach_and_move_inside_same_tree<T>(
 /// * `dest_tree_core` must be the tree core for the anchor nod of the destination.
 /// * The anchor node of the destination must be granted to be edited.
 pub(super) fn detach_and_move_to_another_tree<T>(
-    this: &IntraTreeLink<T>,
-    dest: InsertAs<&IntraTreeLink<T>>,
+    this: &NodeCoreLink<T>,
+    dest: InsertAs<&NodeCoreLink<T>>,
     dest_tree_core: &Rc<TreeCore<T>>,
 ) -> Result<(), HierarchyError> {
     let orphan_this = OrphanRoot::new_by_unlink(this);
@@ -370,7 +370,7 @@ pub(super) fn detach_and_move_to_another_tree<T>(
 
 /// Changes the memberships of the given node and its descendants to the given tree.
 fn set_memberships_of_descendants_and_self<T>(
-    this: &IntraTreeLink<T>,
+    this: &NodeCoreLink<T>,
     tree_core_rc: &Rc<TreeCore<T>>,
 ) -> Result<(), ()> {
     for current in this.depth_first_traverse() {
@@ -390,7 +390,7 @@ fn set_memberships_of_descendants_and_self<T>(
 ///
 /// It is caller's responsibility to satisfy this precondition.
 pub(super) fn try_create_node_as<T>(
-    this: &IntraTreeLink<T>,
+    this: &NodeCoreLink<T>,
     tree_core: Rc<TreeCore<T>>,
     data: T,
     dest: AdoptAs,
@@ -412,7 +412,7 @@ pub(super) fn try_create_node_as<T>(
 ///
 /// It is caller's responsibility to satisfy this precondition.
 pub(super) fn create_as_first_child<T>(
-    this: &IntraTreeLink<T>,
+    this: &NodeCoreLink<T>,
     tree_core: Rc<TreeCore<T>>,
     data: T,
 ) -> Node<T> {
@@ -436,7 +436,7 @@ pub(super) fn create_as_first_child<T>(
 ///
 /// It is caller's responsibility to satisfy this precondition.
 pub(super) fn create_as_last_child<T>(
-    this: &IntraTreeLink<T>,
+    this: &NodeCoreLink<T>,
     tree_core: Rc<TreeCore<T>>,
     data: T,
 ) -> Node<T> {
@@ -465,7 +465,7 @@ pub(super) fn create_as_last_child<T>(
 ///
 /// It is caller's responsibility to satisfy this precondition.
 pub(super) fn try_create_as_prev_sibling<T>(
-    this: &IntraTreeLink<T>,
+    this: &NodeCoreLink<T>,
     tree_core: Rc<TreeCore<T>>,
     data: T,
 ) -> Result<Node<T>, HierarchyError> {
@@ -493,7 +493,7 @@ pub(super) fn try_create_as_prev_sibling<T>(
 ///
 /// It is caller's responsibility to satisfy this precondition.
 pub(super) fn try_create_as_next_sibling<T>(
-    this: &IntraTreeLink<T>,
+    this: &NodeCoreLink<T>,
     tree_core: Rc<TreeCore<T>>,
     data: T,
 ) -> Result<Node<T>, HierarchyError> {
@@ -511,7 +511,7 @@ pub(super) fn try_create_as_next_sibling<T>(
 ///
 /// If `this` is the root, then the new node will become the new root, i.e. the
 /// parent of `this`.
-pub(super) fn create_as_interrupting_parent<T>(this: &IntraTreeLink<T>, data: T) -> Node<T> {
+pub(super) fn create_as_interrupting_parent<T>(this: &NodeCoreLink<T>, data: T) -> Node<T> {
     let tree_core = this.tree_core();
     OrphanRoot::create_and_process(data, tree_core.clone(), |new| {
         if let Some(parent) = this.parent_link() {
@@ -543,7 +543,7 @@ pub(super) fn create_as_interrupting_parent<T>(this: &IntraTreeLink<T>, data: T)
 }
 
 /// Inserts a new node as a child of `this`, and moves old chlidren of `this` under the new node.
-pub(super) fn create_as_interrupting_child<T>(this: &IntraTreeLink<T>, data: T) -> Node<T> {
+pub(super) fn create_as_interrupting_child<T>(this: &NodeCoreLink<T>, data: T) -> Node<T> {
     let tree_core = this.tree_core();
     OrphanRoot::create_and_process(data, tree_core, |new| {
         // Connect the new node and `this`.
@@ -607,7 +607,7 @@ pub(super) fn create_as_interrupting_child<T>(this: &IntraTreeLink<T>, data: T) 
 ///     + In this case, [`HierarchyError::SiblingsWithoutParent`] error is returned.
 /// * the node is the root and has no children.
 ///     + In this case, [`HierarchyError::EmptyTree`] error is returned.
-pub(super) fn try_replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<(), HierarchyError> {
+pub(super) fn try_replace_with_children<T>(this: &NodeCoreLink<T>) -> Result<(), HierarchyError> {
     let tree_core = this.tree_core();
     let first_child_link = this.first_child_link();
 
@@ -634,11 +634,11 @@ pub(super) fn try_replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<()
 
             match (prev_sibling_link, next_sibling_link) {
                 (Some(prev_sibling_link), Some(next_sibling_link)) => {
-                    IntraTreeLink::connect_adjacent_siblings(&prev_sibling_link, first_child_link);
-                    IntraTreeLink::connect_adjacent_siblings(&last_child_link, next_sibling_link);
+                    NodeCoreLink::connect_adjacent_siblings(&prev_sibling_link, first_child_link);
+                    NodeCoreLink::connect_adjacent_siblings(&last_child_link, next_sibling_link);
                 }
                 (Some(prev_sibling_link), None) => {
-                    IntraTreeLink::connect_adjacent_siblings(&prev_sibling_link, first_child_link);
+                    NodeCoreLink::connect_adjacent_siblings(&prev_sibling_link, first_child_link);
                     let first_sibling_link = parent_link
                         .first_child_link()
                         .expect("[validity] the parent has at least one child (prev of `self`)");
@@ -646,7 +646,7 @@ pub(super) fn try_replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<()
                     first_sibling_link.replace_prev_sibling_cyclic(last_child_link.downgrade());
                 }
                 (None, Some(next_sibling_link)) => {
-                    IntraTreeLink::connect_adjacent_siblings(&last_child_link, next_sibling_link);
+                    NodeCoreLink::connect_adjacent_siblings(&last_child_link, next_sibling_link);
                     let last_sibling_link_weak = parent_link
                         .last_child_link_weak()
                         .expect("[validity] the parent has at least one child (next of `self`)");
@@ -662,7 +662,7 @@ pub(super) fn try_replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<()
             // `this` has no children. Just connect previous and next siblings.
             match (prev_sibling_link, next_sibling_link) {
                 (Some(prev_sibling_link), Some(next_sibling_link)) => {
-                    IntraTreeLink::connect_adjacent_siblings(&prev_sibling_link, next_sibling_link);
+                    NodeCoreLink::connect_adjacent_siblings(&prev_sibling_link, next_sibling_link);
                 }
                 (Some(prev_sibling_link), None) => {
                     prev_sibling_link.replace_next_sibling(None);
@@ -708,14 +708,14 @@ pub(super) fn try_replace_with_children<T>(this: &IntraTreeLink<T>) -> Result<()
         };
 
         // Disconnect the child from `this`.
-        child_link.replace_parent(IntraTreeLinkWeak::default());
+        child_link.replace_parent(NodeCoreLinkWeak::default());
 
         // Make `child_link` the root of the tree.
         tree_core.replace_root(child_link);
     }
 
     // Disconnect `this` from neighbors.
-    this.replace_parent(IntraTreeLinkWeak::default());
+    this.replace_parent(NodeCoreLinkWeak::default());
     this.replace_first_child(None);
     let this_weak = this.downgrade();
     this.replace_prev_sibling_cyclic(this_weak);

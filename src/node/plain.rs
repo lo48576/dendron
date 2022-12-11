@@ -8,7 +8,7 @@ use alloc::rc::{Rc, Weak};
 use crate::anchor::{AdoptAs, InsertAs};
 use crate::node::debug_print::{DebugPrettyPrint, DebugPrintNodeLocal, DebugPrintSubtree};
 use crate::node::edit;
-use crate::node::internal::{IntraTreeLink, IntraTreeLinkWeak, NodeLink};
+use crate::node::internal::{NodeCoreLink, NodeCoreLinkWeak, NodeLink};
 use crate::node::{FrozenNode, HierarchyError, HotNode};
 use crate::serial::{self, TreeBuildError};
 use crate::traverse;
@@ -158,8 +158,8 @@ impl<T> Node<T> {
     ///
     /// Panics if a reference to the tree core is not valid.
     #[must_use]
-    pub(crate) fn with_node_core(intra_link: IntraTreeLink<T>) -> Self {
-        let link = NodeLink::new(intra_link).expect("[consistency] the given node should be alive");
+    pub(crate) fn with_node_core(link: NodeCoreLink<T>) -> Self {
+        let link = NodeLink::new(link).expect("[consistency] the given node should be alive");
 
         Self { link }
     }
@@ -180,14 +180,14 @@ impl<T> Node<T> {
     #[must_use]
     pub fn downgrade(&self) -> NodeWeak<T> {
         NodeWeak {
-            intra_link: self.link.core().downgrade(),
+            link: self.link.core().downgrade(),
         }
     }
 
     /// Returns a reference to the node core.
     #[inline]
     #[must_use]
-    pub(super) fn node_core(&self) -> &IntraTreeLink<T> {
+    pub(super) fn node_core(&self) -> &NodeCoreLink<T> {
         self.link.core()
     }
 
@@ -414,7 +414,7 @@ impl<T> Node<T> {
     #[inline]
     #[must_use]
     pub fn ptr_eq(&self, other: &Self) -> bool {
-        IntraTreeLink::ptr_eq(self.link.core(), other.link.core())
+        NodeCoreLink::ptr_eq(self.link.core(), other.link.core())
     }
 
     /// Returns true if the given weak reference to a tree core refers the same tree as this node.
@@ -2889,14 +2889,14 @@ impl<T> Node<T> {
 /// A shared weak reference to a node.
 pub struct NodeWeak<T> {
     /// Target node core.
-    intra_link: IntraTreeLinkWeak<T>,
+    link: NodeCoreLinkWeak<T>,
 }
 
 impl<T> Clone for NodeWeak<T> {
     #[inline]
     fn clone(&self) -> Self {
         Self {
-            intra_link: self.intra_link.clone(),
+            link: self.link.clone(),
         }
     }
 }
@@ -2930,7 +2930,7 @@ impl<T> NodeWeak<T> {
     /// ```
     #[must_use]
     pub fn upgrade(&self) -> Option<Node<T>> {
-        let intra_link = self.intra_link.upgrade()?;
-        Some(Node::with_node_core(intra_link))
+        let link = self.link.upgrade()?;
+        Some(Node::with_node_core(link))
     }
 }

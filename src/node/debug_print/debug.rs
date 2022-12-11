@@ -2,7 +2,7 @@
 
 use core::fmt;
 
-use crate::node::IntraTreeLink;
+use crate::node::NodeCoreLink;
 
 use crate::node::debug_print::{FakeOption, RawStr};
 
@@ -34,7 +34,7 @@ impl NodeType {
 #[derive(Clone, Copy)]
 pub struct DebugPrintNodeLocal<'a, T> {
     /// Intra-tree link.
-    link: &'a IntraTreeLink<T>,
+    link: &'a NodeCoreLink<T>,
     /// Node type.
     node_type: NodeType,
 }
@@ -68,7 +68,7 @@ impl<'a, T> DebugPrintNodeLocal<'a, T> {
     /// Creates a new `DebugPrintNodeLocal` for plain `Node`.
     #[inline]
     #[must_use]
-    pub(in crate::node) fn new_plain(link: &'a IntraTreeLink<T>) -> Self {
+    pub(in crate::node) fn new_plain(link: &'a NodeCoreLink<T>) -> Self {
         Self {
             link,
             node_type: NodeType::Plain,
@@ -78,7 +78,7 @@ impl<'a, T> DebugPrintNodeLocal<'a, T> {
     /// Creates a new `DebugPrintNodeLocal` for `FrozenNode`.
     #[inline]
     #[must_use]
-    pub(in crate::node) fn new_frozen(link: &'a IntraTreeLink<T>) -> Self {
+    pub(in crate::node) fn new_frozen(link: &'a NodeCoreLink<T>) -> Self {
         Self {
             link,
             node_type: NodeType::Frozen,
@@ -88,7 +88,7 @@ impl<'a, T> DebugPrintNodeLocal<'a, T> {
     /// Creates a new `DebugPrintNodeLocal` for `HotNode`.
     #[inline]
     #[must_use]
-    pub(in crate::node) fn new_hot(link: &'a IntraTreeLink<T>) -> Self {
+    pub(in crate::node) fn new_hot(link: &'a NodeCoreLink<T>) -> Self {
         Self {
             link,
             node_type: NodeType::Hot,
@@ -100,7 +100,7 @@ impl<'a, T> DebugPrintNodeLocal<'a, T> {
 #[derive(Clone, Copy)]
 pub struct DebugPrintSubtree<'a, T> {
     /// Intra-tree link.
-    link: &'a IntraTreeLink<T>,
+    link: &'a NodeCoreLink<T>,
     /// Node type.
     node_type: NodeType,
 }
@@ -128,7 +128,7 @@ impl<'a, T> DebugPrintSubtree<'a, T> {
     /// Creates a new `DebugPrintSubtree` for plain `Node`.
     #[inline]
     #[must_use]
-    pub(in crate::node) fn new_plain(link: &'a IntraTreeLink<T>) -> Self {
+    pub(in crate::node) fn new_plain(link: &'a NodeCoreLink<T>) -> Self {
         Self {
             link,
             node_type: NodeType::Plain,
@@ -138,7 +138,7 @@ impl<'a, T> DebugPrintSubtree<'a, T> {
     /// Creates a new `DebugPrintSubtree` for `FrozenNode`
     #[inline]
     #[must_use]
-    pub(in crate::node) fn new_frozen(link: &'a IntraTreeLink<T>) -> Self {
+    pub(in crate::node) fn new_frozen(link: &'a NodeCoreLink<T>) -> Self {
         Self {
             link,
             node_type: NodeType::Plain,
@@ -148,7 +148,7 @@ impl<'a, T> DebugPrintSubtree<'a, T> {
     /// Creates a new `DebugPrintSubtree` for `HotNode`
     #[inline]
     #[must_use]
-    pub(in crate::node) fn new_hot(link: &'a IntraTreeLink<T>) -> Self {
+    pub(in crate::node) fn new_hot(link: &'a NodeCoreLink<T>) -> Self {
         Self {
             link,
             node_type: NodeType::Hot,
@@ -160,7 +160,7 @@ impl<'a, T> DebugPrintSubtree<'a, T> {
 #[derive(Clone, Copy)]
 struct DebugPrintSubtreeChildren<'a, T> {
     /// Intra-tree link.
-    link: &'a IntraTreeLink<T>,
+    link: &'a NodeCoreLink<T>,
     /// Node type.
     node_type: NodeType,
 }
@@ -184,7 +184,7 @@ impl<T: fmt::Debug> fmt::Debug for DebugPrintSubtreeChildren<'_, T> {
 #[derive(Clone, Copy)]
 pub(crate) struct DebugPrintSubtreeDescendant<'a, T> {
     /// Intra-tree link.
-    link: &'a IntraTreeLink<T>,
+    link: &'a NodeCoreLink<T>,
     /// Node type.
     node_type: NodeType,
 }
@@ -211,7 +211,7 @@ impl<'a, T> DebugPrintSubtreeDescendant<'a, T> {
     /// Creates a new `DebugPrintSubtreeDescendant` for plain `Node`.
     #[inline]
     #[must_use]
-    pub(crate) fn new_plain(link: &'a IntraTreeLink<T>) -> Self {
+    pub(crate) fn new_plain(link: &'a NodeCoreLink<T>) -> Self {
         Self {
             link,
             node_type: NodeType::Plain,

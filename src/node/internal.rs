@@ -28,13 +28,13 @@ struct NodeCore<T> {
 /// A collection of links to neighbor nodes.
 struct Neighbors<T> {
     /// Parent.
-    // Not using `Option<IntraTreeLinkWeak<T>>` here because
-    // `IntraTreeLinkWeak<T>` itself acts as a weak and optional reference.
-    parent: IntraTreeLinkWeak<T>,
+    // Not using `Option<NodeCoreLinkWeak<T>>` here because
+    // `NodeCoreLinkWeak<T>` itself acts as a weak and optional reference.
+    parent: NodeCoreLinkWeak<T>,
     /// First child.
-    first_child: Option<IntraTreeLink<T>>,
+    first_child: Option<NodeCoreLink<T>>,
     /// Next sibling.
-    next_sibling: Option<IntraTreeLink<T>>,
+    next_sibling: Option<NodeCoreLink<T>>,
     /// Previous sibling.
     ///
     /// This field refers to the last sibling if the node is the first sibling.
@@ -43,16 +43,19 @@ struct Neighbors<T> {
     /// Note that the weak link must always refer some node once the node is
     /// accessible outside the node. In other words, this is allowed to be
     /// dangling reference only during the node itself is being constructed.
-    prev_sibling_cyclic: IntraTreeLinkWeak<T>,
+    prev_sibling_cyclic: NodeCoreLinkWeak<T>,
 }
 
-/// An intra-tree owning reference to a node.
-pub(crate) struct IntraTreeLink<T> {
+/// An owning reference to the node without refcount increment.
+///
+/// This link type is mainly used for internal processing without tree refcount
+/// manipulation, so it is called "internal" node link.
+pub(crate) struct NodeCoreLink<T> {
     /// Target node core.
     core: Rc<NodeCore<T>>,
 }
 
-impl<T> Clone for IntraTreeLink<T> {
+impl<T> Clone for NodeCoreLink<T> {
     #[inline]
     fn clone(&self) -> Self {
         Self {
@@ -61,7 +64,7 @@ impl<T> Clone for IntraTreeLink<T> {
     }
 }
 
-impl<T> IntraTreeLink<T> {
+impl<T> NodeCoreLink<T> {
     /// Returns `true` if the two `Node`s point to the same allocation.
     #[inline]
     #[must_use]
@@ -72,8 +75,8 @@ impl<T> IntraTreeLink<T> {
     /// Creates a weakened link.
     #[inline]
     #[must_use]
-    pub(super) fn downgrade(&self) -> IntraTreeLinkWeak<T> {
-        IntraTreeLinkWeak {
+    pub(super) fn downgrade(&self) -> NodeCoreLinkWeak<T> {
+        NodeCoreLinkWeak {
             core: Rc::downgrade(&self.core),
         }
     }
@@ -94,7 +97,7 @@ impl<T> IntraTreeLink<T> {
 }
 
 /// Getters.
-impl<T> IntraTreeLink<T> {
+impl<T> NodeCoreLink<T> {
     /// Returns the tree core.
     #[must_use]
     pub(super) fn tree_core(&self) -> Rc<TreeCore<T>> {
@@ -146,7 +149,7 @@ impl<T> IntraTreeLink<T> {
     /// Returns a weak link to the cyclic previous sibling.
     #[inline]
     #[must_use]
-    pub(crate) fn prev_sibling_cyclic_link_weak(&self) -> IntraTreeLinkWeak<T> {
+    pub(crate) fn prev_sibling_cyclic_link_weak(&self) -> NodeCoreLinkWeak<T> {
         self.neighbors().prev_sibling_cyclic.clone()
     }
 
@@ -204,7 +207,7 @@ impl<T> IntraTreeLink<T> {
 
     /// Returns a link to the last child node.
     #[must_use]
-    pub(crate) fn last_child_link_weak(&self) -> Option<IntraTreeLinkWeak<T>> {
+    pub(crate) fn last_child_link_weak(&self) -> Option<NodeCoreLinkWeak<T>> {
         self.first_child_link()
             .map(|first_child| first_child.prev_sibling_cyclic_link_weak())
     }
@@ -277,11 +280,11 @@ impl<T> IntraTreeLink<T> {
 }
 
 /// Setters.
-impl<T> IntraTreeLink<T> {
+impl<T> NodeCoreLink<T> {
     /// Sets the `parent` field and returns the old value.
     ///
     /// Note that this does not take care of consistency.
-    pub(crate) fn replace_parent(&self, link: IntraTreeLinkWeak<T>) -> IntraTreeLinkWeak<T> {
+    pub(crate) fn replace_parent(&self, link: NodeCoreLinkWeak<T>) -> NodeCoreLinkWeak<T> {
         let mut parent = RefMut::map(self.neighbors_mut(), |neighbors| &mut neighbors.parent);
         mem::replace(&mut *parent, link)
     }
@@ -291,8 +294,8 @@ impl<T> IntraTreeLink<T> {
     /// Note that this does not take care of consistency.
     pub(crate) fn replace_prev_sibling_cyclic(
         &self,
-        link: IntraTreeLinkWeak<T>,
-    ) -> IntraTreeLinkWeak<T> {
+        link: NodeCoreLinkWeak<T>,
+    ) -> NodeCoreLinkWeak<T> {
         let mut prev_sibling_cyclic = RefMut::map(self.neighbors_mut(), |neighbors| {
             &mut neighbors.prev_sibling_cyclic
         });
@@ -304,8 +307,8 @@ impl<T> IntraTreeLink<T> {
     /// Note that this does not take care of consistency.
     pub(crate) fn replace_next_sibling(
         &self,
-        link: Option<IntraTreeLink<T>>,
-    ) -> Option<IntraTreeLink<T>> {
+        link: Option<NodeCoreLink<T>>,
+    ) -> Option<NodeCoreLink<T>> {
         let mut first_child = RefMut::map(self.neighbors_mut(), |neighbors| {
             &mut neighbors.next_sibling
         });
@@ -317,8 +320,8 @@ impl<T> IntraTreeLink<T> {
     /// Note that this does not take care of consistency.
     pub(crate) fn replace_first_child(
         &self,
-        link: Option<IntraTreeLink<T>>,
-    ) -> Option<IntraTreeLink<T>> {
+        link: Option<NodeCoreLink<T>>,
+    ) -> Option<NodeCoreLink<T>> {
         let mut first_child =
             RefMut::map(self.neighbors_mut(), |neighbors| &mut neighbors.first_child);
         mem::replace(&mut *first_child, link)
@@ -326,7 +329,7 @@ impl<T> IntraTreeLink<T> {
 
     /// Connects adjacent siblings bidirectionally.
     #[inline]
-    pub(crate) fn connect_adjacent_siblings(prev: &IntraTreeLink<T>, next: IntraTreeLink<T>) {
+    pub(crate) fn connect_adjacent_siblings(prev: &NodeCoreLink<T>, next: NodeCoreLink<T>) {
         next.replace_prev_sibling_cyclic(prev.downgrade());
         prev.replace_next_sibling(Some(next));
     }
@@ -353,7 +356,7 @@ impl<T> IntraTreeLink<T> {
 }
 
 /// Data accessors.
-impl<T> IntraTreeLink<T> {
+impl<T> NodeCoreLink<T> {
     /// Returns a reference to the data associated to the node.
     #[inline]
     pub(crate) fn try_borrow_data(&self) -> Result<Ref<'_, T>, BorrowError> {
@@ -390,7 +393,7 @@ impl<T> IntraTreeLink<T> {
 }
 
 /// Comparison.
-impl<T> IntraTreeLink<T> {
+impl<T> NodeCoreLink<T> {
     /// Compares two subtrees.
     ///
     /// Returns `Ok(true)` if the two subtree are equal, even if they are stored
@@ -400,7 +403,7 @@ impl<T> IntraTreeLink<T> {
     ///
     /// May return `Err(_)` if associated data of some nodes are already
     /// borrowed exclusively (i.e. mutably).
-    pub(super) fn try_eq<U>(&self, other: &IntraTreeLink<U>) -> Result<bool, BorrowError>
+    pub(super) fn try_eq<U>(&self, other: &NodeCoreLink<U>) -> Result<bool, BorrowError>
     where
         T: PartialEq<U>,
     {
@@ -436,7 +439,7 @@ impl<T> IntraTreeLink<T> {
     }
 }
 
-impl<T> DftEvent<IntraTreeLink<T>> {
+impl<T> DftEvent<NodeCoreLink<T>> {
     /// Returns the next (forward direction) event.
     ///
     /// This method is guaranteed to access only `first_child`, `next_sibling`,
@@ -470,9 +473,9 @@ impl<T> DftEvent<IntraTreeLink<T>> {
 /// Depth-first traverser for intra-tree links.
 pub(super) struct DepthFirstLinkTraverser<'a, T> {
     /// Next event to emit, and the starting node.
-    // Using `&'a IntraTreeLink<T>` to guarantee the subtree lives longer
+    // Using `&'a NodeCoreLink<T>` to guarantee the subtree lives longer
     // than the traverser.
-    next: Option<(DftEvent<IntraTreeLink<T>>, &'a IntraTreeLink<T>)>,
+    next: Option<(DftEvent<NodeCoreLink<T>>, &'a NodeCoreLink<T>)>,
 }
 
 impl<T> Clone for DepthFirstLinkTraverser<'_, T> {
@@ -488,7 +491,7 @@ impl<'a, T> DepthFirstLinkTraverser<'a, T> {
     /// Creates a traverser from the opening of the given node.
     #[inline]
     #[must_use]
-    fn with_start(next: &'a IntraTreeLink<T>) -> Self {
+    fn with_start(next: &'a NodeCoreLink<T>) -> Self {
         Self {
             next: Some((DftEvent::Open(next.clone()), next)),
         }
@@ -496,12 +499,12 @@ impl<'a, T> DepthFirstLinkTraverser<'a, T> {
 }
 
 impl<T> Iterator for DepthFirstLinkTraverser<'_, T> {
-    type Item = DftEvent<IntraTreeLink<T>>;
+    type Item = DftEvent<NodeCoreLink<T>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let (next_ev, start) = self.next.take()?;
         if let DftEvent::Close(link) = &next_ev {
-            if IntraTreeLink::ptr_eq(link, start) {
+            if NodeCoreLink::ptr_eq(link, start) {
                 return None;
             }
         }
@@ -513,7 +516,7 @@ impl<T> Iterator for DepthFirstLinkTraverser<'_, T> {
         match self.next.as_ref() {
             Some((DftEvent::Open(_), _)) => (2, None),
             Some((DftEvent::Close(next), start)) => {
-                if IntraTreeLink::ptr_eq(next, start) {
+                if NodeCoreLink::ptr_eq(next, start) {
                     // The next event is the last event.
                     (1, Some(1))
                 } else {
@@ -527,15 +530,17 @@ impl<T> Iterator for DepthFirstLinkTraverser<'_, T> {
 
 impl<T> core::iter::FusedIterator for DepthFirstLinkTraverser<'_, T> {}
 
-/// An intra-tree non-owning reference to a node.
+/// An non-owning reference to a node.
+///
+/// This link type does not guarantee that the target node is still alive.
 // Note that this value itself acts as optional reference since it has
 // `alloc::rc::Weak` value.
-pub(crate) struct IntraTreeLinkWeak<T> {
+pub(crate) struct NodeCoreLinkWeak<T> {
     /// Target node core.
     core: Weak<NodeCore<T>>,
 }
 
-impl<T> Clone for IntraTreeLinkWeak<T> {
+impl<T> Clone for NodeCoreLinkWeak<T> {
     #[inline]
     fn clone(&self) -> Self {
         Self {
@@ -544,7 +549,7 @@ impl<T> Clone for IntraTreeLinkWeak<T> {
     }
 }
 
-impl<T> Default for IntraTreeLinkWeak<T> {
+impl<T> Default for NodeCoreLinkWeak<T> {
     #[inline]
     fn default() -> Self {
         Self {
@@ -553,12 +558,12 @@ impl<T> Default for IntraTreeLinkWeak<T> {
     }
 }
 
-impl<T> IntraTreeLinkWeak<T> {
+impl<T> NodeCoreLinkWeak<T> {
     /// Creates a strong intra node link from the weak one.
     #[inline]
     #[must_use]
-    pub(super) fn upgrade(&self) -> Option<IntraTreeLink<T>> {
-        Weak::upgrade(&self.core).map(|core| IntraTreeLink { core })
+    pub(super) fn upgrade(&self) -> Option<NodeCoreLink<T>> {
+        Weak::upgrade(&self.core).map(|core| NodeCoreLink { core })
     }
 
     /// Returns true if the link target is unavailable anymore (i.e. the link refers no live node).
@@ -572,7 +577,7 @@ impl<T> IntraTreeLinkWeak<T> {
 /// A reference to a node that guarantees that the node and the tree to be alive.
 pub(crate) struct NodeLink<T> {
     /// Link to the node core.
-    core: IntraTreeLink<T>,
+    core: NodeCoreLink<T>,
 }
 
 impl<T> Drop for NodeLink<T> {
@@ -596,7 +601,7 @@ impl<T> Clone for NodeLink<T> {
 impl<T> NodeLink<T> {
     /// Creates a root node of a new tree.
     pub(super) fn new_tree_root(root_data: T) -> Self {
-        let core = IntraTreeLink {
+        let core = NodeCoreLink {
             core: Rc::new(NodeCore {
                 data: RefCell::new(root_data),
                 neighbors: RefCell::new(Neighbors {
@@ -627,7 +632,7 @@ impl<T> NodeLink<T> {
     /// Note that the orphan state should be resolved before any kind of
     /// references to the node is exposed to the user.
     pub(super) fn new_orphan(data: T, tree_core: Rc<TreeCore<T>>) -> Self {
-        let core = IntraTreeLink {
+        let core = NodeCoreLink {
             core: Rc::new(NodeCore {
                 data: RefCell::new(data),
                 neighbors: RefCell::new(Neighbors {
@@ -651,8 +656,8 @@ impl<T> NodeLink<T> {
     /// Creates a node link from the node core link.
     ///
     /// Returns when the target tree is already dead.
-    // FIXME: Is it really possible that the tree referred from `IntraTreeLink` is dead?
-    pub(super) fn new(core: IntraTreeLink<T>) -> Option<Self> {
+    // FIXME: Is it really possible that the tree referred from `NodeCoreLink` is dead?
+    pub(super) fn new(core: NodeCoreLink<T>) -> Option<Self> {
         core.membership_ref().increment_tree_refcount().ok()?;
 
         Some(Self { core })
@@ -773,7 +778,7 @@ impl<T> NodeLink<T> {
     /// Returns a reference to the node core.
     #[inline]
     #[must_use]
-    pub(super) fn core(&self) -> &IntraTreeLink<T> {
+    pub(super) fn core(&self) -> &NodeCoreLink<T> {
         &self.core
     }
 }
