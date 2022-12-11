@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+* Reduce memory allocation.
+    * An `std::rc::Rc` field is removed for every node!
+    * Size of `{,Frozen,Hot}Node` types are also reduced.
 
 ## [0.1.4]
 * Add `close_current` method for depth first traversals.
