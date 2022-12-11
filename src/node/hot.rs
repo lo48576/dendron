@@ -111,9 +111,9 @@ impl<T> HotNode<T> {
     ///
     /// Panics if a reference to the tree core is not valid.
     ///
-    /// Panics if the tree is granted to be edited.
+    /// Panics if the tree is prohibited to be edited.
     #[must_use]
-    pub(crate) fn from_node_link_with_grant(link: NodeCoreLink<T>) -> Self {
+    fn from_node_link_with_grant(link: NodeCoreLink<T>) -> Self {
         let inner = Node::with_node_core(link);
         inner
             .link()

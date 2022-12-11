@@ -22,6 +22,11 @@ pub(super) enum MembershipCore<T> {
     /// this state.
     Weak {
         /// A weak reference to the tree core.
+        ///
+        /// This can dangle only when:
+        ///
+        /// * the membership and the node is being initialized, or
+        /// * the tree is being dropped and the node is the root node.
         tree_core: Weak<TreeCore<T>>,
     },
     /// Strong membership: shared owning reference to the tree core, and strong refcounts.
@@ -152,7 +157,7 @@ impl<'a, T> MembershipRef<'a, T> {
     ///
     /// # Failures
     ///
-    /// Fails if the tree is already released and unavailable.
+    /// Fails if the tree is unavailable, i.e. already released and unavailable.
     pub(super) fn increment_tree_refcount(self) -> Result<(), ()> {
         let mut core = self
             .0

@@ -655,8 +655,8 @@ impl<T> NodeLink<T> {
 
     /// Creates a node link from the node core link.
     ///
-    /// Returns when the target tree is already dead.
-    // FIXME: Is it really possible that the tree referred from `NodeCoreLink` is dead?
+    /// Returns `None` when the target tree is already dead. This may not
+    /// usually happen. See the docs for `MembershipCore::Weak` for detail.
     pub(super) fn new(core: NodeCoreLink<T>) -> Option<Self> {
         core.membership_ref().increment_tree_refcount().ok()?;
 

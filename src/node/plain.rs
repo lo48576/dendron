@@ -159,7 +159,8 @@ impl<T> Node<T> {
     /// Panics if a reference to the tree core is not valid.
     #[must_use]
     pub(crate) fn with_node_core(link: NodeCoreLink<T>) -> Self {
-        let link = NodeLink::new(link).expect("[consistency] the given node should be alive");
+        let link =
+            NodeLink::new(link).expect("[consistency] the tree for the given node should be alive");
 
         Self { link }
     }

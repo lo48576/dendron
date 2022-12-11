@@ -116,7 +116,7 @@ impl<T> FrozenNode<T> {
     ///
     /// Panics if the tree is prohibited to be edited.
     #[must_use]
-    pub(crate) fn from_node_link_with_prohibition(link: NodeCoreLink<T>) -> Self {
+    fn from_node_link_with_prohibition(link: NodeCoreLink<T>) -> Self {
         let inner = Node::with_node_core(link);
         inner
             .link()
