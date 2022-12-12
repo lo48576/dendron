@@ -352,6 +352,10 @@ pub(super) fn detach_and_move_inside_same_tree<T>(
 
 /// Detaches the node and its descendant from the current tree, and inserts to other tree.
 ///
+/// This is O(1) operation if the destination is inside the same tree, or
+/// O(N) if the destination is different tree than `this` (where N is the
+/// number of nodes under `this`.
+///
 /// # Preconditions
 ///
 /// * `dest_tree_core` must be the tree core for the anchor nod of the destination.
@@ -369,6 +373,11 @@ pub(super) fn detach_and_move_to_another_tree<T>(
 }
 
 /// Changes the memberships of the given node and its descendants to the given tree.
+///
+/// # Failures
+///
+/// Fails if the new tree cannot be locked with the currently active tree
+/// hierarchy edit lock.
 fn set_memberships_of_descendants_and_self<T>(
     this: &NodeCoreLink<T>,
     tree_core_rc: &Rc<TreeCore<T>>,

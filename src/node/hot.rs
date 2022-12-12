@@ -787,6 +787,9 @@ impl<T> HotNode<T> {
 
     /// Detaches the node and its descendant from the current tree, and let it be another tree.
     ///
+    /// Detaching a subtree is O(N) operation (where N is the number of nodes
+    /// under the subtree).
+    ///
     /// See [`Node::detach_subtree`] for usage examples.
     #[inline]
     pub fn detach_subtree(&self) {
@@ -1120,6 +1123,10 @@ impl<T> HotNode<T> {
     ///
     /// Returns the root node of the transplanted subtree.
     ///
+    /// This is O(1) operation if the destination is inside the same tree, or
+    /// O(N) if the destination is different tree than `this` (where N is the
+    /// number of nodes under `this`.
+    ///
     /// See [`Node::try_detach_insert_subtree`] for usage examples.
     #[inline]
     pub fn try_detach_insert_subtree(
@@ -1140,6 +1147,10 @@ impl<T> HotNode<T> {
     }
 
     /// Detaches the node with its subtree, and inserts it to the given destination.
+    ///
+    /// This is O(1) operation if the destination is inside the same tree, or
+    /// O(N) if the destination is different tree than `this` (where N is the
+    /// number of nodes under `this`.
     ///
     /// See [`Node::try_detach_insert_subtree`] for detail.
     ///
