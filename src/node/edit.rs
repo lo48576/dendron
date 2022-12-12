@@ -373,6 +373,11 @@ pub(super) fn detach_and_move_to_another_tree<T>(
 }
 
 /// Changes the memberships of the given node and its descendants to the given tree.
+///
+/// # Failures
+///
+/// Fails if the new tree cannot be locked with the currently active tree
+/// hierarchy edit lock.
 fn set_memberships_of_descendants_and_self<T>(
     this: &NodeCoreLink<T>,
     tree_core_rc: &Rc<TreeCore<T>>,
