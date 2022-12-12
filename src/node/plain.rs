@@ -1614,6 +1614,9 @@ impl<T> Node<T> {
     /// Detaching the root node does nothing, but valid `grant` should be
     /// passed even in this case.
     ///
+    /// Detaching a subtree is O(N) operation (where N is the number of nodes
+    /// under the subtree).
+    ///
     /// # Panics
     ///
     /// Panics if the hierarchy edit grant is not valid for the given node.
@@ -2520,6 +2523,10 @@ impl<T> Node<T> {
 
     /// Detaches the node with its subtree, and inserts it to the given destination.
     ///
+    /// This is O(1) operation if the destination is inside the same tree, or
+    /// O(N) if the destination is different tree than `this` (where N is the
+    /// number of nodes under `this`.
+    ///
     /// # Failures
     ///
     /// Fails if the node (being moved) is an ancestor of the destination.
@@ -2609,6 +2616,10 @@ impl<T> Node<T> {
     }
 
     /// Detaches the node with its subtree, and inserts it to the given destination.
+    ///
+    /// This is O(1) operation if the destination is inside the same tree, or
+    /// O(N) if the destination is different tree than `this` (where N is the
+    /// number of nodes under `this`.
     ///
     /// See [`Node::try_detach_insert_subtree`] for detail.
     ///
