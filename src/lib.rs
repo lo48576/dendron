@@ -230,7 +230,9 @@ pub mod traverse;
 pub mod tree;
 
 pub use self::anchor::{AdoptAs, InsertAs};
+#[doc(no_inline)]
 pub use self::node::{FrozenNode, HierarchyError, HotNode, Node, NodeWeak};
+#[doc(no_inline)]
 pub use self::tree::{HierarchyEditGrant, HierarchyEditProhibition, Tree, TreeWeak};
 
 /// Deprecated re-export of [`node::DebugPrettyPrint`].
