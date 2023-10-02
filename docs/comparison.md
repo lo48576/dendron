@@ -30,7 +30,7 @@ these points of view.
 
 ## Root node does not have siblings
 
-By definition, a tree tree should have no siblings.
+By definition, a tree should have no siblings.
 
 ```rust
 // dendron v0.1.1
